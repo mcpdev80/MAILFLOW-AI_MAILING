@@ -52,6 +52,10 @@ export const api = {
   // Email accounts
   listAccounts: () => request<EmailAccount[]>("/accounts"),
   getAccount: (id: string) => request<EmailAccount>(`/accounts/${id}`),
+  listManagedMailboxes: () =>
+    request<EmailAccount[]>("/accounts/managed-mailboxes"),
+  getManagedMailbox: (id: string) =>
+    request<EmailAccount>(`/accounts/${id}/management`),
   createAccount: (payload: EmailAccountCreate) =>
     request<EmailAccount>("/accounts", {
       method: "POST",
