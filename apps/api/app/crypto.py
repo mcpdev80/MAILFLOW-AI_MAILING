@@ -12,13 +12,16 @@ from app.secrets import SecretManager
 
 
 def configured_secret_keys() -> list[str]:
-    """Return primary plus fallback encryption keys in rotation order."""
+    """Return encryption keys in rotation order.
+
+    An explicit SECRET_ENCRYPTION_KEYS value fully owns DB encryption. When it
+    is empty, the historical SECRET_KEY remains the single legacy encryption key.
+    This lets operators rotate DB encryption independently from signing secrets.
+    """
     configured = [
         key.strip() for key in settings.SECRET_ENCRYPTION_KEYS.split(",") if key.strip()
     ]
-    if settings.SECRET_KEY and settings.SECRET_KEY not in configured:
-        configured.append(settings.SECRET_KEY)
-    return configured
+    return configured or [settings.SECRET_KEY]
 
 
 def secret_manager() -> SecretManager:
@@ -26,17 +29,14 @@ def secret_manager() -> SecretManager:
 
 
 def encrypt_secret(data: dict[str, Any]) -> str:
-    """Encrypt a structured secret with the current primary deployment key."""
     return secret_manager().encrypt(data)
 
 
 def decrypt_secret(token: str) -> dict[str, Any]:
-    """Decrypt a structured secret using primary or rotation fallback keys."""
     return secret_manager().decrypt(token)
 
 
 def rotate_secret(token: str) -> str:
-    """Re-encrypt one stored token using the current primary key."""
     return secret_manager().rotate(token)
 
 
