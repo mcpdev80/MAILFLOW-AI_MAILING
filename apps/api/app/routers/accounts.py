@@ -15,6 +15,8 @@ from app.database import get_session
 from app.mailbox_access import (
     OWNERSHIP_PRIVATE,
     OWNERSHIP_SHARED,
+    OWNERSHIP_UNRESOLVED,
+    SHARED_ADMIN_ROLES,
     access_condition,
     ensure_org_members,
     get_accessible_account,
@@ -109,6 +111,30 @@ async def create_account(
     await session.commit()
     await session.refresh(account)
     return account
+
+
+@router.get("/unresolved-mailboxes", response_model=list[EmailAccountOut])
+async def list_unresolved_mailboxes(
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> list[EmailAccount]:
+    """List legacy mailboxes that still need an explicit owner/share decision.
+
+    This exposes mailbox configuration metadata only. It does not grant access to
+    messages or derived mailbox data and therefore does not weaken private-mailbox
+    isolation while allowing a safe post-migration ownership assignment.
+    """
+    if identity.user_id is not None and identity.role not in SHARED_ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="organization_admin_required")
+    rows = await session.execute(
+        select(EmailAccount)
+        .where(
+            EmailAccount.org_id == identity.org.id,
+            EmailAccount.ownership_mode == OWNERSHIP_UNRESOLVED,
+        )
+        .order_by(EmailAccount.created_at)
+    )
+    return list(rows.scalars())
 
 
 @router.get("/{account_id}", response_model=EmailAccountOut)
