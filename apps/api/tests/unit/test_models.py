@@ -8,6 +8,7 @@ def test_all_tables_registered():
         "organizations",
         "llm_providers",
         "email_accounts",
+        "mailbox_access",
         "domain_rules",
         "keyword_rules",
         "internal_domains",
