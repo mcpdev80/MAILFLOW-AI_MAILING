@@ -118,11 +118,10 @@ async def list_unresolved_mailboxes(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> list[EmailAccount]:
-    """List legacy mailboxes that still need an explicit owner/share decision.
+    """List legacy mailboxes that need an explicit ownership decision.
 
-    This exposes mailbox configuration metadata only. It does not grant access to
-    messages or derived mailbox data and therefore does not weaken private-mailbox
-    isolation while allowing a safe post-migration ownership assignment.
+    This endpoint exposes mailbox configuration metadata only. It never grants
+    access to messages, classifications or other mailbox-derived data.
     """
     if identity.user_id is not None and identity.role not in SHARED_ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="organization_admin_required")
@@ -135,6 +134,43 @@ async def list_unresolved_mailboxes(
         .order_by(EmailAccount.created_at)
     )
     return list(rows.scalars())
+
+
+@router.get("/managed-mailboxes", response_model=list[EmailAccountOut])
+async def list_managed_mailboxes(
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> list[EmailAccount]:
+    """List shared mailbox metadata the actor may manage but not necessarily use.
+
+    Management and content access are intentionally independent. This keeps a
+    shared mailbox manageable when its creator deliberately did not grant
+    themselves ``can_use`` access.
+    """
+    if identity.user_id is None:
+        return []
+    rows = await session.execute(
+        select(EmailAccount)
+        .join(MailboxAccess, MailboxAccess.account_id == EmailAccount.id)
+        .where(
+            EmailAccount.org_id == identity.org.id,
+            EmailAccount.ownership_mode == OWNERSHIP_SHARED,
+            MailboxAccess.user_id == identity.user_id,
+            MailboxAccess.can_manage.is_(True),
+        )
+        .order_by(EmailAccount.created_at)
+    )
+    return list(rows.scalars())
+
+
+@router.get("/{account_id}/management", response_model=EmailAccountOut)
+async def get_managed_account(
+    account_id: UUID,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> EmailAccount:
+    """Return mailbox configuration only when the actor may manage it."""
+    return await get_account_for_management(account_id, identity, session)
 
 
 @router.get("/{account_id}", response_model=EmailAccountOut)
