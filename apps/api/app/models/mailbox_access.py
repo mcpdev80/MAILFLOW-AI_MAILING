@@ -13,7 +13,9 @@ from app.models.base import Base, uuid_pk
 class MailboxAccess(Base):
     __tablename__ = "mailbox_access"
     __table_args__ = (
-        UniqueConstraint("account_id", "user_id", name="uq_mailbox_access_account_user"),
+        UniqueConstraint(
+            "account_id", "user_id", name="uq_mailbox_access_account_user"
+        ),
     )
 
     id: Mapped[UUID] = uuid_pk()
@@ -25,7 +27,9 @@ class MailboxAccess(Base):
     user_id: Mapped[str] = mapped_column(String(255), index=True)
     # Reading/using mailbox data and changing sharing are separate capabilities.
     # A shared-mailbox creator may manage access without automatically seeing mail.
-    can_use: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    can_use: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
     can_manage: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
