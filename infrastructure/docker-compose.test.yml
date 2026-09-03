@@ -24,3 +24,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  format:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile.test
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace
+    command: ["bash", "scripts/format.sh"]
