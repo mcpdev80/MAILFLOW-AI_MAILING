@@ -2,14 +2,12 @@
 set -euo pipefail
 
 printf '\n==> Ruff format\n'
-uv sync --all-packages
-uv run ruff format .
+uvx --from ruff==0.15.12 ruff format .
 
 printf '\n==> Ruff import/lint autofix\n'
-uv run ruff check . --fix
+uvx --from ruff==0.15.12 ruff check . --fix
 
 printf '\n==> Biome format/import fixes\n'
-pnpm install --frozen-lockfile
-pnpm biome check . --write
+pnpm dlx @biomejs/biome@1.9.4 check . --write
 
 printf '\nFormatting complete. Run make test afterwards.\n'
