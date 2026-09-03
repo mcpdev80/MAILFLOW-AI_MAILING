@@ -9,8 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import RequestIdentity, require_identity
-from app.config import settings
-from app.crypto import encrypt
+from app.crypto import encrypt_secret
 from app.database import get_session
 from app.mailbox_access import (
     OWNERSHIP_PRIVATE,
@@ -74,7 +73,7 @@ async def create_account(
     )
     if ownership_mode != OWNERSHIP_SHARED and payload.shared_user_ids:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="shared_users_require_shared_mailbox",
         )
 
@@ -87,9 +86,7 @@ async def create_account(
         imap_port=payload.imap_port,
         use_ssl=payload.use_ssl,
         username=payload.username,
-        encrypted_credentials=encrypt(
-            {"password": payload.password}, settings.SECRET_KEY
-        ),
+        encrypted_credentials=encrypt_secret({"password": payload.password}),
         inbox_folder=payload.inbox_folder,
         unclassified_folder=payload.unclassified_folder,
         drafts_folder=payload.drafts_folder,
@@ -118,11 +115,7 @@ async def list_unresolved_mailboxes(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> list[EmailAccount]:
-    """List legacy mailboxes that need an explicit ownership decision.
-
-    This endpoint exposes mailbox configuration metadata only. It never grants
-    access to messages, classifications or other mailbox-derived data.
-    """
+    """List legacy mailbox metadata that still needs an ownership decision."""
     if identity.user_id is not None and identity.role not in SHARED_ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="organization_admin_required")
     rows = await session.execute(
@@ -141,12 +134,7 @@ async def list_managed_mailboxes(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> list[EmailAccount]:
-    """List shared mailbox metadata the actor may manage but not necessarily use.
-
-    Management and content access are intentionally independent. This keeps a
-    shared mailbox manageable when its creator deliberately did not grant
-    themselves ``can_use`` access.
-    """
+    """List shared mailbox metadata the actor may manage without content access."""
     if identity.user_id is None:
         return []
     rows = await session.execute(
@@ -169,7 +157,6 @@ async def get_managed_account(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> EmailAccount:
-    """Return mailbox configuration only when the actor may manage it."""
     return await get_account_for_management(account_id, identity, session)
 
 
@@ -193,9 +180,7 @@ async def update_account(
     data = payload.model_dump(exclude_unset=True)
     password = data.pop("password", None)
     if password:
-        account.encrypted_credentials = encrypt(
-            {"password": password}, settings.SECRET_KEY
-        )
+        account.encrypted_credentials = encrypt_secret({"password": password})
     for field, value in data.items():
         setattr(account, field, value)
     await session.commit()
@@ -203,10 +188,7 @@ async def update_account(
     return account
 
 
-@router.get(
-    "/{account_id}/access",
-    response_model=list[SharedMailboxAccessOut],
-)
+@router.get("/{account_id}/access", response_model=list[SharedMailboxAccessOut])
 async def list_shared_access(
     account_id: UUID,
     identity: RequestIdentity = Depends(require_identity),
@@ -223,10 +205,7 @@ async def list_shared_access(
     return list(rows.scalars())
 
 
-@router.put(
-    "/{account_id}/access",
-    response_model=list[SharedMailboxAccessOut],
-)
+@router.put("/{account_id}/access", response_model=list[SharedMailboxAccessOut])
 async def replace_shared_mailbox_access(
     account_id: UUID,
     payload: SharedMailboxAccessReplace,
@@ -260,7 +239,6 @@ async def change_mailbox_ownership(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> EmailAccount:
-    """Transfer ownership or convert between private and selectively shared."""
     account = await get_account_for_management(account_id, identity, session)
 
     if identity.user_id is None:
