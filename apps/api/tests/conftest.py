@@ -1,14 +1,15 @@
-"""Fixtures compartidas para tests de apps/api.
+"""Shared fixtures for apps/api tests.
 
-Para tests de repositorios se necesita Postgres corriendo (Docker).
-Arrancar con:
-  docker compose -f infrastructure/docker-compose.dev.yml up -d postgres
+Repository tests use a real PostgreSQL database. Multi-user authorization also
+needs the small Better Auth ``member`` boundary because the production web and
+API layers intentionally share PostgreSQL while owning separate schemas.
 """
 
 from __future__ import annotations
 
 import pytest
 from app.models import Base
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 TEST_DATABASE_URL = (
@@ -18,19 +19,30 @@ TEST_DATABASE_URL = (
 
 @pytest.fixture(scope="session")
 async def db_engine():
-    """Engine de test: crea todas las tablas al inicio, las borra al final."""
+    """Create the API schema and minimal Better Auth membership test boundary."""
     engine = create_async_engine(TEST_DATABASE_URL)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(
+            text(
+                'CREATE TABLE IF NOT EXISTS "member" ('
+                '"id" text PRIMARY KEY, '
+                '"organizationId" text NOT NULL, '
+                '"userId" text NOT NULL, '
+                '"role" text NOT NULL'
+                ")"
+            )
+        )
     yield engine
     async with engine.begin() as conn:
+        await conn.execute(text('DROP TABLE IF EXISTS "member"'))
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
 @pytest.fixture()
 async def session(db_engine) -> AsyncSession:
-    """Sesión de test con rollback automático — cada test arranca con DB limpia."""
+    """Yield an isolated test session; tests use unique ids when they commit."""
     factory = async_sessionmaker(db_engine, expire_on_commit=False)
     async with factory() as s:
         yield s
@@ -39,5 +51,5 @@ async def session(db_engine) -> AsyncSession:
 
 @pytest.fixture()
 def session_factory(db_engine):
-    """async_sessionmaker real apuntando a mailflow_test."""
+    """Return a real async session factory pointing to the test database."""
     return async_sessionmaker(db_engine, expire_on_commit=False)
