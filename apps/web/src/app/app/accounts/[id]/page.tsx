@@ -25,6 +25,7 @@ export default function AccountDetailPage() {
   const id = params.id;
 
   const [account, setAccount] = useState<EmailAccount | null>(null);
+  const [contentAccessible, setContentAccessible] = useState(true);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [sharedAccess, setSharedAccess] = useState<SharedMailboxAccess[] | null>(
@@ -38,37 +39,64 @@ export default function AccountDetailPage() {
 
   const load = useCallback(async () => {
     setError(null);
-    try {
-      const [acc, cyc] = await Promise.all([
-        api.getAccount(id),
-        api.listCycles(id),
-      ]);
-      setAccount(acc);
-      setCycles(cyc);
+    let acc: EmailAccount;
+    let canUseMailbox = true;
 
-      if (acc.ownership_mode === "shared") {
-        try {
-          const access = await api.listSharedAccess(id);
-          setSharedAccess(access);
-          setSelectedSharedUsers(
-            access.filter((grant) => grant.can_use).map((grant) => grant.user_id),
-          );
-        } catch (err) {
-          if (err instanceof ApiError && err.status === 404) {
-            // The user may use this shared mailbox without managing its sharing.
-            setSharedAccess(null);
-          } else {
-            throw err;
-          }
-        }
-      } else {
-        setSharedAccess(null);
-        setSelectedSharedUsers([]);
-      }
+    try {
+      acc = await api.getAccount(id);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Could not load account",
-      );
+      if (!(err instanceof ApiError) || err.status !== 404) {
+        setError(
+          err instanceof ApiError ? err.message : "Could not load account",
+        );
+        return;
+      }
+      try {
+        acc = await api.getManagedMailbox(id);
+        canUseMailbox = false;
+      } catch (managementError) {
+        setError(
+          managementError instanceof ApiError
+            ? managementError.message
+            : "Could not load account",
+        );
+        return;
+      }
+    }
+
+    setAccount(acc);
+    setContentAccessible(canUseMailbox);
+
+    if (canUseMailbox) {
+      try {
+        setCycles(await api.listCycles(id));
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : "Could not load cycles");
+        setCycles([]);
+      }
+    } else {
+      setCycles([]);
+    }
+
+    if (acc.ownership_mode === "shared") {
+      try {
+        const access = await api.listSharedAccess(id);
+        setSharedAccess(access);
+        setSelectedSharedUsers(
+          access.filter((grant) => grant.can_use).map((grant) => grant.user_id),
+        );
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          setSharedAccess(null);
+        } else {
+          setError(
+            err instanceof ApiError ? err.message : "Could not load mailbox access",
+          );
+        }
+      }
+    } else {
+      setSharedAccess(null);
+      setSelectedSharedUsers([]);
     }
   }, [id]);
 
@@ -91,11 +119,12 @@ export default function AccountDetailPage() {
       });
   }, [session?.user?.id]);
 
+  const isSingleTenant = !session?.user?.id;
   const isPrivateOwner =
     account?.ownership_mode === "private" &&
     account.owner_user_id === session?.user?.id;
   const canManageShared = sharedAccess !== null;
-  const canManageOwnership = isPrivateOwner || canManageShared;
+  const canManageOwnership = isSingleTenant || isPrivateOwner || canManageShared;
 
   const memberOptions = useMemo(
     () =>
@@ -115,6 +144,7 @@ export default function AccountDetailPage() {
   );
 
   async function runNow() {
+    if (!contentAccessible) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -160,7 +190,12 @@ export default function AccountDetailPage() {
       setSelectedSharedUsers(
         access.filter((grant) => grant.can_use).map((grant) => grant.user_id),
       );
+      const stillVisible = selectedSharedUsers.includes(session?.user?.id ?? "");
+      setContentAccessible(stillVisible);
       setNotice("Shared mailbox access updated.");
+      if (!stillVisible) {
+        setCycles([]);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not update access");
     } finally {
@@ -173,11 +208,10 @@ export default function AccountDetailPage() {
     setError(null);
     setNotice(null);
     try {
-      const updated = await api.changeMailboxOwnership(id, {
+      await api.changeMailboxOwnership(id, {
         mode: "shared",
         shared_user_ids: selectedSharedUsers,
       });
-      setAccount(updated);
       await load();
       setNotice("Mailbox is now shared with the selected members.");
     } catch (err) {
@@ -204,7 +238,6 @@ export default function AccountDetailPage() {
         router.push("/app/dashboard");
         return;
       }
-      setAccount(updated);
       await load();
       setNotice("Mailbox is now private.");
     } catch (err) {
@@ -240,10 +273,10 @@ export default function AccountDetailPage() {
   }
 
   const totals = cycles.reduce(
-    (acc, c) => {
-      acc.emails += c.emails_processed;
-      acc.drafts += c.drafts_saved;
-      acc.errors += c.error_count;
+    (acc, cycle) => {
+      acc.emails += cycle.emails_processed;
+      acc.drafts += cycle.drafts_saved;
+      acc.errors += cycle.error_count;
       return acc;
     },
     { emails: 0, drafts: 0, errors: 0 },
@@ -271,14 +304,16 @@ export default function AccountDetailPage() {
           >
             <h1 style={{ margin: 0 }}>{account.username}</h1>
             <div style={{ display: "flex", gap: "0.6rem" }}>
-              <button
-                type="button"
-                className="btn"
-                onClick={runNow}
-                disabled={busy}
-              >
-                {busy ? "Working…" : "Run cycle now"}
-              </button>
+              {contentAccessible && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={runNow}
+                  disabled={busy}
+                >
+                  {busy ? "Working…" : "Run cycle now"}
+                </button>
+              )}
               {canManageOwnership && (
                 <button
                   type="button"
@@ -297,6 +332,13 @@ export default function AccountDetailPage() {
             {account.is_active ? "active" : "paused"} ·{" "}
             {account.ownership_mode}
           </p>
+
+          {!contentAccessible && (
+            <div className="alert">
+              You manage this shared mailbox but do not have access to its mail
+              content. Add yourself below only if you also need mailbox access.
+            </div>
+          )}
 
           {session?.user?.id && canManageOwnership && (
             <div className="card" style={{ marginBottom: "1.25rem" }}>
@@ -430,68 +472,77 @@ export default function AccountDetailPage() {
             </div>
           )}
 
-          <div className="stat-grid" style={{ margin: "1.25rem 0" }}>
-            <div className="stat">
-              <div className="n">{cycles.length}</div>
-              <div className="l">cycles</div>
-            </div>
-            <div className="stat">
-              <div className="n">{totals.emails}</div>
-              <div className="l">emails processed</div>
-            </div>
-            <div className="stat">
-              <div className="n">{totals.drafts}</div>
-              <div className="l">drafts saved</div>
-            </div>
-            <div className="stat">
-              <div className="n">{totals.errors}</div>
-              <div className="l">errors</div>
-            </div>
-          </div>
+          {contentAccessible && (
+            <>
+              <div className="stat-grid" style={{ margin: "1.25rem 0" }}>
+                <div className="stat">
+                  <div className="n">{cycles.length}</div>
+                  <div className="l">cycles</div>
+                </div>
+                <div className="stat">
+                  <div className="n">{totals.emails}</div>
+                  <div className="l">emails processed</div>
+                </div>
+                <div className="stat">
+                  <div className="n">{totals.drafts}</div>
+                  <div className="l">drafts saved</div>
+                </div>
+                <div className="stat">
+                  <div className="n">{totals.errors}</div>
+                  <div className="l">errors</div>
+                </div>
+              </div>
 
-          <div className="card">
-            <h3>Cycle history</h3>
-            {cycles.length === 0 ? (
-              <p className="muted">
-                No cycles yet. Hit “Run cycle now” or wait for the scheduler.
-              </p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>When</th>
-                    <th>Emails</th>
-                    <th>Drafts</th>
-                    <th>Errors</th>
-                    <th>Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cycles.map((c) => (
-                    <tr key={c.id}>
-                      <td className="muted">
-                        {new Date(c.created_at).toLocaleString()}
-                      </td>
-                      <td>{c.emails_processed}</td>
-                      <td>{c.drafts_saved}</td>
-                      <td>
-                        {c.error_count > 0 ? (
-                          <span className="pill" style={{ color: "#ff6b6b" }}>
-                            {c.error_count}
-                          </span>
-                        ) : (
-                          0
-                        )}
-                      </td>
-                      <td className="muted">
-                        {c.duration_ms != null ? `${c.duration_ms} ms` : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+              <div className="card">
+                <h3>Cycle history</h3>
+                {cycles.length === 0 ? (
+                  <p className="muted">
+                    No cycles yet. Hit “Run cycle now” or wait for the scheduler.
+                  </p>
+                ) : (
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>When</th>
+                        <th>Emails</th>
+                        <th>Drafts</th>
+                        <th>Errors</th>
+                        <th>Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cycles.map((cycle) => (
+                        <tr key={cycle.id}>
+                          <td className="muted">
+                            {new Date(cycle.created_at).toLocaleString()}
+                          </td>
+                          <td>{cycle.emails_processed}</td>
+                          <td>{cycle.drafts_saved}</td>
+                          <td>
+                            {cycle.error_count > 0 ? (
+                              <span
+                                className="pill"
+                                style={{ color: "#ff6b6b" }}
+                              >
+                                {cycle.error_count}
+                              </span>
+                            ) : (
+                              0
+                            )}
+                          </td>
+                          <td className="muted">
+                            {cycle.duration_ms != null
+                              ? `${cycle.duration_ms} ms`
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
     </main>
