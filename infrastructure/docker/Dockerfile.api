@@ -2,28 +2,30 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-RUN pip install uv
+RUN pip install uv \
+    && useradd --create-home --uid 10001 appuser \
+    && chown appuser:appuser /app
 
-# Dependencias (capa cacheable): solo los manifests primero.
-COPY pyproject.toml ./
-COPY apps/api/pyproject.toml apps/api/
-COPY packages/core/pyproject.toml packages/core/
+# Dependency manifests first so dependency installation remains cacheable.
+COPY --chown=appuser:appuser pyproject.toml ./
+COPY --chown=appuser:appuser apps/api/pyproject.toml apps/api/
+COPY --chown=appuser:appuser packages/core/pyproject.toml packages/core/
 
+USER appuser
 RUN uv sync --no-dev
 
-# Código de la aplicación + migraciones + entrypoint.
-COPY apps/api/app/ apps/api/app/
-COPY apps/api/alembic/ apps/api/alembic/
-COPY apps/api/alembic.ini apps/api/alembic.ini
-COPY packages/core/mailflow_core/ packages/core/mailflow_core/
-COPY infrastructure/docker/entrypoint.api.sh /entrypoint.api.sh
-RUN chmod +x /entrypoint.api.sh
+# Application code, migrations and entrypoint are copied with final ownership.
+COPY --chown=appuser:appuser apps/api/app/ apps/api/app/
+COPY --chown=appuser:appuser apps/api/alembic/ apps/api/alembic/
+COPY --chown=appuser:appuser apps/api/alembic.ini apps/api/alembic.ini
+COPY --chown=appuser:appuser packages/core/mailflow_core/ packages/core/mailflow_core/
+COPY --chown=appuser:appuser infrastructure/docker/entrypoint.api.sh /entrypoint.api.sh
 
-# Ejecutar como usuario sin privilegios (no root).
-RUN useradd --create-home --uid 10001 appuser && chown -R appuser /app
+USER root
+RUN chmod +x /entrypoint.api.sh && chown appuser:appuser /entrypoint.api.sh
 USER appuser
 
 EXPOSE 8000
 
-# El entrypoint aplica migraciones (alembic upgrade head) y arranca uvicorn.
+# The entrypoint applies migrations and starts uvicorn.
 ENTRYPOINT ["/entrypoint.api.sh"]
