@@ -82,6 +82,7 @@ export default function DashboardPage() {
             <thead>
               <tr>
                 <th>Mailbox</th>
+                <th>Privacy</th>
                 <th>Status</th>
                 <th>Every</th>
                 <th>Last cycle</th>
@@ -96,6 +97,9 @@ export default function DashboardPage() {
                     <div className="muted" style={{ fontSize: "0.8rem" }}>
                       {a.imap_host}
                     </div>
+                  </td>
+                  <td>
+                    <span className="pill">{a.ownership_mode}</span>
                   </td>
                   <td>
                     <span className={`pill ${a.is_active ? "ok" : "off"}`}>
