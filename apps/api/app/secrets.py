@@ -25,7 +25,7 @@ _SECRET_KEYS = {
     "refresh_token",
     "authorization",
     "cookie",
-    "set-cookie",
+    "set_cookie",
     "client_secret",
 }
 
@@ -36,6 +36,7 @@ _QUERY_SECRET_RE = re.compile(
 _JSON_SECRET_RE = re.compile(
     r'(?i)("(?:password|secret|api_key|access_token|refresh_token|client_secret)"\s*:\s*")[^"]*(")'
 )
+_URI_USERINFO_RE = re.compile(r"(?i)([a-z][a-z0-9+.-]*://[^:/\s]+:)[^@/\s]+(@)")
 
 
 class SecretConfigurationError(RuntimeError):
@@ -67,17 +68,16 @@ class SecretManager:
     def decrypt(self, token: str) -> dict[str, Any]:
         try:
             payload = self._multi.decrypt(token.encode())
-        except InvalidToken as exc:
+            value = json.loads(payload)
+        except (InvalidToken, json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise SecretConfigurationError(
                 "stored secret cannot be decrypted with configured encryption keys"
             ) from exc
-        value = json.loads(payload)
         if not isinstance(value, dict):
             raise SecretConfigurationError("stored secret payload is not an object")
         return value
 
     def rotate(self, token: str) -> str:
-        """Re-encrypt one token with the primary key after validating old ciphertext."""
         return self.encrypt(self.decrypt(token))
 
 
@@ -85,7 +85,12 @@ def redact_text(value: str) -> str:
     """Remove common credentials from log/error text without hiding useful context."""
     value = _BEARER_RE.sub(lambda match: f"{match.group(1)} {REDACTED}", value)
     value = _QUERY_SECRET_RE.sub(lambda match: f"{match.group(1)}{REDACTED}", value)
-    return _JSON_SECRET_RE.sub(lambda match: f"{match.group(1)}{REDACTED}{match.group(2)}", value)
+    value = _JSON_SECRET_RE.sub(
+        lambda match: f"{match.group(1)}{REDACTED}{match.group(2)}", value
+    )
+    return _URI_USERINFO_RE.sub(
+        lambda match: f"{match.group(1)}{REDACTED}{match.group(2)}", value
+    )
 
 
 def redact_value(value: Any, *, key: str | None = None) -> Any:
