@@ -29,6 +29,19 @@ export interface EmailAccountCreate {
   interval_minutes?: number;
   llm_provider_id?: string | null;
   ownership_mode?: "private" | "shared";
+  shared_user_ids?: string[];
+}
+
+export interface SharedMailboxAccess {
+  user_id: string;
+  can_use: boolean;
+  can_manage: boolean;
+}
+
+export interface MailboxOwnershipUpdate {
+  mode: "private" | "shared";
+  target_owner_user_id?: string | null;
+  shared_user_ids?: string[];
 }
 
 export interface LLMProvider {
