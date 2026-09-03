@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,15 +24,27 @@ class SecretRotationResult:
         return self.mailbox_credentials + self.oauth_tokens + self.llm_api_keys
 
 
-async def validate_stored_secrets(session: AsyncSession) -> int:
-    """Decrypt every stored application secret and return the number validated.
+def _account_query(org_id: UUID | None):
+    stmt = select(EmailAccount)
+    return stmt.where(EmailAccount.org_id == org_id) if org_id else stmt
 
-    This intentionally runs at startup because a missing rotation fallback key
-    must be detected before workers start processing mail with unusable secrets.
+
+def _provider_query(org_id: UUID | None):
+    stmt = select(LLMProvider)
+    return stmt.where(LLMProvider.org_id == org_id) if org_id else stmt
+
+
+async def validate_stored_secrets(
+    session: AsyncSession, *, org_id: UUID | None = None
+) -> int:
+    """Decrypt stored application secrets and return the number validated.
+
+    Production startup validates every organization. ``org_id`` exists only to
+    support targeted maintenance/tests without weakening the default behavior.
     """
     validated = 0
 
-    accounts = list((await session.execute(select(EmailAccount))).scalars())
+    accounts = list((await session.execute(_account_query(org_id))).scalars())
     for account in accounts:
         if account.encrypted_credentials:
             decrypt_secret(account.encrypted_credentials)
@@ -40,7 +53,7 @@ async def validate_stored_secrets(session: AsyncSession) -> int:
             decrypt_secret(account.encrypted_oauth)
             validated += 1
 
-    providers = list((await session.execute(select(LLMProvider))).scalars())
+    providers = list((await session.execute(_provider_query(org_id))).scalars())
     for provider in providers:
         if provider.encrypted_api_key:
             decrypt_secret(provider.encrypted_api_key)
@@ -49,13 +62,15 @@ async def validate_stored_secrets(session: AsyncSession) -> int:
     return validated
 
 
-async def rotate_stored_secrets(session: AsyncSession) -> SecretRotationResult:
-    """Re-encrypt all DB secrets with the current primary encryption key."""
+async def rotate_stored_secrets(
+    session: AsyncSession, *, org_id: UUID | None = None
+) -> SecretRotationResult:
+    """Re-encrypt stored DB secrets with the current primary encryption key."""
     mailbox_credentials = 0
     oauth_tokens = 0
     llm_api_keys = 0
 
-    accounts = list((await session.execute(select(EmailAccount))).scalars())
+    accounts = list((await session.execute(_account_query(org_id))).scalars())
     for account in accounts:
         if account.encrypted_credentials:
             account.encrypted_credentials = rotate_secret(account.encrypted_credentials)
@@ -64,7 +79,7 @@ async def rotate_stored_secrets(session: AsyncSession) -> SecretRotationResult:
             account.encrypted_oauth = rotate_secret(account.encrypted_oauth)
             oauth_tokens += 1
 
-    providers = list((await session.execute(select(LLMProvider))).scalars())
+    providers = list((await session.execute(_provider_query(org_id))).scalars())
     for provider in providers:
         if provider.encrypted_api_key:
             provider.encrypted_api_key = rotate_secret(provider.encrypted_api_key)
