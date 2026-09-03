@@ -49,8 +49,18 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("account_id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.String(length=255), nullable=False),
-        sa.Column("can_use", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("can_manage", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column(
+            "can_use",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.true(),
+        ),
+        sa.Column(
+            "can_manage",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.false(),
+        ),
         sa.ForeignKeyConstraint(
             ["account_id"], ["email_accounts.id"], ondelete="CASCADE"
         ),
