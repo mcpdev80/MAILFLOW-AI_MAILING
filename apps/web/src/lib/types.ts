@@ -1,8 +1,10 @@
-/** DTOs del API MailFlow (espejo de apps/api/app/schemas.py). */
+/** MailFlow API DTOs (mirror of apps/api/app/schemas.py). */
 
 export interface EmailAccount {
   id: string;
   org_id: string;
+  owner_user_id: string | null;
+  ownership_mode: "private" | "shared" | "unresolved";
   provider_type: string;
   imap_host: string;
   imap_port: number;
@@ -26,6 +28,7 @@ export interface EmailAccountCreate {
   password: string;
   interval_minutes?: number;
   llm_provider_id?: string | null;
+  ownership_mode?: "private" | "shared";
 }
 
 export interface LLMProvider {
