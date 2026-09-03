@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export default function DashboardPage() {
   const [accounts, setAccounts] = useState<EmailAccount[] | null>(null);
+  const [managedAccounts, setManagedAccounts] = useState<EmailAccount[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
@@ -14,7 +15,15 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      setAccounts(await api.listAccounts());
+      const [visible, managed] = await Promise.all([
+        api.listAccounts(),
+        api.listManagedMailboxes(),
+      ]);
+      setAccounts(visible);
+      const visibleIds = new Set(visible.map((account) => account.id));
+      setManagedAccounts(
+        managed.filter((account) => !visibleIds.has(account.id)),
+      );
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -22,6 +31,7 @@ export default function DashboardPage() {
           : "Could not reach the API",
       );
       setAccounts([]);
+      setManagedAccounts([]);
     }
   }, []);
 
@@ -67,14 +77,17 @@ export default function DashboardPage() {
 
       {accounts === null && <p className="muted">Loading…</p>}
 
-      {accounts !== null && accounts.length === 0 && !error && (
-        <div className="card empty">
-          <p>No mailboxes connected yet.</p>
-          <Link className="btn" href="/onboarding">
-            Connect your first mailbox
-          </Link>
-        </div>
-      )}
+      {accounts !== null &&
+        accounts.length === 0 &&
+        managedAccounts.length === 0 &&
+        !error && (
+          <div className="card empty">
+            <p>No mailboxes connected yet.</p>
+            <Link className="btn" href="/onboarding">
+              Connect your first mailbox
+            </Link>
+          </div>
+        )}
 
       {accounts !== null && accounts.length > 0 && (
         <div className="card">
@@ -121,6 +134,48 @@ export default function DashboardPage() {
                     >
                       {runningId === a.id ? "Running…" : "Run now"}
                     </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {managedAccounts.length > 0 && (
+        <div className="card">
+          <h3>Shared mailboxes you manage</h3>
+          <p className="muted">
+            These mailboxes are not visible to you unless you are also explicitly
+            granted mailbox access.
+          </p>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Mailbox</th>
+                <th>Access</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {managedAccounts.map((account) => (
+                <tr key={account.id}>
+                  <td>
+                    {account.username}
+                    <div className="muted" style={{ fontSize: "0.8rem" }}>
+                      {account.imap_host}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="pill">manage only</span>
+                  </td>
+                  <td>
+                    <Link
+                      className="btn secondary"
+                      href={`/app/accounts/${account.id}`}
+                    >
+                      Manage access
+                    </Link>
                   </td>
                 </tr>
               ))}
