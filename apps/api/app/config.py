@@ -1,4 +1,4 @@
-"""Configuración de la aplicación vía variables de entorno."""
+"""Application configuration from environment variables."""
 
 from __future__ import annotations
 
@@ -9,51 +9,43 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://mailflow:mailflow@localhost:5432/mailflow"
     REDIS_URL: str = "redis://localhost:6379/0"
-    SECRET_KEY: (
-        str  # Must be set via environment variable — Fernet key (44-char base64)
-    )
-    # Orígenes permitidos para CORS. Coma-separados en la variable de entorno
-    # CORS_ORIGINS (p.ej. "https://app.mailflow.ai,https://mailflow.ai").
-    # Por defecto solo el frontend local de desarrollo.
+    # Existing deployment secret. It remains the HMAC/signing secret and is also
+    # accepted as the legacy Fernet encryption key for backward compatibility.
+    SECRET_KEY: str
+    # Optional comma-separated Fernet key ring for DB secrets. The first key is
+    # primary for new writes; later keys are decrypt-only fallbacks during key
+    # rotation. SECRET_KEY is appended automatically as a legacy fallback.
+    SECRET_ENCRYPTION_KEYS: str = ""
+
+    # Allowed CORS origins. Comma-separated in the environment variable.
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
-    # Modo de autenticación:
-    #   "single" — self-host: una única organización por defecto, sin tokens.
-    #   "multi"  — SaaS: cada request debe traer una API key que resuelve su org.
+    # Authentication mode:
+    #   "single" — self-host: one default organization, no user tokens.
+    #   "multi"  — each request carries an organization API key plus actor BFF identity.
     AUTH_MODE: str = "single"
-    # API key usada en modo "single" (opcional). Si se define, las requests deben
-    # enviarla; si se deja vacía, el self-host queda abierto (uso en LAN/local).
     SINGLE_TENANT_API_KEY: str = ""
 
-    # OAuth2 (conectar Gmail / Microsoft 365 sin contraseña). Vacío = desactivado.
+    # OAuth2. Empty values disable the corresponding provider.
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     MICROSOFT_CLIENT_ID: str = ""
     MICROSOFT_CLIENT_SECRET: str = ""
     MICROSOFT_TENANT_ID: str = "common"
-    # Base pública del API donde el proveedor redirige tras el consentimiento.
-    # El callback completo es {OAUTH_REDIRECT_BASE}/oauth/{provider}/callback.
     OAUTH_REDIRECT_BASE: str = "http://localhost:8000"
-    # A dónde enviar al usuario en el frontend tras conectar (éxito/fracaso).
     OAUTH_SUCCESS_REDIRECT: str = "http://localhost:3000/app/dashboard"
 
-    # Secreto compartido web↔api para el endpoint interno de aprovisionamiento
-    # (POST /internal/orgs). Vacío = el endpoint interno queda desactivado (501).
-    # Solo debe viajar por la red interna; nunca exponerlo públicamente.
+    # Shared web↔api internal signing secret. Never expose publicly.
     INTERNAL_API_SECRET: str = ""
 
-    # Observabilidad.
-    #   LOG_FORMAT: "json" (producción, una línea por evento) o "text" (dev).
-    #   LOG_LEVEL: nivel raíz (DEBUG/INFO/WARNING/...).
-    #   ENVIRONMENT: etiqueta del entorno (development/staging/production).
+    # Observability.
     LOG_FORMAT: str = "json"
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "development"
-    # Sentry (errores). Vacío = desactivado (no se envía nada, no-op).
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0
 
-    # Billing (Stripe). Vacío = billing desactivado (rutas devuelven 501).
+    # Billing.
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_PRO: str = ""
@@ -71,7 +63,6 @@ class Settings(BaseSettings):
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:
-        """Permite definir CORS_ORIGINS como CSV en la variable de entorno."""
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
