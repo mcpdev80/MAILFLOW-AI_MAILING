@@ -65,9 +65,9 @@ async def test_checkout_rejects_invalid_plan(client):
 
 async def test_free_plan_account_limit_enforced(session, monkeypatch):
     # Las cuotas solo aplican en multi-tenant (SaaS); forzarlo para este test
-    # y resolver la org vía override del dependency (sin API key real).
+    # y resolver la identidad sin depender de cabeceras firmadas reales.
     from app import quota as quota_module
-    from app.auth import require_org
+    from app.auth import RequestIdentity, require_identity
     from app.database import get_session
     from app.main import app
     from app.models.email_account import EmailAccount
@@ -84,11 +84,16 @@ async def test_free_plan_account_limit_enforced(session, monkeypatch):
     async def _override_session():
         yield session
 
-    async def _override_org():
-        return org
+    async def _override_identity():
+        return RequestIdentity(
+            org=org,
+            user_id="quota-user",
+            auth_org_id="quota-auth-org",
+            role="member",
+        )
 
     app.dependency_overrides[get_session] = _override_session
-    app.dependency_overrides[require_org] = _override_org
+    app.dependency_overrides[require_identity] = _override_identity
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(transport=transport, base_url="http://test") as c:
