@@ -33,6 +33,9 @@ class EmailAccountCreate(BaseModel):
     # Omitted => private for authenticated multi-user requests, shared in legacy
     # single-tenant mode where there is no Better Auth user identity.
     ownership_mode: Literal["private", "shared"] | None = None
+    # Only used when ownership_mode=shared. Organization membership is validated
+    # server-side; membership in the organization alone never grants mailbox use.
+    shared_user_ids: list[str] = Field(default_factory=list)
 
 
 class EmailAccountUpdate(BaseModel):
@@ -67,6 +70,22 @@ class EmailAccountOut(ORMModel):
     last_cycle_at: datetime | None
     llm_provider_id: UUID | None
     created_at: datetime
+
+
+class SharedMailboxAccessOut(ORMModel):
+    user_id: str
+    can_use: bool
+    can_manage: bool
+
+
+class SharedMailboxAccessReplace(BaseModel):
+    user_ids: list[str] = Field(default_factory=list)
+
+
+class MailboxOwnershipUpdate(BaseModel):
+    mode: Literal["private", "shared"]
+    target_owner_user_id: str | None = None
+    shared_user_ids: list[str] = Field(default_factory=list)
 
 
 # ── LLM providers ─────────────────────────────────────────────────────────────
