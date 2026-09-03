@@ -1,4 +1,4 @@
-/** Cliente HTTP tipado del API MailFlow (vía proxy BFF same-origin). */
+/** Typed MailFlow API client through the same-origin BFF proxy. */
 import { API_BASE } from "./config";
 import type {
   Cycle,
@@ -7,7 +7,9 @@ import type {
   EmailAccountCreate,
   LLMProvider,
   LLMProviderCreate,
+  MailboxOwnershipUpdate,
   PlanStatus,
+  SharedMailboxAccess,
 } from "./types";
 
 export class ApiError extends Error {
@@ -57,6 +59,20 @@ export const api = {
     }),
   deleteAccount: (id: string) =>
     request<void>(`/accounts/${id}`, { method: "DELETE" }),
+  listSharedAccess: (id: string) =>
+    request<SharedMailboxAccess[]>(`/accounts/${id}/access`),
+  replaceSharedAccess: (id: string, userIds: string[]) =>
+    request<SharedMailboxAccess[]>(`/accounts/${id}/access`, {
+      method: "PUT",
+      body: JSON.stringify({ user_ids: userIds }),
+    }),
+  changeMailboxOwnership: (id: string, payload: MailboxOwnershipUpdate) =>
+    request<EmailAccount>(`/accounts/${id}/ownership`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  listUnresolvedMailboxes: () =>
+    request<EmailAccount[]>("/accounts/unresolved-mailboxes"),
 
   // LLM providers
   listProviders: () => request<LLMProvider[]>("/llm-providers"),
@@ -75,8 +91,25 @@ export const api = {
     }),
 
   // OAuth — returns the provider consent URL to redirect the browser to.
-  oauthAuthorizeUrl: (provider: "gmail" | "microsoft") =>
-    request<{ authorize_url: string }>(`/oauth/${provider}/authorize`),
+  oauthAuthorizeUrl: (
+    provider: "gmail" | "microsoft",
+    options?: {
+      ownershipMode?: "private" | "shared";
+      sharedUserIds?: string[];
+    },
+  ) => {
+    const params = new URLSearchParams();
+    if (options?.ownershipMode) {
+      params.set("ownership_mode", options.ownershipMode);
+    }
+    for (const userId of options?.sharedUserIds ?? []) {
+      params.append("shared_user_ids", userId);
+    }
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    return request<{ authorize_url: string }>(
+      `/oauth/${provider}/authorize${query}`,
+    );
+  },
 
   // Billing
   planStatus: () => request<PlanStatus>("/billing/plan"),
