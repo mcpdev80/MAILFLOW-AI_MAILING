@@ -1,12 +1,8 @@
 "use client";
 
-import { authClient, useSession } from "@/lib/auth-client";
 import { ApiError, api } from "@/lib/api";
-import type {
-  Cycle,
-  EmailAccount,
-  SharedMailboxAccess,
-} from "@/lib/types";
+import { authClient, useSession } from "@/lib/auth-client";
+import type { Cycle, EmailAccount, SharedMailboxAccess } from "@/lib/types";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -28,9 +24,9 @@ export default function AccountDetailPage() {
   const [contentAccessible, setContentAccessible] = useState(true);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [sharedAccess, setSharedAccess] = useState<SharedMailboxAccess[] | null>(
-    null,
-  );
+  const [sharedAccess, setSharedAccess] = useState<
+    SharedMailboxAccess[] | null
+  >(null);
   const [selectedSharedUsers, setSelectedSharedUsers] = useState<string[]>([]);
   const [transferUserId, setTransferUserId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +67,9 @@ export default function AccountDetailPage() {
       try {
         setCycles(await api.listCycles(id));
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : "Could not load cycles");
+        setError(
+          err instanceof ApiError ? err.message : "Could not load cycles",
+        );
         setCycles([]);
       }
     } else {
@@ -90,7 +88,9 @@ export default function AccountDetailPage() {
           setSharedAccess(null);
         } else {
           setError(
-            err instanceof ApiError ? err.message : "Could not load mailbox access",
+            err instanceof ApiError
+              ? err.message
+              : "Could not load mailbox access",
           );
         }
       }
@@ -124,7 +124,8 @@ export default function AccountDetailPage() {
     account?.ownership_mode === "private" &&
     account.owner_user_id === session?.user?.id;
   const canManageShared = sharedAccess !== null;
-  const canManageOwnership = isSingleTenant || isPrivateOwner || canManageShared;
+  const canManageOwnership =
+    isSingleTenant || isPrivateOwner || canManageShared;
 
   const memberOptions = useMemo(
     () =>
@@ -190,14 +191,18 @@ export default function AccountDetailPage() {
       setSelectedSharedUsers(
         access.filter((grant) => grant.can_use).map((grant) => grant.user_id),
       );
-      const stillVisible = selectedSharedUsers.includes(session?.user?.id ?? "");
+      const stillVisible = selectedSharedUsers.includes(
+        session?.user?.id ?? "",
+      );
       setContentAccessible(stillVisible);
       setNotice("Shared mailbox access updated.");
       if (!stillVisible) {
         setCycles([]);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not update access");
+      setError(
+        err instanceof ApiError ? err.message : "Could not update access",
+      );
     } finally {
       setBusy(false);
     }
@@ -215,7 +220,9 @@ export default function AccountDetailPage() {
       await load();
       setNotice("Mailbox is now shared with the selected members.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not share mailbox");
+      setError(
+        err instanceof ApiError ? err.message : "Could not share mailbox",
+      );
     } finally {
       setBusy(false);
     }
@@ -242,7 +249,9 @@ export default function AccountDetailPage() {
       setNotice("Mailbox is now private.");
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Could not change mailbox owner",
+        err instanceof ApiError
+          ? err.message
+          : "Could not change mailbox owner",
       );
     } finally {
       setBusy(false);
@@ -329,8 +338,7 @@ export default function AccountDetailPage() {
           <p className="muted">
             {account.imap_host}:{account.imap_port} · every{" "}
             {account.interval_minutes} min ·{" "}
-            {account.is_active ? "active" : "paused"} ·{" "}
-            {account.ownership_mode}
+            {account.is_active ? "active" : "paused"} · {account.ownership_mode}
           </p>
 
           {!contentAccessible && (
@@ -381,7 +389,9 @@ export default function AccountDetailPage() {
 
                   <hr style={{ margin: "1.25rem 0" }} />
                   <div className="field">
-                    <label htmlFor="transfer-owner">Transfer private ownership</label>
+                    <label htmlFor="transfer-owner">
+                      Transfer private ownership
+                    </label>
                     <select
                       id="transfer-owner"
                       value={transferUserId}
@@ -411,7 +421,8 @@ export default function AccountDetailPage() {
               {account.ownership_mode === "shared" && canManageShared && (
                 <>
                   <p className="muted">
-                    Only explicitly selected members can see this shared mailbox.
+                    Only explicitly selected members can see this shared
+                    mailbox.
                   </p>
                   <div className="field">
                     <span>Members with mailbox access</span>
@@ -445,7 +456,9 @@ export default function AccountDetailPage() {
 
                   <hr style={{ margin: "1.25rem 0" }} />
                   <div className="field">
-                    <label htmlFor="private-owner">Convert to private mailbox</label>
+                    <label htmlFor="private-owner">
+                      Convert to private mailbox
+                    </label>
                     <select
                       id="private-owner"
                       value={transferUserId}
@@ -497,7 +510,8 @@ export default function AccountDetailPage() {
                 <h3>Cycle history</h3>
                 {cycles.length === 0 ? (
                   <p className="muted">
-                    No cycles yet. Hit “Run cycle now” or wait for the scheduler.
+                    No cycles yet. Hit “Run cycle now” or wait for the
+                    scheduler.
                   </p>
                 ) : (
                   <table className="table">
