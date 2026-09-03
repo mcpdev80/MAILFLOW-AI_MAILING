@@ -1,4 +1,4 @@
-"""Endpoints CRUD para proveedores LLM (scoped por organización)."""
+"""Organization-scoped LLM provider CRUD endpoints."""
 
 from __future__ import annotations
 
@@ -9,8 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_org
-from app.config import settings
-from app.crypto import encrypt
+from app.crypto import encrypt_secret
 from app.database import get_session
 from app.models.llm_provider import LLMProvider
 from app.models.organization import Organization
@@ -56,7 +55,7 @@ async def list_providers(
         .limit(limit)
         .offset(offset)
     )
-    return [_to_out(p) for p in rows.scalars()]
+    return [_to_out(provider) for provider in rows.scalars()]
 
 
 @router.post("", response_model=LLMProviderOut, status_code=status.HTTP_201_CREATED)
@@ -71,9 +70,7 @@ async def create_provider(
         type=payload.type,
         base_url=payload.base_url,
         encrypted_api_key=(
-            encrypt({"api_key": payload.api_key}, settings.SECRET_KEY)
-            if payload.api_key
-            else None
+            encrypt_secret({"api_key": payload.api_key}) if payload.api_key else None
         ),
         default_classification_model=payload.default_classification_model,
         default_generation_model=payload.default_generation_model,
@@ -102,9 +99,11 @@ async def update_provider(
 ) -> LLMProviderOut:
     provider = await _get_owned(provider_id, org, session)
     data = payload.model_dump(exclude_unset=True)
-    api_key = data.pop("api_key", None)
-    if api_key:
-        provider.encrypted_api_key = encrypt({"api_key": api_key}, settings.SECRET_KEY)
+    if "api_key" in data:
+        api_key = data.pop("api_key")
+        provider.encrypted_api_key = (
+            encrypt_secret({"api_key": api_key}) if api_key else None
+        )
     for field, value in data.items():
         setattr(provider, field, value)
     await session.commit()
