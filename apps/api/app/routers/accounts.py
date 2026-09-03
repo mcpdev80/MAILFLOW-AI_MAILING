@@ -127,7 +127,7 @@ async def update_account(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> EmailAccount:
-    account = await get_accessible_account(account_id, identity, session)
+    account = await get_account_for_management(account_id, identity, session)
     data = payload.model_dump(exclude_unset=True)
     password = data.pop("password", None)
     if password:
@@ -253,6 +253,6 @@ async def delete_account(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> None:
-    account = await get_accessible_account(account_id, identity, session)
+    account = await get_account_for_management(account_id, identity, session)
     await session.delete(account)
     await session.commit()
