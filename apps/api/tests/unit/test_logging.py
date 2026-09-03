@@ -1,4 +1,4 @@
-"""Tests del logging estructurado y la correlación por contextvars."""
+"""Tests for structured logging, correlation, and secret redaction."""
 
 from __future__ import annotations
 
@@ -68,6 +68,40 @@ def test_json_formatter_serializes_exception():
         record = _record(msg="failed", exc_info=sys.exc_info())
     payload = json.loads(JsonFormatter().format(record))
     assert "ValueError: boom" in payload["exc_info"]
+
+
+def test_formatter_redacts_bearer_and_json_secrets():
+    from app.logging_config import JsonFormatter
+
+    record = _record(
+        msg='request failed Authorization: Bearer abc.secret.token body={"api_key":"sk-live-secret"}'
+    )
+    payload = json.loads(JsonFormatter().format(record))
+    assert "abc.secret.token" not in payload["message"]
+    assert "sk-live-secret" not in payload["message"]
+    assert "[REDACTED]" in payload["message"]
+
+
+def test_redaction_filter_masks_structured_secret_extra():
+    from app.logging_config import SecretRedactionFilter
+
+    record = _record(msg="provider failure", api_key="sk-do-not-log")
+    SecretRedactionFilter().filter(record)
+    assert record.api_key == "[REDACTED]"
+
+
+def test_exception_text_is_redacted():
+    from app.logging_config import JsonFormatter
+
+    try:
+        raise RuntimeError("request failed with Bearer super-secret-token")
+    except RuntimeError:
+        import sys
+
+        record = _record(msg="failed", exc_info=sys.exc_info())
+    payload = json.loads(JsonFormatter().format(record))
+    assert "super-secret-token" not in payload["exc_info"]
+    assert "[REDACTED]" in payload["exc_info"]
 
 
 def test_bind_log_context_ignores_none_and_merges():
