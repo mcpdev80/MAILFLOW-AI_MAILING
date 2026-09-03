@@ -156,7 +156,7 @@ def new_account_ownership(
             )
         return OWNERSHIP_SHARED, None
     raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="invalid_ownership_mode",
     )
 
@@ -189,7 +189,7 @@ async def ensure_org_members(
     members = {str(row[0]) for row in rows}
     if not requested.issubset(members):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="shared_user_not_organization_member",
         )
     return requested
