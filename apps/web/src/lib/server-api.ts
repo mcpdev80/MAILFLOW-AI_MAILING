@@ -7,6 +7,7 @@
  * browser-supplied identity or role headers.
  */
 import { createHmac } from "node:crypto";
+import { Pool } from "pg";
 import { auth, authEnabled } from "@/lib/auth";
 import { decryptSecret } from "@/lib/crypto";
 
@@ -29,11 +30,9 @@ interface OrgMeta {
   mf_org_id?: string;
 }
 
-interface OrgMember {
-  userId?: string;
-  role?: string;
-  user?: { id?: string };
-}
+const membershipDb = authEnabled
+  ? new Pool({ connectionString: process.env.DATABASE_URL })
+  : null;
 
 function parseMeta(raw: unknown): OrgMeta {
   if (typeof raw === "string") {
@@ -49,12 +48,18 @@ function parseMeta(raw: unknown): OrgMeta {
   return {};
 }
 
-function resolveMemberRole(org: unknown, userId: string): string | null {
-  const members = (org as { members?: OrgMember[] })?.members ?? [];
-  const member = members.find(
-    (item) => item.userId === userId || item.user?.id === userId,
+async function resolveMemberRole(
+  organizationId: string,
+  userId: string,
+): Promise<string | null> {
+  if (!membershipDb) {
+    return null;
+  }
+  const result = await membershipDb.query<{ role: string }>(
+    'select role from "member" where "organizationId" = $1 and "userId" = $2 limit 1',
+    [organizationId, userId],
   );
-  return member?.role ?? null;
+  return result.rows[0]?.role ?? null;
 }
 
 export async function resolveApiKey(
@@ -94,7 +99,7 @@ export async function resolveApiKey(
     return { ok: false, status: 500, error: "actor_signing_not_configured" };
   }
 
-  const role = resolveMemberRole(org, session.user.id);
+  const role = await resolveMemberRole(authOrgId, session.user.id);
   if (!role) {
     return { ok: false, status: 403, error: "organization_membership_required" };
   }
