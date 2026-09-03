@@ -1,4 +1,4 @@
-"""Endpoints CRUD para cuentas de email (scoped por organización)."""
+"""CRUD endpoints for email accounts with mailbox-level authorization."""
 
 from __future__ import annotations
 
@@ -8,47 +8,32 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import require_org
+from app.auth import RequestIdentity, require_identity
 from app.config import settings
 from app.crypto import encrypt
 from app.database import get_session
+from app.mailbox_access import (
+    access_condition,
+    get_accessible_account,
+    new_account_ownership,
+)
 from app.models.email_account import EmailAccount
-from app.models.organization import Organization
 from app.quota import can_add_account
 from app.schemas import EmailAccountCreate, EmailAccountOut, EmailAccountUpdate
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
 
-async def _get_owned_account(
-    account_id: UUID, org: Organization, session: AsyncSession
-) -> EmailAccount:
-    """Carga una cuenta garantizando que pertenece a la organización del caller."""
-    account = (
-        await session.execute(
-            select(EmailAccount).where(
-                EmailAccount.id == account_id,
-                EmailAccount.org_id == org.id,
-            )
-        )
-    ).scalar_one_or_none()
-    if account is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="account_not_found"
-        )
-    return account
-
-
 @router.get("", response_model=list[EmailAccountOut])
 async def list_accounts(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
-    org: Organization = Depends(require_org),
+    identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> list[EmailAccount]:
     rows = await session.execute(
         select(EmailAccount)
-        .where(EmailAccount.org_id == org.id)
+        .where(access_condition(identity))
         .order_by(EmailAccount.created_at)
         .limit(limit)
         .offset(offset)
@@ -59,17 +44,23 @@ async def list_accounts(
 @router.post("", response_model=EmailAccountOut, status_code=status.HTTP_201_CREATED)
 async def create_account(
     payload: EmailAccountCreate,
-    org: Organization = Depends(require_org),
+    identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> EmailAccount:
-    # Cuota del plan: el plan free limita el número de cuentas conectadas.
+    org = identity.org
     if not await can_add_account(session, org.id, org.plan):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="account_limit_reached",
         )
+
+    ownership_mode, owner_user_id = new_account_ownership(
+        identity, payload.ownership_mode
+    )
     account = EmailAccount(
         org_id=org.id,
+        owner_user_id=owner_user_id,
+        ownership_mode=ownership_mode,
         provider_type=payload.provider_type,
         imap_host=payload.imap_host,
         imap_port=payload.imap_port,
@@ -93,20 +84,20 @@ async def create_account(
 @router.get("/{account_id}", response_model=EmailAccountOut)
 async def get_account(
     account_id: UUID,
-    org: Organization = Depends(require_org),
+    identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> EmailAccount:
-    return await _get_owned_account(account_id, org, session)
+    return await get_accessible_account(account_id, identity, session)
 
 
 @router.patch("/{account_id}", response_model=EmailAccountOut)
 async def update_account(
     account_id: UUID,
     payload: EmailAccountUpdate,
-    org: Organization = Depends(require_org),
+    identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> EmailAccount:
-    account = await _get_owned_account(account_id, org, session)
+    account = await get_accessible_account(account_id, identity, session)
     data = payload.model_dump(exclude_unset=True)
     password = data.pop("password", None)
     if password:
@@ -123,9 +114,9 @@ async def update_account(
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_account(
     account_id: UUID,
-    org: Organization = Depends(require_org),
+    identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> None:
-    account = await _get_owned_account(account_id, org, session)
+    account = await get_accessible_account(account_id, identity, session)
     await session.delete(account)
     await session.commit()
