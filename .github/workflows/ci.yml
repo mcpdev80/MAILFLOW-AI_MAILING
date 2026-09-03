@@ -1,10 +1,9 @@
 name: CI
 
+# CI is intentionally manual. Run it once a pull request is considered ready to
+# merge instead of consuming runner time on every development commit.
 on:
-  push:
-    branches: [main, dev]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   lint-python:
