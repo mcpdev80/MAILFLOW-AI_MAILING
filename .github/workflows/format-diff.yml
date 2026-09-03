@@ -22,3 +22,5 @@ jobs:
           apps/api/app/models/mailbox_access.py
           apps/api/app/routers/oauth.py
           apps/api/tests/unit/test_mailbox_ownership.py
+
+# Temporary helper: remove after the formatter diff has been captured.
