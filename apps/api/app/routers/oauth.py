@@ -134,7 +134,10 @@ async def authorize(
     selected_users = shared_user_ids or []
     mode, owner_user_id = new_account_ownership(identity, ownership_mode)
     if mode != OWNERSHIP_SHARED and selected_users:
-        raise HTTPException(status_code=422, detail="shared_users_require_shared_mailbox")
+        raise HTTPException(
+            status_code=422,
+            detail="shared_users_require_shared_mailbox",
+        )
     if mode == OWNERSHIP_SHARED:
         await ensure_org_members(session, identity, selected_users)
         if identity.user_id:
@@ -147,14 +150,19 @@ async def authorize(
                 str(identity.org.id),
                 auth_org_id=identity.auth_org_id,
                 owner_user_id=owner_user_id,
-                manager_user_id=identity.user_id if mode == OWNERSHIP_SHARED else None,
+                manager_user_id=(
+                    identity.user_id if mode == OWNERSHIP_SHARED else None
+                ),
                 ownership_mode=mode,
-                shared_user_ids=selected_users if mode == OWNERSHIP_SHARED else [],
+                shared_user_ids=(
+                    selected_users if mode == OWNERSHIP_SHARED else []
+                ),
             ),
         )
     except oauth.OAuthNotConfigured as exc:
         raise HTTPException(
-            status_code=400, detail=f"oauth_not_configured: {exc}"
+            status_code=400,
+            detail=f"oauth_not_configured: {exc}",
         ) from exc
     return {"authorize_url": url}
 
@@ -172,7 +180,10 @@ async def callback(
     if error:
         return RedirectResponse(f"{success}?error={error}", status_code=302)
     if not code or not state or not oauth.is_supported(provider):
-        return RedirectResponse(f"{success}?error=invalid_request", status_code=302)
+        return RedirectResponse(
+            f"{success}?error=invalid_request",
+            status_code=302,
+        )
 
     data = _verify_state(state)
     org_id = UUID(str(data["org"]))
@@ -194,12 +205,14 @@ async def callback(
         roles = await _member_roles(session, str(auth_org_id), relevant_users)
         if set(roles) != relevant_users:
             return RedirectResponse(
-                f"{success}?error=organization_membership_changed", status_code=302
+                f"{success}?error=organization_membership_changed",
+                status_code=302,
             )
         if ownership_mode == OWNERSHIP_SHARED and manager_user_id:
             if roles.get(str(manager_user_id)) not in SHARED_ADMIN_ROLES:
                 return RedirectResponse(
-                    f"{success}?error=shared_mailbox_admin_required", status_code=302
+                    f"{success}?error=shared_mailbox_admin_required",
+                    status_code=302,
                 )
 
     try:
@@ -235,7 +248,8 @@ async def callback(
         ).scalar_one_or_none()
         if can_manage is None:
             return RedirectResponse(
-                f"{success}?error=mailbox_access_denied", status_code=302
+                f"{success}?error=mailbox_access_denied",
+                status_code=302,
             )
 
     enc = encrypt({"refresh_token": result.refresh_token}, settings.SECRET_KEY)
@@ -275,5 +289,6 @@ async def callback(
 
     await session.commit()
     return RedirectResponse(
-        f"{success}?connected={provider}", status_code=status.HTTP_302_FOUND
+        f"{success}?connected={provider}",
+        status_code=status.HTTP_302_FOUND,
     )
