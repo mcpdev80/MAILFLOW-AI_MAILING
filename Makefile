@@ -16,11 +16,9 @@ test-container:
 test-docker:
 	docker build -f infrastructure/docker/Dockerfile.api -t mailflow-api:test .
 
-# Apply Ruff and Biome formatting in the same container used by make test.
+# Apply Ruff and Biome fixes to the local source tree from a container.
 format:
-	@set -e; \
-	trap '$(TEST_COMPOSE) down -v --remove-orphans >/dev/null 2>&1 || true' EXIT; \
-	$(TEST_COMPOSE) run --build --rm test bash scripts/format.sh
+	$(TEST_COMPOSE) run --build --rm --no-deps format
 
 clean-test:
 	$(TEST_COMPOSE) down -v --remove-orphans
