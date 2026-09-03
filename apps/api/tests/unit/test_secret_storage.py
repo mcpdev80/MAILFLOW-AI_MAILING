@@ -54,11 +54,11 @@ async def test_rotate_all_secret_types_to_primary_key(session, monkeypatch):
     monkeypatch.setattr(settings, "SECRET_ENCRYPTION_KEYS", f"{new_key},{old_key}")
     monkeypatch.setattr(settings, "SECRET_KEY", old_key)
 
-    assert await validate_stored_secrets(session) >= 3
-    result = await rotate_stored_secrets(session)
-    assert result.mailbox_credentials >= 1
-    assert result.oauth_tokens >= 1
-    assert result.llm_api_keys >= 1
+    assert await validate_stored_secrets(session, org_id=org.id) == 3
+    result = await rotate_stored_secrets(session, org_id=org.id)
+    assert result.mailbox_credentials == 1
+    assert result.oauth_tokens == 1
+    assert result.llm_api_keys == 1
 
     rotated_account = (
         await session.execute(select(EmailAccount).where(EmailAccount.id == account.id))
@@ -95,5 +95,5 @@ async def test_validation_fails_cleanly_when_rotation_key_is_missing(session, mo
     monkeypatch.setattr(settings, "SECRET_KEY", wrong_key)
 
     with pytest.raises(SecretConfigurationError) as exc:
-        await validate_stored_secrets(session)
+        await validate_stored_secrets(session, org_id=org.id)
     assert "never-leak" not in str(exc.value)
