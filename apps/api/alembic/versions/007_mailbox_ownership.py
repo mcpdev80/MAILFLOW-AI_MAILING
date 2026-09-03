@@ -69,9 +69,7 @@ def upgrade() -> None:
             "account_id", "user_id", name="uq_mailbox_access_account_user"
         ),
     )
-    op.create_index(
-        "ix_mailbox_access_account_id", "mailbox_access", ["account_id"]
-    )
+    op.create_index("ix_mailbox_access_account_id", "mailbox_access", ["account_id"])
     op.create_index("ix_mailbox_access_user_id", "mailbox_access", ["user_id"])
 
 
