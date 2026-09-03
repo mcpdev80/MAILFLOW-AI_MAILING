@@ -1,4 +1,4 @@
-"""private/shared mailbox ownership
+"""private/shared mailbox ownership and selective access
 
 Revision ID: 007
 Revises: 006
@@ -44,8 +44,31 @@ def upgrade() -> None:
         ["org_id", "ownership_mode", "owner_user_id"],
     )
 
+    op.create_table(
+        "mailbox_access",
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("account_id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.String(length=255), nullable=False),
+        sa.Column("can_use", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("can_manage", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.ForeignKeyConstraint(
+            ["account_id"], ["email_accounts.id"], ondelete="CASCADE"
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "account_id", "user_id", name="uq_mailbox_access_account_user"
+        ),
+    )
+    op.create_index(
+        "ix_mailbox_access_account_id", "mailbox_access", ["account_id"]
+    )
+    op.create_index("ix_mailbox_access_user_id", "mailbox_access", ["user_id"])
+
 
 def downgrade() -> None:
+    op.drop_index("ix_mailbox_access_user_id", table_name="mailbox_access")
+    op.drop_index("ix_mailbox_access_account_id", table_name="mailbox_access")
+    op.drop_table("mailbox_access")
     op.drop_index("ix_email_accounts_ownership", table_name="email_accounts")
     op.drop_constraint(
         "ck_email_accounts_ownership",
