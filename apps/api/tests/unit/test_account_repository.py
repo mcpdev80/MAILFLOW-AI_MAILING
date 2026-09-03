@@ -1,6 +1,6 @@
-"""Tests de AccountRepository con Postgres real.
+"""AccountRepository tests against real Postgres.
 
-Requiere: docker compose up -d postgres
+Requires: docker compose up -d postgres
 """
 
 from __future__ import annotations
@@ -17,11 +17,7 @@ from app.models.rules import KeywordRule as DbKeywordRule
 from app.repositories.account import AccountRepository
 from mailflow_core.classification.rule_engine import AccountConfig
 
-# Fernet key válida (44 chars base64)
 TEST_SECRET_KEY = "qdCa5nGhLjd8qY0CCaQP2dE000lbSYDmtPnhzAVeVgs="
-
-
-# ── Fixtures ────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture()
@@ -50,9 +46,6 @@ async def account(session, org):
     return acc
 
 
-# ── Tests get_accounts_due ───────────────────────────────────────────────────
-
-
 async def test_get_accounts_due_includes_never_run(session, account):
     repo = AccountRepository(session)
     now = datetime.now(tz=UTC)
@@ -62,7 +55,6 @@ async def test_get_accounts_due_includes_never_run(session, account):
 
 
 async def test_get_accounts_due_includes_overdue(session, account):
-    # last_cycle_at hace 10 min, interval=5 → debe estar en la lista
     account.last_cycle_at = datetime.now(tz=UTC) - timedelta(minutes=10)
     await session.commit()
 
@@ -72,7 +64,6 @@ async def test_get_accounts_due_includes_overdue(session, account):
 
 
 async def test_get_accounts_due_excludes_recent(session, account):
-    # last_cycle_at hace 2 min, interval=5 → NO debe estar
     account.last_cycle_at = datetime.now(tz=UTC) - timedelta(minutes=2)
     await session.commit()
 
@@ -90,7 +81,21 @@ async def test_get_accounts_due_excludes_inactive(session, account):
     assert account.id not in [a.id for a in result]
 
 
-# ── Tests claim_cycle ────────────────────────────────────────────────────────
+async def test_multi_mode_excludes_unresolved_legacy_account(
+    session, account, monkeypatch
+):
+    """Ambiguous migrated accounts must not be processed before ownership is set."""
+    from app.config import settings
+
+    assert account.ownership_mode == "unresolved"
+    monkeypatch.setattr(settings, "AUTH_MODE", "multi")
+
+    repo = AccountRepository(session)
+    result = await repo.get_accounts_due(datetime.now(tz=UTC))
+    assert account.id not in [a.id for a in result]
+
+    won = await repo.claim_cycle(account.id, datetime.now(tz=UTC))
+    assert won is False
 
 
 async def test_claim_cycle_returns_true_first_call(session, account):
@@ -101,23 +106,18 @@ async def test_claim_cycle_returns_true_first_call(session, account):
 
 
 async def test_claim_cycle_returns_false_second_call(session_factory, account):
-    """Dos workers intentan claim al mismo tiempo → solo uno gana."""
+    """Two workers race for the same account; only one may win."""
     now = datetime.now(tz=UTC)
     async with session_factory() as s1:
         won1 = await AccountRepository(s1).claim_cycle(account.id, now)
         await s1.commit()
     async with session_factory() as s2:
-        # last_cycle_at ya fue marcado por s1 → s2 no gana
         won2 = await AccountRepository(s2).claim_cycle(account.id, now)
     assert won1 is True
     assert won2 is False
 
 
-# ── Tests get_full_config ────────────────────────────────────────────────────
-
-
 async def test_get_full_config_builds_account_config(session, account):
-    # Insertar reglas
     session.add(
         DbDomainRule(
             account_id=account.id,
@@ -141,7 +141,7 @@ async def test_get_full_config_builds_account_config(session, account):
     await session.commit()
 
     repo = AccountRepository(session)
-    acc_model, config, llm_prov = await repo.get_full_config(account.id)
+    _acc_model, config, llm_prov = await repo.get_full_config(account.id)
 
     assert isinstance(config, AccountConfig)
     assert config.account_id == str(account.id)
@@ -150,4 +150,4 @@ async def test_get_full_config_builds_account_config(session, account):
     assert config.client_domain_rules[0].domain == "client.com"
     assert len(config.keyword_rules) == 1
     assert config.keyword_rules[0].keywords == ("urgent", "ASAP")
-    assert llm_prov is None  # no llm_provider configurado
+    assert llm_prov is None
