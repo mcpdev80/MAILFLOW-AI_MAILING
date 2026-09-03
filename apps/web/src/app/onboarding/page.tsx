@@ -1,7 +1,7 @@
 "use client";
 
-import { authClient, useSession } from "@/lib/auth-client";
 import { ApiError, api } from "@/lib/api";
+import { authClient, useSession } from "@/lib/auth-client";
 import type { LLMProvider } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -222,10 +222,12 @@ export default function OnboardingPage() {
             {members.map((member) => {
               const userId = memberUserId(member);
               if (!userId) return null;
-              const label =
-                member.user?.email ?? member.user?.name ?? userId;
+              const label = member.user?.email ?? member.user?.name ?? userId;
               return (
-                <label key={member.id} style={{ display: "flex", gap: "0.5rem" }}>
+                <label
+                  key={member.id}
+                  style={{ display: "flex", gap: "0.5rem" }}
+                >
                   <input
                     type="checkbox"
                     checked={acct.shared_user_ids.includes(userId)}
