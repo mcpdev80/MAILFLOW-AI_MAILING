@@ -102,7 +102,11 @@ async def test_private_owner_can_share_with_selected_user_only(
     assert visible.id == account.id
 
     with pytest.raises(HTTPException) as denied:
-        await get_accessible_account(account.id, identity("admin-user", "admin"), session)
+        await get_accessible_account(
+            account.id,
+            identity("admin-user", "admin"),
+            session,
+        )
     assert denied.value.status_code == 404
 
 
@@ -112,9 +116,7 @@ async def test_private_transfer_revokes_old_owner_access(session, ownership_cont
 
     updated = await change_mailbox_ownership(
         account.id,
-        MailboxOwnershipUpdate(
-            mode="private", target_owner_user_id="other-user"
-        ),
+        MailboxOwnershipUpdate(mode="private", target_owner_user_id="other-user"),
         identity("owner-user"),
         session,
     )
@@ -136,7 +138,9 @@ async def test_org_admin_cannot_take_over_resolved_private_mailbox(
 
     with pytest.raises(HTTPException) as denied:
         await get_account_for_management(
-            account.id, identity("admin-user", "admin"), session
+            account.id,
+            identity("admin-user", "admin"),
+            session,
         )
     assert denied.value.status_code == 404
 
@@ -158,9 +162,7 @@ async def test_admin_can_resolve_unresolved_without_gaining_mail_access(
 
     updated = await change_mailbox_ownership(
         account.id,
-        MailboxOwnershipUpdate(
-            mode="private", target_owner_user_id="other-user"
-        ),
+        MailboxOwnershipUpdate(mode="private", target_owner_user_id="other-user"),
         identity("admin-user", "admin"),
         session,
     )
@@ -169,7 +171,9 @@ async def test_admin_can_resolve_unresolved_without_gaining_mail_access(
 
     with pytest.raises(HTTPException) as admin_denied:
         await get_accessible_account(
-            account.id, identity("admin-user", "admin"), session
+            account.id,
+            identity("admin-user", "admin"),
+            session,
         )
     assert admin_denied.value.status_code == 404
 
@@ -210,9 +214,7 @@ async def test_shared_manager_can_make_mailbox_private_for_selected_member(
 
     updated = await change_mailbox_ownership(
         account.id,
-        MailboxOwnershipUpdate(
-            mode="private", target_owner_user_id="other-user"
-        ),
+        MailboxOwnershipUpdate(mode="private", target_owner_user_id="other-user"),
         identity("admin-user", "admin"),
         session,
     )
