@@ -37,12 +37,15 @@ ACTOR_HEADER_TTL_SECONDS = 60
 class RequestIdentity:
     """Authenticated tenant plus optional human actor.
 
-    ``user_id`` is the stable Better Auth user id. It is intentionally absent in
-    legacy single-tenant mode where Better Auth is disabled.
+    ``user_id`` is the stable Better Auth user id. ``auth_org_id`` and ``role``
+    describe the membership that produced the active organization session. They
+    are signed by the trusted web BFF together with the MailFlow organization id.
     """
 
     org: Organization
     user_id: str | None
+    auth_org_id: str | None = None
+    role: str | None = None
 
 
 def hash_api_key(raw_key: str) -> str:
@@ -73,11 +76,21 @@ def actor_signature_payload(
     path: str,
     user_id: str,
     org_id: UUID | str,
+    auth_org_id: str,
+    role: str,
     timestamp: int | str,
 ) -> bytes:
     """Build the canonical payload signed by the trusted web BFF."""
     return "\n".join(
-        [method.upper(), path, user_id, str(org_id), str(timestamp)]
+        [
+            method.upper(),
+            path,
+            user_id,
+            str(org_id),
+            auth_org_id,
+            role,
+            str(timestamp),
+        ]
     ).encode("utf-8")
 
 
@@ -88,12 +101,16 @@ def sign_actor_identity(
     path: str,
     user_id: str,
     org_id: UUID | str,
+    auth_org_id: str,
+    role: str,
     timestamp: int,
 ) -> str:
     """Return the HMAC signature used for BFF-to-API actor propagation."""
     return hmac.new(
         secret.encode("utf-8"),
-        actor_signature_payload(method, path, user_id, org_id, timestamp),
+        actor_signature_payload(
+            method, path, user_id, org_id, auth_org_id, role, timestamp
+        ),
         hashlib.sha256,
     ).hexdigest()
 
@@ -158,6 +175,10 @@ async def require_identity(
     org: Organization = Depends(require_org),
     actor_user_id: str | None = Header(default=None, alias="X-MailFlow-Actor-User-Id"),
     actor_org_id: str | None = Header(default=None, alias="X-MailFlow-Actor-Org-Id"),
+    actor_auth_org_id: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Auth-Org-Id"
+    ),
+    actor_role: str | None = Header(default=None, alias="X-MailFlow-Actor-Role"),
     actor_timestamp: str | None = Header(
         default=None, alias="X-MailFlow-Actor-Timestamp"
     ),
@@ -168,10 +189,10 @@ async def require_identity(
     """Resolve a trusted human actor for mailbox-scoped authorization.
 
     In multi-user mode the browser never supplies these headers directly. The
-    web BFF derives the Better Auth user id from the server-side session and
-    signs it with ``INTERNAL_API_SECRET``. Binding the signature to method, path,
-    tenant and a short timestamp prevents an organization API key holder from
-    impersonating another member by forging a user-id header.
+    web BFF derives membership from the Better Auth server-side session and signs
+    it with ``INTERNAL_API_SECRET``. Binding the signature to method, path,
+    tenant, Better Auth organization, role and a short timestamp prevents an
+    organization API key holder from forging another member or role.
     """
     if settings.AUTH_MODE != "multi":
         return RequestIdentity(org=org, user_id=None)
@@ -183,7 +204,14 @@ async def require_identity(
         )
 
     if not all(
-        [actor_user_id, actor_org_id, actor_timestamp, actor_signature]
+        [
+            actor_user_id,
+            actor_org_id,
+            actor_auth_org_id,
+            actor_role,
+            actor_timestamp,
+            actor_signature,
+        ]
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -218,6 +246,8 @@ async def require_identity(
         path=request.url.path,
         user_id=actor_user_id,
         org_id=org.id,
+        auth_org_id=actor_auth_org_id,
+        role=actor_role,
         timestamp=timestamp,
     )
     if not hmac.compare_digest(actor_signature, expected):
@@ -226,4 +256,9 @@ async def require_identity(
             detail="invalid_actor_identity",
         )
 
-    return RequestIdentity(org=org, user_id=actor_user_id)
+    return RequestIdentity(
+        org=org,
+        user_id=actor_user_id,
+        auth_org_id=actor_auth_org_id,
+        role=actor_role,
+    )
