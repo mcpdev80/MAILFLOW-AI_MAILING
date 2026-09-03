@@ -146,8 +146,8 @@ export default function DashboardPage() {
         <div className="card">
           <h3>Shared mailboxes you manage</h3>
           <p className="muted">
-            These mailboxes are not visible to you unless you are also explicitly
-            granted mailbox access.
+            These mailboxes are not visible to you unless you are also
+            explicitly granted mailbox access.
           </p>
           <table className="table">
             <thead>
