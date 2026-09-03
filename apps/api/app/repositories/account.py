@@ -1,23 +1,18 @@
-"""AccountRepository — consultas de cuentas de email y config completa."""
+"""AccountRepository — email account queries and processing configuration."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from uuid import UUID
 
-from mailflow_core.classification.rule_engine import (
-    AccountConfig,
-)
-from mailflow_core.classification.rule_engine import (
-    DomainRule as CoreDomainRule,
-)
-from mailflow_core.classification.rule_engine import (
-    KeywordRule as CoreKeywordRule,
-)
-from sqlalchemy import or_, select, text, update
+from mailflow_core.classification.rule_engine import AccountConfig
+from mailflow_core.classification.rule_engine import DomainRule as CoreDomainRule
+from mailflow_core.classification.rule_engine import KeywordRule as CoreKeywordRule
+from sqlalchemy import or_, select, text, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.models.email_account import EmailAccount
 from app.models.llm_provider import LLMProvider
 from app.models.rules import DomainRule as DbDomainRule
@@ -30,33 +25,43 @@ class AccountRepository:
         self._session = session
 
     def _due_condition(self, now: datetime):
-        """WHERE clause compartida: cuenta activa cuyo intervalo ya venció."""
+        """Return the shared predicate for an active account whose interval is due."""
         interval_expr = EmailAccount.interval_minutes * text("INTERVAL '1 minute'")
         return or_(
             EmailAccount.last_cycle_at.is_(None),
             EmailAccount.last_cycle_at + interval_expr <= now,
         )
 
+    def _processable_ownership_condition(self):
+        """Prevent ambiguous legacy ownership from being processed in multi mode.
+
+        Existing accounts enter ``unresolved`` during migration. Letting the
+        worker continue moving mail before an owner is assigned would defeat the
+        fail-closed migration strategy. Legacy single-tenant mode keeps its old
+        behavior because there is no per-user authorization there.
+        """
+        if settings.AUTH_MODE == "multi":
+            return EmailAccount.ownership_mode.in_(("private", "shared"))
+        return true()
+
     async def get_accounts_due(self, now: datetime) -> list[EmailAccount]:
-        """Retorna cuentas activas cuyo ciclo toca según interval_minutes."""
+        """Return active accounts whose processing interval has elapsed."""
         stmt = select(EmailAccount).where(
             EmailAccount.is_active.is_(True),
             self._due_condition(now),
+            self._processable_ownership_condition(),
         )
         return list((await self._session.execute(stmt)).scalars())
 
     async def claim_cycle(self, account_id: UUID, now: datetime) -> bool:
-        """Atomic UPDATE: marca last_cycle_at=now solo si el ciclo sigue elegible.
-
-        Retorna True si esta instancia ganó la carrera; False si otro worker
-        se adelantó (TOCTOU guard).
-        """
+        """Atomically claim a due account while preserving ownership safety."""
         interval_expr = EmailAccount.interval_minutes * text("INTERVAL '1 minute'")
         stmt = (
             update(EmailAccount)
             .where(
                 EmailAccount.id == account_id,
                 EmailAccount.is_active.is_(True),
+                self._processable_ownership_condition(),
                 or_(
                     EmailAccount.last_cycle_at.is_(None),
                     EmailAccount.last_cycle_at + interval_expr <= now,
@@ -72,12 +77,7 @@ class AccountRepository:
     async def get_full_config(
         self, account_id: UUID
     ) -> tuple[EmailAccount, AccountConfig, LLMProvider | None]:
-        """Carga account + reglas + llm_provider en queries eficientes.
-
-        COLISIÓN DE NOMBRES: DbDomainRule/DbKeywordRule = modelos SQLAlchemy.
-        CoreDomainRule/CoreKeywordRule = dataclasses de packages/core.
-        """
-        # 1. Account + llm_provider (eager load con selectinload)
+        """Load account, rules and LLM provider efficiently for the worker."""
         stmt = (
             select(EmailAccount)
             .options(selectinload(EmailAccount.llm_provider))
@@ -85,7 +85,6 @@ class AccountRepository:
         )
         account = (await self._session.execute(stmt)).scalar_one()
 
-        # 2. domain_rules ORDER BY priority ASC
         db_domain = list(
             (
                 await self._session.execute(
@@ -96,7 +95,6 @@ class AccountRepository:
             ).scalars()
         )
 
-        # 3. keyword_rules ORDER BY priority ASC
         db_kw = list(
             (
                 await self._session.execute(
@@ -107,7 +105,6 @@ class AccountRepository:
             ).scalars()
         )
 
-        # 4. internal_domains
         db_int = list(
             (
                 await self._session.execute(
@@ -118,7 +115,6 @@ class AccountRepository:
             ).scalars()
         )
 
-        # 5. Construir AccountConfig de packages/core
         account_config = AccountConfig(
             account_id=str(account_id),
             internal_domains=[d.domain for d in db_int],

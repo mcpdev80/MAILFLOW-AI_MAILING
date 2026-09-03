@@ -1,24 +1,26 @@
-"""Autenticación y resolución de organización (tenant) por request.
+"""Authentication and request identity resolution.
 
-Soporta dos modos (config.AUTH_MODE), habilitando OSS self-host y SaaS con el
-mismo código:
+Two API authentication modes are supported:
 
-  - "single": self-host. Existe una única organización (slug "default"), que se
-    crea bajo demanda. Si SINGLE_TENANT_API_KEY está definida, se exige en la
-    cabecera; si está vacía, el acceso es abierto (uso local/LAN).
-  - "multi": SaaS. Cada request debe enviar una API key (cabecera
-    `X-API-Key` o `Authorization: Bearer <key>`) que se hashea y resuelve a una
-    organización concreta vía organizations.api_key_hash.
+- ``single``: self-hosted mode with one default organization. An optional
+  ``SINGLE_TENANT_API_KEY`` can protect the API.
+- ``multi``: every request carries an organization API key. Mailbox-scoped
+  endpoints additionally require a signed user identity from the web BFF.
 
-La API key nunca se almacena en claro: solo su SHA-256.
+The organization API key identifies the tenant, not the human user. Private
+mailbox authorization therefore never relies on the organization key alone.
 """
 
 from __future__ import annotations
 
 import hashlib
+import hmac
 import secrets
+import time
+from dataclasses import dataclass
+from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,15 +30,31 @@ from app.models.organization import Organization
 
 DEFAULT_ORG_SLUG = "default"
 API_KEY_PREFIX = "mf_"
+ACTOR_HEADER_TTL_SECONDS = 60
+
+
+@dataclass(frozen=True)
+class RequestIdentity:
+    """Authenticated tenant plus optional human actor.
+
+    ``user_id`` is the stable Better Auth user id. ``auth_org_id`` and ``role``
+    describe the membership that produced the active organization session. They
+    are signed by the trusted web BFF together with the MailFlow organization id.
+    """
+
+    org: Organization
+    user_id: str | None
+    auth_org_id: str | None = None
+    role: str | None = None
 
 
 def hash_api_key(raw_key: str) -> str:
-    """SHA-256 hex de una API key. Determinista para poder buscar por igualdad."""
+    """Return the deterministic SHA-256 hash used to look up an API key."""
     return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
 
 def generate_api_key() -> tuple[str, str]:
-    """Genera (clave_en_claro, hash). La clave en claro se muestra una sola vez."""
+    """Generate ``(raw_key, hash)``. The raw key is shown only once."""
     raw = API_KEY_PREFIX + secrets.token_urlsafe(32)
     return raw, hash_api_key(raw)
 
@@ -45,7 +63,7 @@ def _extract_key(
     x_api_key: str | None,
     authorization: str | None,
 ) -> str | None:
-    """Lee la API key de X-API-Key o de Authorization: Bearer <key>."""
+    """Read the organization API key from supported request headers."""
     if x_api_key:
         return x_api_key.strip()
     if authorization and authorization.lower().startswith("bearer "):
@@ -53,8 +71,52 @@ def _extract_key(
     return None
 
 
+def actor_signature_payload(
+    method: str,
+    path: str,
+    user_id: str,
+    org_id: UUID | str,
+    auth_org_id: str,
+    role: str,
+    timestamp: int | str,
+) -> bytes:
+    """Build the canonical payload signed by the trusted web BFF."""
+    return "\n".join(
+        [
+            method.upper(),
+            path,
+            user_id,
+            str(org_id),
+            auth_org_id,
+            role,
+            str(timestamp),
+        ]
+    ).encode("utf-8")
+
+
+def sign_actor_identity(
+    secret: str,
+    *,
+    method: str,
+    path: str,
+    user_id: str,
+    org_id: UUID | str,
+    auth_org_id: str,
+    role: str,
+    timestamp: int,
+) -> str:
+    """Return the HMAC signature used for BFF-to-API actor propagation."""
+    return hmac.new(
+        secret.encode("utf-8"),
+        actor_signature_payload(
+            method, path, user_id, org_id, auth_org_id, role, timestamp
+        ),
+        hashlib.sha256,
+    ).hexdigest()
+
+
 async def _get_or_create_default_org(session: AsyncSession) -> Organization:
-    """Devuelve la organización por defecto (self-host), creándola si no existe."""
+    """Return the self-host default organization, creating it if necessary."""
     org = (
         await session.execute(
             select(Organization).where(Organization.slug == DEFAULT_ORG_SLUG)
@@ -73,18 +135,14 @@ async def require_org(
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> Organization:
-    """Dependency de FastAPI: resuelve la organización del request.
-
-    Lanza 401 si la autenticación falla. Devuelve la `Organization` para que los
-    handlers filtren por `org.id` (aislamiento de tenant).
-    """
+    """Resolve the organization (tenant) for the current request."""
     provided = _extract_key(x_api_key, authorization)
 
     if settings.AUTH_MODE == "multi":
         if not provided:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="API key requerida",
+                detail="api_key_required",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         org = (
@@ -97,17 +155,110 @@ async def require_org(
         if org is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="API key inválida",
+                detail="invalid_api_key",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return org
 
-    # Modo "single" (self-host).
     expected = settings.SINGLE_TENANT_API_KEY
     if expected and not secrets.compare_digest(provided or "", expected):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key inválida",
+            detail="invalid_api_key",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return await _get_or_create_default_org(session)
+
+
+async def require_identity(
+    request: Request,
+    org: Organization = Depends(require_org),
+    actor_user_id: str | None = Header(default=None, alias="X-MailFlow-Actor-User-Id"),
+    actor_org_id: str | None = Header(default=None, alias="X-MailFlow-Actor-Org-Id"),
+    actor_auth_org_id: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Auth-Org-Id"
+    ),
+    actor_role: str | None = Header(default=None, alias="X-MailFlow-Actor-Role"),
+    actor_timestamp: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Timestamp"
+    ),
+    actor_signature: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Signature"
+    ),
+) -> RequestIdentity:
+    """Resolve a trusted human actor for mailbox-scoped authorization.
+
+    In multi-user mode the browser never supplies these headers directly. The
+    web BFF derives membership from the Better Auth server-side session and signs
+    it with ``INTERNAL_API_SECRET``. Binding the signature to method, path,
+    tenant, Better Auth organization, role and a short timestamp prevents an
+    organization API key holder from forging another member or role.
+    """
+    if settings.AUTH_MODE != "multi":
+        return RequestIdentity(org=org, user_id=None)
+
+    if not settings.INTERNAL_API_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="actor_auth_not_configured",
+        )
+
+    if not all(
+        [
+            actor_user_id,
+            actor_org_id,
+            actor_auth_org_id,
+            actor_role,
+            actor_timestamp,
+            actor_signature,
+        ]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="actor_identity_required",
+        )
+
+    try:
+        timestamp = int(actor_timestamp)
+        signed_org_id = UUID(actor_org_id)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid_actor_identity",
+        ) from exc
+
+    if signed_org_id != org.id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid_actor_identity",
+        )
+
+    now = int(time.time())
+    if abs(now - timestamp) > ACTOR_HEADER_TTL_SECONDS:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="actor_identity_expired",
+        )
+
+    expected = sign_actor_identity(
+        settings.INTERNAL_API_SECRET,
+        method=request.method,
+        path=request.url.path,
+        user_id=actor_user_id,
+        org_id=org.id,
+        auth_org_id=actor_auth_org_id,
+        role=actor_role,
+        timestamp=timestamp,
+    )
+    if not hmac.compare_digest(actor_signature, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid_actor_identity",
+        )
+
+    return RequestIdentity(
+        org=org,
+        user_id=actor_user_id,
+        auth_org_id=actor_auth_org_id,
+        role=actor_role,
+    )

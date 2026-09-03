@@ -1,13 +1,13 @@
-"""Esquemas Pydantic (DTOs) para la API HTTP.
+"""Pydantic schemas (HTTP DTOs) for the MailFlow API.
 
-Separan el contrato HTTP de los modelos SQLAlchemy. Las credenciales/secretos
-(passwords IMAP, API keys de LLM) solo se aceptan en la entrada (write-only) y
-NUNCA se devuelven en las respuestas.
+HTTP contracts stay separate from SQLAlchemy models. Credentials and secrets are
+write-only and are never returned by read endpoints.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,13 +23,19 @@ class EmailAccountCreate(BaseModel):
     imap_port: int = 993
     use_ssl: bool = True
     username: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=1, repr=False)  # write-only, se cifra
+    password: str = Field(min_length=1, repr=False)  # write-only, encrypted
     inbox_folder: str = "INBOX"
     unclassified_folder: str = "Sin_Clasificar"
     drafts_folder: str = "Drafts"
     interval_minutes: int = Field(default=5, ge=1, le=1440)
     provider_type: str = "imap"
     llm_provider_id: UUID | None = None
+    # Omitted => private for authenticated multi-user requests, shared in legacy
+    # single-tenant mode where there is no Better Auth user identity.
+    ownership_mode: Literal["private", "shared"] | None = None
+    # Only used when ownership_mode=shared. Organization membership is validated
+    # server-side; membership in the organization alone never grants mailbox use.
+    shared_user_ids: list[str] = Field(default_factory=list)
 
 
 class EmailAccountUpdate(BaseModel):
@@ -49,6 +55,8 @@ class EmailAccountUpdate(BaseModel):
 class EmailAccountOut(ORMModel):
     id: UUID
     org_id: UUID
+    owner_user_id: str | None
+    ownership_mode: Literal["private", "shared", "unresolved"]
     provider_type: str
     imap_host: str
     imap_port: int
@@ -64,12 +72,28 @@ class EmailAccountOut(ORMModel):
     created_at: datetime
 
 
+class SharedMailboxAccessOut(ORMModel):
+    user_id: str
+    can_use: bool
+    can_manage: bool
+
+
+class SharedMailboxAccessReplace(BaseModel):
+    user_ids: list[str] = Field(default_factory=list)
+
+
+class MailboxOwnershipUpdate(BaseModel):
+    mode: Literal["private", "shared"]
+    target_owner_user_id: str | None = None
+    shared_user_ids: list[str] = Field(default_factory=list)
+
+
 # ── LLM providers ─────────────────────────────────────────────────────────────
 class LLMProviderCreate(BaseModel):
     label: str = Field(min_length=1, max_length=100)
     type: str = Field(min_length=1, max_length=50)
     base_url: str = Field(min_length=1, max_length=500)
-    api_key: str | None = Field(default=None, repr=False)  # write-only, se cifra
+    api_key: str | None = Field(default=None, repr=False)  # write-only, encrypted
     default_classification_model: str = Field(min_length=1, max_length=200)
     default_generation_model: str = Field(min_length=1, max_length=200)
 
@@ -142,7 +166,7 @@ class InternalDomainOut(ORMModel):
     domain: str
 
 
-# ── Cycles / audit log ──────────────────────────────────────────────────────--
+# ── Cycles / audit log ────────────────────────────────────────────────────────
 class CycleOut(ORMModel):
     id: UUID
     account_id: UUID

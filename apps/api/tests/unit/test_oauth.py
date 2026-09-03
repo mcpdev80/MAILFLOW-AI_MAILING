@@ -1,4 +1,4 @@
-"""Tests de los helpers OAuth y la firma del state (sin red ni DB)."""
+"""OAuth helper and signed-state tests without network access."""
 
 from __future__ import annotations
 
@@ -9,12 +9,48 @@ import pytest
 os.environ.setdefault("SECRET_KEY", "qdCa5nGhLjd8qY0CCaQP2dE000lbSYDmtPnhzAVeVgs=")
 
 
-# ── state signing (router) ────────────────────────────────────────────────────
+def _private_state(org_id: str = "org-123") -> str:
+    from app.routers.oauth import _sign_state
+
+    return _sign_state(
+        org_id,
+        auth_org_id="better-auth-org-123",
+        owner_user_id="user-123",
+        manager_user_id=None,
+        ownership_mode="private",
+        shared_user_ids=[],
+    )
+
+
 def test_state_sign_verify_roundtrip():
+    from app.routers.oauth import _verify_state
+
+    data = _verify_state(_private_state())
+    assert data["org"] == "org-123"
+    assert data["auth_org"] == "better-auth-org-123"
+    assert data["owner"] == "user-123"
+    assert data["mode"] == "private"
+    assert data["shared_users"] == []
+
+
+def test_shared_state_preserves_selected_users():
     from app.routers.oauth import _sign_state, _verify_state
 
-    state = _sign_state("org-123")
-    assert _verify_state(state) == "org-123"
+    state = _sign_state(
+        "org-shared",
+        auth_org_id="better-auth-org-shared",
+        owner_user_id=None,
+        manager_user_id="admin-1",
+        ownership_mode="shared",
+        shared_user_ids=["user-b", "user-a", "user-b"],
+    )
+    data = _verify_state(state)
+    assert data["org"] == "org-shared"
+    assert data["auth_org"] == "better-auth-org-shared"
+    assert data["owner"] is None
+    assert data["manager"] == "admin-1"
+    assert data["mode"] == "shared"
+    assert data["shared_users"] == ["user-a", "user-b"]
 
 
 def test_state_expires(monkeypatch):
@@ -24,10 +60,7 @@ def test_state_expires(monkeypatch):
 
     from app.routers import oauth as oauth_router
 
-    state = oauth_router._sign_state("org-123")
-    # Avanzar el reloj más allá del TTL → el state caduca. Se reemplaza SOLO la
-    # referencia `time` del router (no el módulo time global, para no filtrar a
-    # otros tests).
+    state = _private_state()
     future = oauth_router.time.time() + oauth_router.STATE_TTL_SECONDS + 1
     monkeypatch.setattr(
         oauth_router, "time", types.SimpleNamespace(time=lambda: future)
@@ -38,27 +71,22 @@ def test_state_expires(monkeypatch):
 
 
 def test_state_roundtrip_is_stable_across_many_signatures():
-    # La firma HMAC son bytes arbitrarios; el roundtrip debe funcionar SIEMPRE,
-    # no ~88% de las veces (regresión del separador de byte ambiguo).
-    from app.routers.oauth import _sign_state, _verify_state
+    from app.routers.oauth import _verify_state
 
     for _ in range(300):
-        assert _verify_state(_sign_state("org-xyz")) == "org-xyz"
+        assert _verify_state(_private_state("org-xyz"))["org"] == "org-xyz"
 
 
 def test_state_is_unique_per_call():
-    from app.routers.oauth import _sign_state
-
-    # El nonce hace cada state distinto aunque la org sea la misma.
-    assert _sign_state("org-1") != _sign_state("org-1")
+    assert _private_state("org-1") != _private_state("org-1")
 
 
 def test_state_tamper_is_rejected():
     from fastapi import HTTPException
 
-    from app.routers.oauth import _sign_state, _verify_state
+    from app.routers.oauth import _verify_state
 
-    state = _sign_state("org-123")
+    state = _private_state()
     tampered = state[:-2] + ("AA" if not state.endswith("AA") else "BB")
     with pytest.raises(HTTPException):
         _verify_state(tampered)
@@ -73,7 +101,6 @@ def test_garbage_state_is_rejected():
         _verify_state("not-a-valid-state")
 
 
-# ── provider support ──────────────────────────────────────────────────────────
 def test_supported_providers_and_endpoints():
     from app import oauth
 
@@ -88,7 +115,6 @@ def test_authorize_url_not_configured_raises():
     from app import oauth
     from app.config import settings
 
-    # Sin CLIENT_ID/SECRET → OAuthNotConfigured.
     orig = (settings.GOOGLE_CLIENT_ID, settings.GOOGLE_CLIENT_SECRET)
     settings.GOOGLE_CLIENT_ID = ""
     settings.GOOGLE_CLIENT_SECRET = ""

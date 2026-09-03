@@ -1,20 +1,39 @@
 "use client";
 
+import { authClient, useSession } from "@/lib/auth-client";
 import { ApiError, api } from "@/lib/api";
 import type { LLMProvider } from "@/lib/types";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Step = "llm" | "account" | "done";
 
+type Member = {
+  id: string;
+  userId?: string;
+  role: string;
+  user?: { id?: string; email?: string; name?: string };
+};
+
+type AccountForm = {
+  imap_host: string;
+  username: string;
+  password: string;
+  interval_minutes: number;
+  llm_provider_id: string;
+  ownership_mode: "private" | "shared";
+  shared_user_ids: string[];
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [step, setStep] = useState<Step>("llm");
   const [providers, setProviders] = useState<LLMProvider[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // LLM form
   const [llm, setLlm] = useState({
     label: "Local Ollama",
     type: "ollama",
@@ -24,13 +43,14 @@ export default function OnboardingPage() {
     api_key: "",
   });
 
-  // Account form
-  const [acct, setAcct] = useState({
+  const [acct, setAcct] = useState<AccountForm>({
     imap_host: "",
     username: "",
     password: "",
     interval_minutes: 5,
     llm_provider_id: "",
+    ownership_mode: "private",
+    shared_user_ids: [],
   });
 
   useEffect(() => {
@@ -44,9 +64,58 @@ export default function OnboardingPage() {
         }
       })
       .catch(() => {
-        /* API may be unreachable; stay on step 1 */
+        /* API may be unreachable; stay on step 1. */
       });
   }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    authClient.organization
+      .listMembers()
+      .then((result) => {
+        if (!result.error) {
+          const data = result.data as unknown as { members?: Member[] };
+          setMembers(data.members ?? []);
+        }
+      })
+      .catch(() => {
+        /* Membership loading only affects optional shared-mailbox setup. */
+      });
+  }, [session?.user?.id]);
+
+  const currentMember = useMemo(
+    () =>
+      members.find(
+        (member) =>
+          member.userId === session?.user?.id ||
+          member.user?.id === session?.user?.id,
+      ),
+    [members, session?.user?.id],
+  );
+  const canCreateShared =
+    currentMember?.role === "owner" || currentMember?.role === "admin";
+
+  function memberUserId(member: Member): string | null {
+    return member.userId ?? member.user?.id ?? null;
+  }
+
+  function toggleSharedUser(userId: string, checked: boolean) {
+    setAcct((current) => ({
+      ...current,
+      shared_user_ids: checked
+        ? [...new Set([...current.shared_user_ids, userId])]
+        : current.shared_user_ids.filter((id) => id !== userId),
+    }));
+  }
+
+  function mailboxOwnershipOptions() {
+    if (!session?.user?.id) return undefined;
+    return {
+      ownershipMode: acct.ownership_mode,
+      sharedUserIds:
+        acct.ownership_mode === "shared" ? acct.shared_user_ids : [],
+    } as const;
+  }
 
   async function submitLlm(e: React.FormEvent) {
     e.preventDefault();
@@ -84,6 +153,13 @@ export default function OnboardingPage() {
         password: acct.password,
         interval_minutes: Number(acct.interval_minutes),
         llm_provider_id: acct.llm_provider_id || null,
+        ...(session?.user?.id
+          ? {
+              ownership_mode: acct.ownership_mode,
+              shared_user_ids:
+                acct.ownership_mode === "shared" ? acct.shared_user_ids : [],
+            }
+          : {}),
       });
       setStep("done");
       setTimeout(() => router.push("/app/dashboard"), 900);
@@ -100,8 +176,10 @@ export default function OnboardingPage() {
     setError(null);
     setBusy(true);
     try {
-      const { authorize_url } = await api.oauthAuthorizeUrl(provider);
-      // Redirige el navegador al consentimiento del proveedor.
+      const { authorize_url } = await api.oauthAuthorizeUrl(
+        provider,
+        mailboxOwnershipOptions(),
+      );
       window.location.href = authorize_url;
     } catch (err) {
       setError(
@@ -112,6 +190,62 @@ export default function OnboardingPage() {
       setBusy(false);
     }
   }
+
+  const mailboxOwnershipFields = session?.user?.id ? (
+    <div className="card" style={{ marginTop: "1rem" }}>
+      <h3>Mailbox privacy</h3>
+      <div className="field">
+        <label htmlFor="ownership-mode">Who should have access?</label>
+        <select
+          id="ownership-mode"
+          value={acct.ownership_mode}
+          onChange={(e) => {
+            const mode = e.target.value as "private" | "shared";
+            setAcct((current) => ({
+              ...current,
+              ownership_mode: mode,
+              shared_user_ids: mode === "shared" ? current.shared_user_ids : [],
+            }));
+          }}
+        >
+          <option value="private">Private — only me</option>
+          {canCreateShared && (
+            <option value="shared">Shared — selected members</option>
+          )}
+        </select>
+      </div>
+
+      {acct.ownership_mode === "shared" && canCreateShared && (
+        <div className="field">
+          <span>Members with mailbox access</span>
+          <div style={{ display: "grid", gap: "0.45rem", marginTop: "0.4rem" }}>
+            {members.map((member) => {
+              const userId = memberUserId(member);
+              if (!userId) return null;
+              const label =
+                member.user?.email ?? member.user?.name ?? userId;
+              return (
+                <label key={member.id} style={{ display: "flex", gap: "0.5rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={acct.shared_user_ids.includes(userId)}
+                    onChange={(e) => toggleSharedUser(userId, e.target.checked)}
+                  />
+                  <span>
+                    {label} <span className="muted">· {member.role}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="muted" style={{ fontSize: "0.8rem", marginBottom: 0 }}>
+            Organization admins do not automatically get mailbox access. Only
+            the selected members can see this mailbox.
+          </p>
+        </div>
+      )}
+    </div>
+  ) : null;
 
   return (
     <main className="container">
@@ -204,6 +338,8 @@ export default function OnboardingPage() {
 
       {step === "account" && (
         <>
+          {mailboxOwnershipFields}
+
           <div className="card">
             <h3>2. Connect a mailbox</h3>
             <p className="muted">
