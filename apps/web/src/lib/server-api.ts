@@ -2,8 +2,9 @@
  * Server-side API authentication for the MailFlow BFF.
  *
  * The organization API key identifies the tenant. In authenticated multi-user
- * mode we additionally propagate the Better Auth user id in signed headers so
- * FastAPI can enforce private mailbox ownership without trusting browser input.
+ * mode we additionally propagate signed Better Auth membership details so
+ * FastAPI can enforce mailbox ownership and selective sharing without trusting
+ * browser-supplied identity or role headers.
  */
 import { createHmac } from "node:crypto";
 import { auth, authEnabled } from "@/lib/auth";
@@ -15,6 +16,8 @@ export const API_INTERNAL_URL =
 interface ActorIdentity {
   userId: string;
   orgId: string;
+  authOrgId: string;
+  role: string;
 }
 
 export type KeyResolution =
@@ -24,6 +27,12 @@ export type KeyResolution =
 interface OrgMeta {
   mf_api_key_enc?: string;
   mf_org_id?: string;
+}
+
+interface OrgMember {
+  userId?: string;
+  role?: string;
+  user?: { id?: string };
 }
 
 function parseMeta(raw: unknown): OrgMeta {
@@ -38,6 +47,14 @@ function parseMeta(raw: unknown): OrgMeta {
     return raw as OrgMeta;
   }
   return {};
+}
+
+function resolveMemberRole(org: unknown, userId: string): string | null {
+  const members = (org as { members?: OrgMember[] })?.members ?? [];
+  const member = members.find(
+    (item) => item.userId === userId || item.user?.id === userId,
+  );
+  return member?.role ?? null;
 }
 
 export async function resolveApiKey(
@@ -56,10 +73,14 @@ export async function resolveApiKey(
     return { ok: false, status: 401, error: "not_authenticated" };
   }
 
-  const orgId = session.session.activeOrganizationId;
+  const authOrgId = session.session.activeOrganizationId;
+  if (!authOrgId) {
+    return { ok: false, status: 400, error: "no_active_organization" };
+  }
+
   const org = await auth.api.getFullOrganization({
     headers: reqHeaders,
-    query: orgId ? { organizationId: orgId } : {},
+    query: { organizationId: authOrgId },
   });
   if (!org) {
     return { ok: false, status: 400, error: "no_active_organization" };
@@ -73,12 +94,19 @@ export async function resolveApiKey(
     return { ok: false, status: 500, error: "actor_signing_not_configured" };
   }
 
+  const role = resolveMemberRole(org, session.user.id);
+  if (!role) {
+    return { ok: false, status: 403, error: "organization_membership_required" };
+  }
+
   return {
     ok: true,
     apiKey: decryptSecret(meta.mf_api_key_enc),
     actor: {
       userId: session.user.id,
       orgId: meta.mf_org_id,
+      authOrgId,
+      role,
     },
   };
 }
@@ -97,14 +125,22 @@ export function actorHeaders(
   }
 
   const timestamp = Math.floor(Date.now() / 1000).toString();
-  const payload = [method.toUpperCase(), path, actor.userId, actor.orgId, timestamp].join(
-    "\n",
-  );
+  const payload = [
+    method.toUpperCase(),
+    path,
+    actor.userId,
+    actor.orgId,
+    actor.authOrgId,
+    actor.role,
+    timestamp,
+  ].join("\n");
   const signature = createHmac("sha256", secret).update(payload).digest("hex");
 
   return {
     "X-MailFlow-Actor-User-Id": actor.userId,
     "X-MailFlow-Actor-Org-Id": actor.orgId,
+    "X-MailFlow-Actor-Auth-Org-Id": actor.authOrgId,
+    "X-MailFlow-Actor-Role": actor.role,
     "X-MailFlow-Actor-Timestamp": timestamp,
     "X-MailFlow-Actor-Signature": signature,
   };
