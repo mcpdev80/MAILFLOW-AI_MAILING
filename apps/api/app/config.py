@@ -9,24 +9,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://mailflow:mailflow@localhost:5432/mailflow"
     REDIS_URL: str = "redis://localhost:6379/0"
-    # Existing deployment secret. It remains the HMAC/signing secret and is also
-    # accepted as the legacy Fernet encryption key for backward compatibility.
+    # Existing deployment secret. It remains the HMAC/signing secret and is used
+    # as the legacy Fernet DB encryption key only while no explicit key ring exists.
     SECRET_KEY: str
     # Optional comma-separated Fernet key ring for DB secrets. The first key is
-    # primary for new writes; later keys are decrypt-only fallbacks during key
-    # rotation. SECRET_KEY is appended automatically as a legacy fallback.
+    # primary for new writes; later keys are decrypt-only fallbacks during rotation.
+    # Once set, this list fully owns DB encryption independently of SECRET_KEY.
     SECRET_ENCRYPTION_KEYS: str = ""
 
-    # Allowed CORS origins. Comma-separated in the environment variable.
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
-    # Authentication mode:
-    #   "single" — self-host: one default organization, no user tokens.
-    #   "multi"  — each request carries an organization API key plus actor BFF identity.
     AUTH_MODE: str = "single"
     SINGLE_TENANT_API_KEY: str = ""
 
-    # OAuth2. Empty values disable the corresponding provider.
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
     MICROSOFT_CLIENT_ID: str = ""
@@ -35,17 +30,14 @@ class Settings(BaseSettings):
     OAUTH_REDIRECT_BASE: str = "http://localhost:8000"
     OAUTH_SUCCESS_REDIRECT: str = "http://localhost:3000/app/dashboard"
 
-    # Shared web↔api internal signing secret. Never expose publicly.
     INTERNAL_API_SECRET: str = ""
 
-    # Observability.
     LOG_FORMAT: str = "json"
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "development"
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0
 
-    # Billing.
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PRICE_PRO: str = ""
