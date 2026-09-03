@@ -14,6 +14,7 @@ def _private_state(org_id: str = "org-123") -> str:
 
     return _sign_state(
         org_id,
+        auth_org_id="better-auth-org-123",
         owner_user_id="user-123",
         manager_user_id=None,
         ownership_mode="private",
@@ -26,6 +27,7 @@ def test_state_sign_verify_roundtrip():
 
     data = _verify_state(_private_state())
     assert data["org"] == "org-123"
+    assert data["auth_org"] == "better-auth-org-123"
     assert data["owner"] == "user-123"
     assert data["mode"] == "private"
     assert data["shared_users"] == []
@@ -36,6 +38,7 @@ def test_shared_state_preserves_selected_users():
 
     state = _sign_state(
         "org-shared",
+        auth_org_id="better-auth-org-shared",
         owner_user_id=None,
         manager_user_id="admin-1",
         ownership_mode="shared",
@@ -43,6 +46,7 @@ def test_shared_state_preserves_selected_users():
     )
     data = _verify_state(state)
     assert data["org"] == "org-shared"
+    assert data["auth_org"] == "better-auth-org-shared"
     assert data["owner"] is None
     assert data["manager"] == "admin-1"
     assert data["mode"] == "shared"
@@ -136,7 +140,7 @@ def test_google_authorize_url_includes_params(monkeypatch):
     assert "access_type=offline" in url
     assert "mail.google.com" in url
     assert "oauth%2Fgmail%2Fcallback" in url
-    
+
 
 def test_email_from_id_token_decodes_claims():
     import base64
