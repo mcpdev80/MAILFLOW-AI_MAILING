@@ -7,13 +7,16 @@ API layers intentionally share PostgreSQL while owning separate schemas.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from app.models import Base
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-TEST_DATABASE_URL = (
-    "postgresql+asyncpg://mailflow:mailflow@localhost:5432/mailflow_test"
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://mailflow:mailflow@localhost:5432/mailflow_test",
 )
 
 
