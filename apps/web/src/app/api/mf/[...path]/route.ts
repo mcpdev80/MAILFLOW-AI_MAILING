@@ -1,14 +1,17 @@
 /**
- * Proxy BFF: el navegador llama a `/api/mf/*` (mismo origen) y este handler
- * reenvía al FastAPI por la red interna añadiendo la `X-API-Key` resuelta en el
- * servidor. Así la API key nunca viaja al navegador.
+ * MailFlow BFF proxy.
  *
- * Solo se permiten prefijos de datos conocidos; `/internal/*` jamás se expone.
+ * The browser calls `/api/mf/*`. This server-side handler adds the organization
+ * API key and, when Better Auth is enabled, a signed user identity. Neither the
+ * API key nor the signing secret is exposed to the browser.
  */
-import { API_INTERNAL_URL, resolveApiKey } from "@/lib/server-api";
+import {
+  API_INTERNAL_URL,
+  actorHeaders,
+  resolveApiKey,
+} from "@/lib/server-api";
 import { type NextRequest, NextResponse } from "next/server";
 
-// Allowlist por primer segmento de la ruta. Nunca incluir "internal".
 const ALLOWED_PREFIXES = new Set([
   "accounts",
   "llm-providers",
@@ -20,6 +23,8 @@ const ALLOWED_PREFIXES = new Set([
 function buildForwardHeaders(
   request: NextRequest,
   apiKey: string | null,
+  actor: Parameters<typeof actorHeaders>[2],
+  targetPath: string,
 ): Headers {
   const headers = new Headers();
   const contentType = request.headers.get("content-type");
@@ -28,6 +33,11 @@ function buildForwardHeaders(
   }
   if (apiKey) {
     headers.set("X-API-Key", apiKey);
+  }
+  for (const [name, value] of Object.entries(
+    actorHeaders(request.method, targetPath, actor),
+  )) {
+    headers.set(name, value);
   }
   return headers;
 }
@@ -49,10 +59,16 @@ async function proxy(
     );
   }
 
-  const target = `${API_INTERNAL_URL}/${path.join("/")}${request.nextUrl.search}`;
+  const targetPath = `/${path.join("/")}`;
+  const target = `${API_INTERNAL_URL}${targetPath}${request.nextUrl.search}`;
   const init: RequestInit = {
     method: request.method,
-    headers: buildForwardHeaders(request, resolution.apiKey),
+    headers: buildForwardHeaders(
+      request,
+      resolution.apiKey,
+      resolution.actor,
+      targetPath,
+    ),
     cache: "no-store",
   };
   if (request.method !== "GET" && request.method !== "HEAD") {
