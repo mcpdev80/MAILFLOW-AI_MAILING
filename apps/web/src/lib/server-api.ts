@@ -7,9 +7,9 @@
  * browser-supplied identity or role headers.
  */
 import { createHmac } from "node:crypto";
-import { Pool } from "pg";
 import { auth, authEnabled } from "@/lib/auth";
 import { decryptSecret } from "@/lib/crypto";
+import { Pool } from "pg";
 
 export const API_INTERNAL_URL =
   process.env.API_INTERNAL_URL ?? "http://localhost:8000";
@@ -101,7 +101,11 @@ export async function resolveApiKey(
 
   const role = await resolveMemberRole(authOrgId, session.user.id);
   if (!role) {
-    return { ok: false, status: 403, error: "organization_membership_required" };
+    return {
+      ok: false,
+      status: 403,
+      error: "organization_membership_required",
+    };
   }
 
   return {
