@@ -1,4 +1,4 @@
-"""MailFlow API — entry point."""
+"""MailFlow API entry point."""
 
 from __future__ import annotations
 
@@ -25,6 +25,8 @@ from app.routers import (
     oauth_router,
     rules_router,
 )
+from app.secret_storage import validate_stored_secrets
+from app.secrets import SecretConfigurationError
 
 setup_logging()
 init_sentry()
@@ -56,26 +58,28 @@ app.include_router(metrics_router)
 
 
 @app.on_event("startup")
-async def _warn_if_open() -> None:
-    """Secure-by-default: avisa si la API queda accesible sin autenticación.
-
-    En `single` sin SINGLE_TENANT_API_KEY la API está abierta (uso solo en
-    localhost/LAN). Si se expone a internet hay que definir la API key.
-    """
+async def _startup_security_checks() -> None:
+    """Validate authentication defaults and all stored encrypted secrets."""
     if settings.AUTH_MODE == "single" and not settings.SINGLE_TENANT_API_KEY:
         logger.warning(
             "SECURITY: API is OPEN (AUTH_MODE=single without SINGLE_TENANT_API_KEY). "
             "Set SINGLE_TENANT_API_KEY before exposing this instance to the internet."
         )
 
+    try:
+        async with async_session_factory() as session:
+            count = await validate_stored_secrets(session)
+    except SecretConfigurationError:
+        logger.critical(
+            "Encrypted application secrets cannot be decrypted with the configured key ring. "
+            "Restore the matching deployment key or add the previous key as a rotation fallback."
+        )
+        raise
+    logger.info("Validated %d encrypted application secrets", count)
+
 
 @app.get("/health")
 async def health() -> JSONResponse:
-    """Readiness probe: comprueba conectividad con la base de datos.
-
-    Devuelve 200 si la DB responde, 503 si no. Pensado para monitores de
-    uptime y orquestadores (Docker healthcheck, k8s readiness).
-    """
     started = time.monotonic()
     db_ok = False
     error: str | None = None
