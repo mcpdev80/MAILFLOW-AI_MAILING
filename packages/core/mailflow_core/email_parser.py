@@ -59,7 +59,7 @@ class EmailParser:
             uid=email_data.uid,
             subject_normalized=subject_normalized,
             body_text=body_text,
-            body_html="",
+            body_html=email_data.body_html,
             signature=sanitize_text(signature),
             from_email=email_data.from_email,
             from_domain=from_domain,
