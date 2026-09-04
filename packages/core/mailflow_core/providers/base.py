@@ -9,6 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+from mailflow_core.types import MailAuthSignals
+
 
 @dataclass(frozen=True)
 class EmailData:
@@ -27,6 +29,7 @@ class EmailData:
     reply_to: str | None = None
     list_id: str | None = None
     precedence: str | None = None
+    auth_signals: MailAuthSignals = field(default_factory=MailAuthSignals)
 
 
 @dataclass(frozen=True)

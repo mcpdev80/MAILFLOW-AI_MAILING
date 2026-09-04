@@ -84,6 +84,23 @@ class ProcessedEmail(Base):
     classification_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
     classification_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
+    auth_spf: Mapped[str] = mapped_column(
+        String(16), default="unknown", server_default="unknown"
+    )
+    auth_dkim: Mapped[str] = mapped_column(
+        String(16), default="unknown", server_default="unknown"
+    )
+    auth_dmarc: Mapped[str] = mapped_column(
+        String(20), default="unknown", server_default="unknown"
+    )
+    auth_arc: Mapped[str] = mapped_column(
+        String(16), default="unknown", server_default="unknown"
+    )
+    spam_verdict: Mapped[str] = mapped_column(
+        String(16), default="unknown", server_default="unknown"
+    )
+    spam_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     method: Mapped[str] = mapped_column(String(50))
     draft_saved: Mapped[bool] = mapped_column(Boolean, default=False)
     cycle_id: Mapped[UUID] = mapped_column(
