@@ -92,6 +92,9 @@ async def create_account(
         drafts_folder=payload.drafts_folder,
         interval_minutes=payload.interval_minutes,
         llm_provider_id=payload.llm_provider_id,
+        move_policy=payload.move_policy,
+        archive_policy=payload.archive_policy,
+        action_confidence_threshold=payload.action_confidence_threshold,
     )
     session.add(account)
     await session.flush()
