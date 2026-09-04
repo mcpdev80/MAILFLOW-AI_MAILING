@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
+from mailflow_core.action_policy import ActionDecision
 from mailflow_core.types import ClassificationResult, MailAuthSignals
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -58,6 +59,7 @@ class CycleRepository:
         subject: str,
         destination_folder: str,
         classification: ClassificationResult,
+        action_decision: ActionDecision,
         auth_signals: MailAuthSignals,
         draft_saved: bool,
         cycle_id: UUID,
@@ -80,6 +82,10 @@ class CycleRepository:
                 from_email=from_email,
                 subject=subject,
                 destination_folder=destination_folder,
+                mailbox_action=action_decision.action,
+                mailbox_action_status=action_decision.disposition,
+                mailbox_action_reason=action_decision.reason,
+                action_review_required=action_decision.requires_review,
                 classification_label=classification.label,
                 category=classification.category,
                 subcategory=classification.subcategory,
