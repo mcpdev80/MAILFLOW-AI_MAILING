@@ -444,7 +444,9 @@ async def _process_one(
     # marked processed so repeated cycles remain idempotent.
     await asyncio.to_thread(provider.mark_as_processed, email_data.uid)
     if action_decision.execute:
-        moved = await asyncio.to_thread(provider.move_email, email_data.uid, destination)
+        moved = await asyncio.to_thread(
+            provider.move_email, email_data.uid, destination
+        )
         if not moved:
             raise RuntimeError("mailbox_move_failed")
 
