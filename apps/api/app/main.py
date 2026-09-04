@@ -15,6 +15,7 @@ from app.database import async_session_factory
 from app.logging_config import setup_logging
 from app.middleware import RequestIdMiddleware
 from app.observability import init_sentry
+from app.restore_validation import RestoreValidationError, validate_schema_revision
 from app.routers import (
     accounts_router,
     billing_router,
@@ -59,7 +60,7 @@ app.include_router(metrics_router)
 
 @app.on_event("startup")
 async def _startup_security_checks() -> None:
-    """Validate authentication defaults and all stored encrypted secrets."""
+    """Validate schema compatibility, authentication defaults and stored secrets."""
     if settings.AUTH_MODE == "single" and not settings.SINGLE_TENANT_API_KEY:
         logger.warning(
             "SECURITY: API is OPEN (AUTH_MODE=single without SINGLE_TENANT_API_KEY). "
@@ -68,14 +69,22 @@ async def _startup_security_checks() -> None:
 
     try:
         async with async_session_factory() as session:
+            revision = await validate_schema_revision(session)
             count = await validate_stored_secrets(session)
+    except RestoreValidationError as exc:
+        logger.critical("Database schema validation failed: %s", exc)
+        raise
     except SecretConfigurationError:
         logger.critical(
             "Encrypted application secrets cannot be decrypted with the configured key ring. "
             "Restore the matching deployment key or add the previous key as a rotation fallback."
         )
         raise
-    logger.info("Validated %d encrypted application secrets", count)
+    logger.info(
+        "Validated database schema revision %s and %d encrypted application secrets",
+        revision,
+        count,
+    )
 
 
 @app.get("/health")
