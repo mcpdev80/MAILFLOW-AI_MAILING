@@ -190,7 +190,7 @@ class AdaptiveClassifier:
                     attachment_extraction_error="; ".join(errors)[:300] or None,
                 )
 
-            if reliable or stage == 3:
+            if (reliable and not strong_attachment_signal) or stage == 3:
                 return AdaptiveClassificationOutcome(result=result, email=current, stage=stage)
             previous_result = result
 
