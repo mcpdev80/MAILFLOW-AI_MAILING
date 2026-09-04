@@ -14,7 +14,9 @@ from app.decision_memory_schemas import DecisionMemoryOut, DecisionMemoryWrite
 from app.mailbox_access import get_accessible_account, get_account_for_management
 from app.repositories.decision_memory import DecisionMemoryRepository
 
-router = APIRouter(prefix="/accounts/{account_id}/decision-memory", tags=["decision-memory"])
+router = APIRouter(
+    prefix="/accounts/{account_id}/decision-memory", tags=["decision-memory"]
+)
 
 
 def _classification(payload: DecisionMemoryWrite) -> ClassificationResult:
