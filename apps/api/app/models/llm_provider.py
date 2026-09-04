@@ -30,8 +30,12 @@ class LLMProvider(Base):
     default_generation_model: Mapped[str] = mapped_column(String(200))
 
     # Explicit model roles. Null means use the compatibility value above.
-    fast_classification_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    deep_classification_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    fast_classification_model: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )
+    deep_classification_model: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )
     generation_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # Optional per-role OpenAI-compatible endpoints and credentials. This allows
@@ -46,7 +50,9 @@ class LLMProvider(Base):
     generation_base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     encrypted_fast_api_key: Mapped[str | None] = mapped_column(String, nullable=True)
     encrypted_deep_api_key: Mapped[str | None] = mapped_column(String, nullable=True)
-    encrypted_generation_api_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    encrypted_generation_api_key: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(

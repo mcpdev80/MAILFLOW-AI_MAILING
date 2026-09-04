@@ -32,9 +32,11 @@ const emptyForm: FormState = {
 function formFor(provider: LLMProvider): FormState {
   return {
     fastModel:
-      provider.fast_classification_model ?? provider.default_classification_model,
+      provider.fast_classification_model ??
+      provider.default_classification_model,
     deepModel:
-      provider.deep_classification_model ?? provider.default_classification_model,
+      provider.deep_classification_model ??
+      provider.default_classification_model,
     generationModel:
       provider.generation_model ?? provider.default_generation_model,
     fastBaseUrl: provider.fast_classification_base_url ?? "",
@@ -71,7 +73,9 @@ export default function ModelSettingsPage() {
       })
       .catch((err) => {
         setError(
-          err instanceof ApiError ? err.message : "Could not load LLM providers",
+          err instanceof ApiError
+            ? err.message
+            : "Could not load LLM providers",
         );
       });
   }, []);
@@ -111,7 +115,9 @@ export default function ModelSettingsPage() {
       setForm(formFor(updated));
       setNotice("Model roles updated.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save model roles");
+      setError(
+        err instanceof ApiError ? err.message : "Could not save model roles",
+      );
     } finally {
       setBusy(false);
     }
@@ -125,7 +131,8 @@ export default function ModelSettingsPage() {
       <h1>Model roles</h1>
       <p className="muted">
         Stage 0/1 use the fast role by default; Stage 2/3 use the deep role.
-        Role-specific endpoints are optional and fall back to the provider base URL.
+        Role-specific endpoints are optional and fall back to the provider base
+        URL.
       </p>
 
       {error && <div className="alert error">{error}</div>}
@@ -189,7 +196,9 @@ export default function ModelSettingsPage() {
               onChange={(event) =>
                 setForm({ ...form, fastApiKey: event.target.value })
               }
-              placeholder={provider?.has_fast_api_key ? "Configured" : "Use shared key"}
+              placeholder={
+                provider?.has_fast_api_key ? "Configured" : "Use shared key"
+              }
             />
           </div>
 
@@ -227,7 +236,9 @@ export default function ModelSettingsPage() {
               onChange={(event) =>
                 setForm({ ...form, deepApiKey: event.target.value })
               }
-              placeholder={provider?.has_deep_api_key ? "Configured" : "Use shared key"}
+              placeholder={
+                provider?.has_deep_api_key ? "Configured" : "Use shared key"
+              }
             />
           </div>
 
@@ -266,7 +277,9 @@ export default function ModelSettingsPage() {
                 setForm({ ...form, generationApiKey: event.target.value })
               }
               placeholder={
-                provider?.has_generation_api_key ? "Configured" : "Use shared key"
+                provider?.has_generation_api_key
+                  ? "Configured"
+                  : "Use shared key"
               }
             />
           </div>

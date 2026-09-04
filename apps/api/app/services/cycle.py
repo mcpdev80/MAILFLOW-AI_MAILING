@@ -115,28 +115,20 @@ def _build_llm_client(
             model_id=llm_provider.default_classification_model,
             api_base=llm_provider.base_url,
             api_key=shared_api_key,
-            fast_model_id=_provider_string(
-                llm_provider, "fast_classification_model"
-            ),
+            fast_model_id=_provider_string(llm_provider, "fast_classification_model"),
             fast_api_base=_provider_string(
                 llm_provider, "fast_classification_base_url"
             ),
             fast_api_key=(
-                _decrypt_llm_key(
-                    getattr(llm_provider, "encrypted_fast_api_key", None)
-                )
+                _decrypt_llm_key(getattr(llm_provider, "encrypted_fast_api_key", None))
                 or shared_api_key
             ),
-            deep_model_id=_provider_string(
-                llm_provider, "deep_classification_model"
-            ),
+            deep_model_id=_provider_string(llm_provider, "deep_classification_model"),
             deep_api_base=_provider_string(
                 llm_provider, "deep_classification_base_url"
             ),
             deep_api_key=(
-                _decrypt_llm_key(
-                    getattr(llm_provider, "encrypted_deep_api_key", None)
-                )
+                _decrypt_llm_key(getattr(llm_provider, "encrypted_deep_api_key", None))
                 or shared_api_key
             ),
             stage_roles=(

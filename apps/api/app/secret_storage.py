@@ -34,7 +34,9 @@ def _provider_query(org_id: UUID | None):
     return stmt.where(LLMProvider.org_id == org_id) if org_id else stmt
 
 
-def _provider_secret_fields(provider: LLMProvider) -> tuple[tuple[str, str | None], ...]:
+def _provider_secret_fields(
+    provider: LLMProvider,
+) -> tuple[tuple[str, str | None], ...]:
     return (
         ("encrypted_api_key", provider.encrypted_api_key),
         ("encrypted_fast_api_key", provider.encrypted_fast_api_key),
