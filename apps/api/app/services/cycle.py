@@ -449,6 +449,7 @@ async def _process_one(
             subject=email_data.subject,
             destination_folder=destination,
             classification=result,
+            auth_signals=parsed.auth_signals,
             draft_saved=draft_saved,
             cycle_id=cycle_id,
         )
