@@ -26,7 +26,7 @@ from app.routers import (
     rules_router,
 )
 from app.secret_storage import validate_stored_secrets
-from app.secrets import SecretConfigurationError
+from app.secrets import SecretConfigurationError, redact_text
 
 setup_logging()
 init_sentry()
@@ -88,7 +88,7 @@ async def health() -> JSONResponse:
             await session.execute(text("SELECT 1"))
         db_ok = True
     except Exception as exc:  # noqa: BLE001 — health must never raise
-        error = str(exc)
+        error = redact_text(str(exc))
         logger.warning("health check DB probe failed: %s", error)
 
     payload: dict[str, object] = {
