@@ -1,4 +1,4 @@
-"""Configuración de la aplicación vía variables de entorno."""
+"""Application configuration from environment variables."""
 
 from __future__ import annotations
 
@@ -9,9 +9,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://mailflow:mailflow@localhost:5432/mailflow"
     REDIS_URL: str = "redis://localhost:6379/0"
-    SECRET_KEY: (
-        str  # Must be set via environment variable — Fernet key (44-char base64)
-    )
+    # Existing deployment secret. It remains the HMAC/signing secret and is used
+    # as the legacy Fernet DB encryption key only while no explicit key ring exists.
+    SECRET_KEY: str
+    # Optional comma-separated Fernet key ring for DB secrets. The first key is
+    # primary for new writes; later keys are decrypt-only fallbacks during rotation.
+    # Once set, this list fully owns DB encryption independently of SECRET_KEY.
+    SECRET_ENCRYPTION_KEYS: str = ""
+
     # Orígenes permitidos para CORS. Coma-separados en la variable de entorno
     # CORS_ORIGINS (p.ej. "https://app.mailflow.ai,https://mailflow.ai").
     # Por defecto solo el frontend local de desarrollo.

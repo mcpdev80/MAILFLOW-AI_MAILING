@@ -1,11 +1,9 @@
-"""Tests unitarios para _build_llm_client y _build_draft_bytes."""
+"""Unit tests for _build_llm_client and _build_draft_bytes."""
 
 from __future__ import annotations
 
 import email as email_module
 from unittest.mock import MagicMock, patch
-
-# ── _build_draft_bytes ───────────────────────────────────────────────────────
 
 
 def test_build_draft_bytes_returns_valid_rfc2822():
@@ -55,9 +53,6 @@ def test_build_draft_bytes_no_in_reply_to():
     msg = email_module.message_from_bytes(result)
     assert msg["In-Reply-To"] is None
     assert msg["References"] is None
-
-
-# ── _build_llm_client ────────────────────────────────────────────────────────
 
 
 def test_build_llm_client_returns_none_for_none_provider():
@@ -123,7 +118,8 @@ def test_build_llm_client_decrypts_api_key():
     provider.default_generation_model = "gpt-4o"
     provider.default_classification_model = "gpt-4o-mini"
 
-    with patch("app.services.cycle.settings") as mock_settings:
+    with patch("app.crypto.settings") as mock_settings:
+        mock_settings.SECRET_ENCRYPTION_KEYS = ""
         mock_settings.SECRET_KEY = key
         client = _build_llm_client(provider, for_generation=True)
 

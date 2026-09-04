@@ -1,12 +1,4 @@
-"""CycleService — orquestación del loop de clasificación y borradores.
-
-Este módulo contiene:
-  - CycleResult: dataclass con resultado del ciclo
-  - CycleService: orquestador principal
-  - _process_one: procesa un email individual
-  - _build_llm_client: construye LLMClient desde LLMProvider ORM model
-  - _build_draft_bytes: convierte body text a email RFC2822 completo
-"""
+"""CycleService orchestration for classification and draft generation."""
 
 from __future__ import annotations
 
@@ -34,14 +26,14 @@ from mailflow_core.types import ClassificationResult, DraftRequest, ParsedEmail
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app import oauth
-from app.config import settings
-from app.crypto import decrypt
+from app.crypto import decrypt_secret
 from app.models.email_account import EmailAccount
 from app.models.llm_provider import LLMProvider
 from app.models.organization import Organization
 from app.quota import can_process_more
 from app.repositories.account import AccountRepository
 from app.repositories.cycle import CycleRepository
+from app.secrets import redact_text
 
 log = logging.getLogger("mailflow.cycle")
 
@@ -59,24 +51,13 @@ def _build_llm_client(
     *,
     for_generation: bool,
 ) -> LLMClient | None:
-    """Construye LLMClient con LLMConfig descifrado del provider.
-
-    Args:
-        llm_provider: modelo ORM LLMProvider (puede ser None).
-        for_generation: True → default_generation_model;
-                        False → default_classification_model.
-
-    Returns:
-        LLMClient configurado, o None si no hay provider activo.
-    """
+    """Build an LLM client while keeping decrypted API keys local to this call."""
     if llm_provider is None or not llm_provider.is_active:
         return None
 
     api_key: str | None = None
     if llm_provider.encrypted_api_key:
-        api_key = decrypt(llm_provider.encrypted_api_key, settings.SECRET_KEY)[
-            "api_key"
-        ]
+        api_key = str(decrypt_secret(llm_provider.encrypted_api_key)["api_key"])
 
     model_id = (
         llm_provider.default_generation_model
@@ -99,11 +80,6 @@ def _build_draft_bytes(
     body_text: str,
     in_reply_to: str | None = None,
 ) -> bytes:
-    """Construye email RFC2822 mínimo listo para guardar como borrador IMAP.
-
-    generate_draft() devuelve str (cuerpo del email).
-    provider.save_draft() necesita bytes RFC2822 completos (headers + body).
-    """
     msg = MIMEMultipart("alternative")
     reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
     msg["Subject"] = reply_subject
@@ -125,30 +101,23 @@ class CycleService:
         start = time.monotonic()
         stats: dict = {"emails": 0, "drafts": 0, "errors": 0, "last_error": None}
 
-        # ── 0. Claim cycle — guard TOCTOU atómico ──────────────────────────
         now = datetime.now(tz=UTC)
         async with self._sf() as session:
             won = await AccountRepository(session).claim_cycle(account_id, now)
         if not won:
             log.info("Cycle for account %s already claimed, skipping", account_id)
-            return CycleResult(
-                cycle_id=cycle_id, emails_processed=0, drafts_saved=0, errors=0
-            )
+            return CycleResult(cycle_id, 0, 0, 0)
 
-        # ── 1. Crear audit_log ──────────────────────────────────────────────
         async with self._sf() as session:
             await CycleRepository(session).create_audit_log(account_id, cycle_id)
             await session.commit()
 
-        # ── 2. Cargar config (sesión breve, sin IMAP) ───────────────────────
         async with self._sf() as session:
             account, account_config, llm_provider = await AccountRepository(
                 session
             ).get_full_config(account_id)
             await session.commit()
 
-        # ── 2b. Cuota del plan: si la org superó su límite diario de emails,
-        # se salta el ciclo (sin romper) y se registra el motivo. ────────────
         async with self._sf() as session:
             org = await session.get(Organization, account.org_id)
             plan_key = org.plan if org else None
@@ -169,24 +138,18 @@ class CycleService:
                 await session.commit()
                 return CycleResult(cycle_id, 0, 0, 0)
 
-        # ── 3. Construir herramientas de dominio ────────────────────────────
-        # Cuentas OAuth (gmail/microsoft): refrescar access_token desde el refresh
-        # token cifrado. Cuentas password: descifrar la contraseña IMAP.
         password: str | None = None
         access_token: str | None = None
         if account.provider_type in ("gmail", "microsoft") and account.encrypted_oauth:
-            refresh_token = decrypt(account.encrypted_oauth, settings.SECRET_KEY)[
-                "refresh_token"
-            ]
+            refresh_token = str(decrypt_secret(account.encrypted_oauth)["refresh_token"])
             access_token = await asyncio.to_thread(
                 oauth.access_token_from_refresh,
                 account.provider_type,
                 refresh_token,
             )
         elif account.encrypted_credentials:
-            password = decrypt(account.encrypted_credentials, settings.SECRET_KEY)[
-                "password"
-            ]
+            password = str(decrypt_secret(account.encrypted_credentials)["password"])
+
         provider = ImapGenericProvider(
             host=account.imap_host,
             port=account.imap_port,
@@ -196,21 +159,14 @@ class CycleService:
             access_token=access_token,
         )
         parser = EmailParser()
-        # ADR-007: modelos distintos para clasificación y generación
         classify_client = _build_llm_client(llm_provider, for_generation=False)
         generate_client = _build_llm_client(llm_provider, for_generation=True)
         rule_engine = RuleEngine(account_config, llm_client=classify_client)
-        # Circuit breaker para la generación con LLM: si falla repetidamente en
-        # este ciclo, deja de intentarlo (evita martillear un LLM caído).
         generation_breaker = CircuitBreaker(failure_threshold=3, reset_timeout=60.0)
 
-        # ── 4. Fetch + loop (sin sesión DB abierta durante IMAP) ────────────
         emails: list[EmailData] = []
         try:
             try:
-                # IMAP connect+fetch con reintentos: tolera fallos transitorios
-                # de red/servidor antes de abortar el ciclo. El I/O de imapclient
-                # es síncrono → se ejecuta en un hilo para no bloquear el loop.
                 async def _connect_and_fetch() -> list[EmailData]:
                     def _sync() -> list[EmailData]:
                         provider.connect()
@@ -225,13 +181,14 @@ class CycleService:
                         "IMAP fetch retry %d for account %s: %s",
                         attempt,
                         account_id,
-                        exc,
+                        redact_text(str(exc)),
                     ),
                 )
             except Exception as exc:
-                stats["last_error"] = str(exc)
+                safe_error = redact_text(str(exc))
+                stats["last_error"] = safe_error
                 stats["errors"] += 1
-                log.exception("IMAP fetch failed for account %s: %s", account_id, exc)
+                log.exception("IMAP fetch failed for account %s: %s", account_id, safe_error)
 
             for email_data in emails:
                 try:
@@ -249,12 +206,15 @@ class CycleService:
                     )
                 except Exception as exc:
                     stats["errors"] += 1
-                    stats["last_error"] = str(exc)
-                    log.exception("Error processing uid=%s: %s", email_data.uid, exc)
+                    safe_error = redact_text(str(exc))
+                    stats["last_error"] = safe_error
+                    log.exception("Error processing uid=%s: %s", email_data.uid, safe_error)
         finally:
             await asyncio.to_thread(provider.disconnect)
+            # Keep plaintext credentials scoped to this cycle only.
+            password = None
+            access_token = None
 
-        # ── 5. Finalizar audit_log ──────────────────────────────────────────
         duration_ms = int((time.monotonic() - start) * 1000)
         async with self._sf() as session:
             await CycleRepository(session).finalize_audit_log(
@@ -282,16 +242,8 @@ async def _process_one(
     stats: dict,
     sf: async_sessionmaker,
 ) -> None:
-    """Procesa un email individual. Excepciones propagadas — caller las captura.
-
-    El I/O de red síncrono (IMAP del provider, clasificación/generación con LLM)
-    se ejecuta en hilos (`asyncio.to_thread`) para no bloquear el event loop.
-    """
-
-    # a. Parse → ParsedEmail
     parsed: ParsedEmail = parser.parse(email_data)
 
-    # b. Thread-inheritance check
     thread_folder: str | None = None
     if parsed.in_reply_to:
         async with sf() as session:
@@ -299,7 +251,6 @@ async def _process_one(
                 account.id, parsed.in_reply_to
             )
 
-    # c. Clasificar (rule_engine.classify puede llamar al LLM → a un hilo)
     if thread_folder:
         result = ClassificationResult(
             label=thread_folder, confidence=0.95, method="thread"
@@ -311,11 +262,9 @@ async def _process_one(
         result.label if result.label != "unclassified" else account.unclassified_folder
     )
 
-    # d. INVARIANTE: mark ANTES de move. Tras move, el UID no existe en INBOX.
     await asyncio.to_thread(provider.mark_as_processed, email_data.uid)
     await asyncio.to_thread(provider.move_email, email_data.uid, destination)
 
-    # e. Generar borrador (solo emails no-internos y clasificados)
     draft_saved = False
     if (
         result.method != "domain_internal"
@@ -324,7 +273,6 @@ async def _process_one(
     ):
         draft_request = DraftRequest(
             in_reply_to_uid=str(email_data.uid),
-            # _drafts_folder es privado — tech debt Phase 2a (ver spec §15)
             folder=provider._drafts_folder,
             subject=parsed.subject_normalized,
             body_text=parsed.body_text,
@@ -332,12 +280,6 @@ async def _process_one(
             classification=result,
         )
 
-        # Generación con LLM (síncrona → hilo). Protegida por:
-        #  - retry+backoff: tolera un fallo transitorio en este email.
-        #  - circuit breaker: si el LLM falla en varios emails seguidos, deja de
-        #    intentarlo el resto del ciclo (CircuitOpenError → se omite el draft).
-        # El email ya está clasificado y movido, así que omitir el draft no pierde
-        # trabajo crítico.
         async def _generate() -> str:
             return await asyncio.to_thread(
                 generate_client.generate_draft, parsed, draft_request
@@ -348,7 +290,10 @@ async def _process_one(
                 _generate,
                 policy=RetryPolicy(max_attempts=2, base_delay=0.5),
                 on_retry=lambda attempt, exc: log.warning(
-                    "LLM draft retry %d for uid=%s: %s", attempt, email_data.uid, exc
+                    "LLM draft retry %d for uid=%s: %s",
+                    attempt,
+                    email_data.uid,
+                    redact_text(str(exc)),
                 ),
             )
 
@@ -359,7 +304,9 @@ async def _process_one(
             draft_text = ""
         except Exception as exc:
             log.warning(
-                "LLM draft generation failed for uid=%s: %s", email_data.uid, exc
+                "LLM draft generation failed for uid=%s: %s",
+                email_data.uid,
+                redact_text(str(exc)),
             )
             draft_text = ""
         if draft_text:
@@ -372,13 +319,11 @@ async def _process_one(
             )
             draft_saved = await asyncio.to_thread(provider.save_draft, draft_bytes)
 
-    # f. Persistir en DB (commit por email → idempotencia ON CONFLICT DO NOTHING)
     async with sf() as session:
         await CycleRepository(session).insert_processed(
             account_id=account.id,
             uid=email_data.uid,
             folder=account.inbox_folder,
-            # _uidvalidity es privado — tech debt Phase 2a (ver spec §15)
             uidvalidity=provider._uidvalidity.get(account.inbox_folder, 0),
             message_id=email_data.message_id,
             from_email=email_data.from_email,

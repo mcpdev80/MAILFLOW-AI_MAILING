@@ -1,10 +1,9 @@
 """OAuth2 routes for connecting Gmail and Microsoft 365 mailboxes.
 
 The OAuth callback is provider-initiated and therefore does not carry the BFF
-actor headers. The signed ``state`` token binds the flow to the MailFlow tenant,
-the initiating Better Auth organization/user and the chosen ownership settings.
-Membership is checked again on callback so a stale consent flow cannot grant
-mailbox access after a user was removed or an admin role was revoked.
+actor headers. The signed state binds the flow to the MailFlow tenant, Better
+Auth organization/user and ownership settings. Refresh tokens are write-only and
+stored only as authenticated ciphertext.
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import oauth
 from app.auth import RequestIdentity, require_identity
 from app.config import settings
-from app.crypto import encrypt
+from app.crypto import encrypt_secret
 from app.database import get_session
 from app.mailbox_access import (
     OWNERSHIP_PRIVATE,
@@ -41,9 +40,7 @@ from app.models.email_account import EmailAccount
 from app.models.mailbox_access import MailboxAccess
 
 logger = logging.getLogger("mailflow.api")
-
 router = APIRouter(prefix="/oauth", tags=["oauth"])
-
 STATE_TTL_SECONDS = 600
 _SIG_LEN = 32
 
@@ -57,7 +54,6 @@ def _sign_state(
     ownership_mode: str,
     shared_user_ids: list[str],
 ) -> str:
-    """Sign ownership and sharing choices into short-lived OAuth state."""
     payload = json.dumps(
         {
             "org": org_id,
@@ -76,7 +72,6 @@ def _sign_state(
 
 
 def _verify_state(state: str) -> dict[str, object]:
-    """Validate OAuth state and return its signed payload."""
     try:
         raw = base64.urlsafe_b64decode(state.encode())
         payload, sig = raw[:-_SIG_LEN], raw[-_SIG_LEN:]
@@ -102,7 +97,6 @@ async def _member_roles(
     auth_org_id: str,
     user_ids: set[str],
 ) -> dict[str, str]:
-    """Return current Better Auth roles for selected users in one organization."""
     if not user_ids:
         return {}
     rows = await session.execute(
@@ -127,17 +121,13 @@ async def authorize(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, str]:
-    """Return a provider consent URL bound to ownership and sharing settings."""
     if not oauth.is_supported(provider):
         raise HTTPException(status_code=404, detail="unsupported_provider")
 
     selected_users = shared_user_ids or []
     mode, owner_user_id = new_account_ownership(identity, ownership_mode)
     if mode != OWNERSHIP_SHARED and selected_users:
-        raise HTTPException(
-            status_code=422,
-            detail="shared_users_require_shared_mailbox",
-        )
+        raise HTTPException(status_code=422, detail="shared_users_require_shared_mailbox")
     if mode == OWNERSHIP_SHARED:
         await ensure_org_members(session, identity, selected_users)
         if identity.user_id:
@@ -150,20 +140,13 @@ async def authorize(
                 str(identity.org.id),
                 auth_org_id=identity.auth_org_id,
                 owner_user_id=owner_user_id,
-                manager_user_id=(
-                    identity.user_id if mode == OWNERSHIP_SHARED else None
-                ),
+                manager_user_id=(identity.user_id if mode == OWNERSHIP_SHARED else None),
                 ownership_mode=mode,
-                shared_user_ids=(
-                    selected_users if mode == OWNERSHIP_SHARED else []
-                ),
+                shared_user_ids=(selected_users if mode == OWNERSHIP_SHARED else []),
             ),
         )
     except oauth.OAuthNotConfigured as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=f"oauth_not_configured: {exc}",
-        ) from exc
+        raise HTTPException(status_code=400, detail="oauth_not_configured") from exc
     return {"authorize_url": url}
 
 
@@ -175,15 +158,11 @@ async def callback(
     error: str = Query(default=""),
     session: AsyncSession = Depends(get_session),
 ) -> RedirectResponse:
-    """Exchange the provider code and connect the mailbox from signed state."""
     success = settings.OAUTH_SUCCESS_REDIRECT
     if error:
         return RedirectResponse(f"{success}?error={error}", status_code=302)
     if not code or not state or not oauth.is_supported(provider):
-        return RedirectResponse(
-            f"{success}?error=invalid_request",
-            status_code=302,
-        )
+        return RedirectResponse(f"{success}?error=invalid_request", status_code=302)
 
     data = _verify_state(state)
     org_id = UUID(str(data["org"]))
@@ -193,9 +172,6 @@ async def callback(
     manager_user_id = data.get("manager")
     shared_user_ids = [str(value) for value in data.get("shared_users", [])]
 
-    # In authenticated mode, confirm that the signed users still belong to the
-    # active Better Auth organization at callback time. For new shared mailboxes
-    # the manager must also still hold an owner/admin organization role.
     if auth_org_id:
         relevant_users = set(shared_user_ids)
         if owner_user_id:
@@ -205,24 +181,21 @@ async def callback(
         roles = await _member_roles(session, str(auth_org_id), relevant_users)
         if set(roles) != relevant_users:
             return RedirectResponse(
-                f"{success}?error=organization_membership_changed",
-                status_code=302,
+                f"{success}?error=organization_membership_changed", status_code=302
             )
         if ownership_mode == OWNERSHIP_SHARED and manager_user_id:
             if roles.get(str(manager_user_id)) not in SHARED_ADMIN_ROLES:
                 return RedirectResponse(
-                    f"{success}?error=shared_mailbox_admin_required",
-                    status_code=302,
+                    f"{success}?error=shared_mailbox_admin_required", status_code=302
                 )
 
     try:
         result = await asyncio.to_thread(oauth.exchange_code, provider, code)
-    except oauth.OAuthError as exc:
-        logger.warning("oauth exchange failed (%s): %s", provider, exc)
+    except oauth.OAuthError:
+        logger.warning("oauth exchange failed for provider=%s", provider)
         return RedirectResponse(f"{success}?error=oauth_failed", status_code=302)
 
     host, port = oauth.imap_endpoint(provider)
-
     base_match = [
         EmailAccount.org_id == org_id,
         EmailAccount.username == result.email,
@@ -248,13 +221,12 @@ async def callback(
         ).scalar_one_or_none()
         if can_manage is None:
             return RedirectResponse(
-                f"{success}?error=mailbox_access_denied",
-                status_code=302,
+                f"{success}?error=mailbox_access_denied", status_code=302
             )
 
-    enc = encrypt({"refresh_token": result.refresh_token}, settings.SECRET_KEY)
+    encrypted_refresh = encrypt_secret({"refresh_token": result.refresh_token})
     if existing:
-        existing.encrypted_oauth = enc
+        existing.encrypted_oauth = encrypted_refresh
         existing.is_active = True
         account = existing
     else:
@@ -267,7 +239,7 @@ async def callback(
             imap_port=port,
             use_ssl=True,
             username=result.email,
-            encrypted_oauth=enc,
+            encrypted_oauth=encrypted_refresh,
         )
         session.add(account)
         await session.flush()
@@ -289,6 +261,5 @@ async def callback(
 
     await session.commit()
     return RedirectResponse(
-        f"{success}?connected={provider}",
-        status_code=status.HTTP_302_FOUND,
+        f"{success}?connected={provider}", status_code=status.HTTP_302_FOUND
     )
