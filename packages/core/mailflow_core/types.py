@@ -12,6 +12,7 @@ ClassificationMethod = Literal[
     "keyword",
     "llm",
     "fallback",
+    "decision_memory",
 ]
 Category = Literal[
     "work",
@@ -64,17 +65,16 @@ class ParsedEmail:
     message_id: str | None = None
     in_reply_to: str | None = None
     references: tuple[str, ...] = ()
+    reply_to: str | None = None
+    list_id: str | None = None
+    precedence: str | None = None
     thread_id: str | None = None
     date: str | None = None
 
 
 @dataclass(frozen=True)
 class ClassificationResult:
-    """Semantic email classification with legacy ``label`` compatibility.
-
-    ``category`` and the first-class decision fields describe what the message is.
-    ``label`` remains only for compatibility with the existing rule/routing path.
-    """
+    """Semantic email classification with legacy ``label`` compatibility."""
 
     label: str
     confidence: float
@@ -92,6 +92,7 @@ class ClassificationResult:
     needs_more_context: bool = False
     review_required: bool = False
     reason: str | None = None
+    classification_stage: int | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.confidence <= 1.0:
@@ -104,6 +105,8 @@ class ClassificationResult:
             raise ValueError(f"unsupported urgency: {self.urgency}")
         if self.action_required not in {"yes", "no", "unknown"}:
             raise ValueError(f"unsupported action_required: {self.action_required}")
+        if self.classification_stage is not None and self.classification_stage not in {0, 1, 2, 3}:
+            raise ValueError("classification_stage must be 0, 1, 2, 3 or None")
         unsupported_tags = set(self.system_tags) - SYSTEM_TAGS
         if unsupported_tags:
             raise ValueError(f"unsupported system tags: {sorted(unsupported_tags)}")
@@ -123,7 +126,6 @@ class ClassificationResult:
             object.__setattr__(self, "review_required", True)
 
     def requires_review(self, confidence_threshold: float) -> bool:
-        """Apply the configurable confidence part of the review policy."""
         if not 0.0 <= confidence_threshold <= 1.0:
             raise ValueError("confidence_threshold must be between 0.0 and 1.0")
         return self.review_required or self.confidence < confidence_threshold
@@ -146,8 +148,6 @@ def _derived_system_tags(result: ClassificationResult) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class ThreadSummaryUpdate:
-    """Compact thread-summary update returned by the fast classification model."""
-
     summary: str
     changed: bool
     open_action_required: bool
@@ -156,8 +156,6 @@ class ThreadSummaryUpdate:
 
 @dataclass(frozen=True)
 class DraftRequest:
-    """Input for generating and saving a draft reply."""
-
     in_reply_to_uid: str
     folder: str
     subject: str

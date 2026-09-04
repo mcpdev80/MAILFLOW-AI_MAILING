@@ -12,24 +12,25 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class EmailData:
-    """Parsed email data transfer object."""
+    """Email headers plus optionally fetched body content."""
 
     uid: int
     message_id: str
     subject: str
     from_email: str
     to_emails: list[str]
-    body_text: str
-    body_html: str
+    body_text: str = ""
+    body_html: str = ""
     in_reply_to: str | None = None
     references: list[str] = field(default_factory=list)
     date: str | None = None
+    reply_to: str | None = None
+    list_id: str | None = None
+    precedence: str | None = None
 
 
 @dataclass(frozen=True)
 class DraftRef:
-    """Reference to a draft saved in the IMAP Drafts folder."""
-
     uid: int
     folder: str
     message_id: str | None
@@ -38,19 +39,13 @@ class DraftRef:
 
 
 class EmailProvider(ABC):
-    """Abstract base class for all email provider implementations.
-
-    Implementations must be context-manager compatible for connection lifecycle.
-    All operations use UIDs (not sequence numbers).
-    """
+    """Abstract mailbox provider using UID-based operations."""
 
     @abstractmethod
-    def connect(self) -> None:
-        """Authenticate and open the IMAP connection."""
+    def connect(self) -> None: ...
 
     @abstractmethod
-    def disconnect(self) -> None:
-        """Logout and close the IMAP connection."""
+    def disconnect(self) -> None: ...
 
     def __enter__(self) -> EmailProvider:
         self.connect()
@@ -60,42 +55,30 @@ class EmailProvider(ABC):
         self.disconnect()
 
     @abstractmethod
-    def keep_alive(self) -> None:
-        """Send a NOOP to keep the connection alive."""
+    def keep_alive(self) -> None: ...
 
     @abstractmethod
     def fetch_unprocessed_emails(self, max_count: int = 20) -> list[EmailData]:
-        """Fetch unprocessed emails from INBOX, FIFO order (ADR-012).
-
-        Uses SEARCH NOT KEYWORD MailFlowProcessed to filter.
-        """
+        """Fetch candidate message headers without fetching message bodies."""
 
     @abstractmethod
-    def move_email(self, uid: int, destination_folder: str) -> bool:
-        """Move email using safe COPY -> STORE \\Deleted -> EXPUNGE sequence.
-
-        Returns True on success. If COPY fails, EXPUNGE is NOT called.
-        """
+    def fetch_body(self, uid: int, max_chars: int | None = None) -> tuple[str, str]:
+        """Fetch only the body content needed by the current classification stage."""
 
     @abstractmethod
-    def mark_as_processed(self, uid: int) -> None:
-        """Set the MailFlowProcessed keyword flag on a message."""
+    def move_email(self, uid: int, destination_folder: str) -> bool: ...
 
     @abstractmethod
-    def ensure_folder_exists(self, folder_path: str) -> None:
-        """Create folder hierarchy level by level if it does not exist."""
+    def mark_as_processed(self, uid: int) -> None: ...
 
     @abstractmethod
-    def find_drafts_in_thread(self, original_message_id: str) -> list[DraftRef]:
-        """Find existing drafts in the Drafts folder referencing this thread.
-
-        Prevents duplicate drafts per ADR-004.
-        """
+    def ensure_folder_exists(self, folder_path: str) -> None: ...
 
     @abstractmethod
-    def save_draft(self, message_bytes: bytes) -> bool:
-        """Append a draft to the IMAP Drafts folder with the \\Draft flag."""
+    def find_drafts_in_thread(self, original_message_id: str) -> list[DraftRef]: ...
 
     @abstractmethod
-    def delete_draft(self, uid: int) -> bool:
-        """Delete a draft by UID from the Drafts folder."""
+    def save_draft(self, message_bytes: bytes) -> bool: ...
+
+    @abstractmethod
+    def delete_draft(self, uid: int) -> bool: ...

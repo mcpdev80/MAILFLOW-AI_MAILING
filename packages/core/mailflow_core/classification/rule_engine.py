@@ -1,4 +1,4 @@
-"""Deterministic classification cascade for incoming emails."""
+"""Deterministic supporting signals for email classification."""
 
 from __future__ import annotations
 
@@ -46,22 +46,13 @@ class AccountConfig:
 
 
 class RuleEngine:
-    """Classification cascade: deterministic rules, contextual LLM, then fallback."""
+    """Provide deterministic hints without replacing the LLM decision path."""
 
     def __init__(self, config: AccountConfig, llm_client: object | None = None) -> None:
         self._config = config
         self._llm = llm_client
 
-    def classify(
-        self,
-        email: ParsedEmail,
-        thread_summary: str | None = None,
-        available_labels: list[str] | None = None,
-    ) -> ClassificationResult:
-        labels = available_labels or [r.label for r in self._config.client_domain_rules] + [
-            "unclassified"
-        ]
-
+    def supporting_signal(self, email: ParsedEmail) -> ClassificationResult | None:
         if email.from_domain in self._config.internal_domains:
             return _legacy_result("internal", 1.0, "domain_internal")
 
@@ -77,11 +68,11 @@ class RuleEngine:
 
         search_text = f"{email.subject_normalized} {email.body_text}".lower()
         for rule in self._config.keyword_rules:
-            kws = [k.lower() for k in rule.keywords]
+            kws = [keyword.lower() for keyword in rule.keywords]
             matched = (
-                all(k in search_text for k in kws)
+                all(keyword in search_text for keyword in kws)
                 if rule.match_all
-                else any(k in search_text for k in kws)
+                else any(keyword in search_text for keyword in kws)
             )
             if matched:
                 return _legacy_result(
@@ -90,7 +81,19 @@ class RuleEngine:
                     "keyword",
                     rule_id=rule.rule_id,
                 )
+        return None
 
+    def classify(
+        self,
+        email: ParsedEmail,
+        thread_summary: str | None = None,
+        available_labels: list[str] | None = None,
+    ) -> ClassificationResult:
+        """Legacy compatibility path retained for callers outside adaptive classification."""
+        signal = self.supporting_signal(email)
+        labels = available_labels or [r.label for r in self._config.client_domain_rules] + [
+            "unclassified"
+        ]
         if self._llm is not None:
             try:
                 result = self._llm.classify(
@@ -98,13 +101,13 @@ class RuleEngine:
                     available_labels=labels,
                     available_categories=list(CONFIRMED_CATEGORIES),
                     thread_summary=thread_summary,
+                    supporting_signal=signal,
                 )
                 if result.confidence >= 0.60:
                     return result
             except Exception:
                 pass
-
-        return _legacy_result("unclassified", 0.0, "fallback")
+        return signal or _legacy_result("unclassified", 0.0, "fallback")
 
 
 def _legacy_result(

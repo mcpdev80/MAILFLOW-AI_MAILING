@@ -19,14 +19,12 @@ from mailflow_core.types import (
 _CLASSIFY_SYSTEM = (
     "You are an email classification assistant. Classify the current message semantically; "
     "do not choose an IMAP folder. Use only one confirmed category provided by the caller. "
-    "If thread context is provided, treat it as context only: the current message is "
-    "authoritative and previous classifications must not be copied blindly. If nothing fits, "
-    "use category 'other' and optionally suggest a category for human review. Return ONLY a "
-    "JSON object with category, optional subcategory, optional suggested_category, optional "
+    "Thread context, deterministic signals and previous-stage output are supporting context only. "
+    "The current message is authoritative and previous classifications must not be copied blindly. "
+    "If nothing fits, use category 'other' and optionally suggest a category for human review. "
+    "Return ONLY JSON with category, optional subcategory, optional suggested_category, optional "
     "suggested_subcategory, importance, urgency, action_required, system_tags, user_tags, "
-    "confidence, needs_more_context, review_required and a short optional reason. importance "
-    "must be critical/high/normal/low/unknown; urgency must be "
-    "immediate/today/this_week/none/unknown; action_required must be yes/no/unknown."
+    "confidence, needs_more_context, review_required and a short optional reason."
 )
 
 _THREAD_SUMMARY_SYSTEM = (
@@ -56,7 +54,7 @@ class LLMConfig:
 
 
 class LLMClient:
-    """Wrapper around litellm.completion for classify and generate_draft."""
+    """Wrapper around litellm.completion for classification and draft generation."""
 
     def __init__(self, config: LLMConfig) -> None:
         self._config = config
@@ -84,8 +82,11 @@ class LLMClient:
         available_labels: list[str] | None = None,
         available_categories: list[str] | None = None,
         thread_summary: str | None = None,
+        supporting_signal: ClassificationResult | None = None,
+        previous_result: ClassificationResult | None = None,
+        classification_stage: int | None = None,
     ) -> ClassificationResult:
-        """Classify the current message with optional compact thread context."""
+        """Classify one stage of the current message."""
         categories = available_categories or list(CONFIRMED_CATEGORIES)
         invalid_categories = set(categories) - set(CONFIRMED_CATEGORIES)
         if invalid_categories:
@@ -93,17 +94,43 @@ class LLMClient:
                 f"Unsupported confirmed categories: {sorted(invalid_categories)}"
             )
 
-        context = ""
+        sections = [f"Confirmed categories: {', '.join(categories)}"]
+        if classification_stage is not None:
+            sections.append(f"Classification stage: {classification_stage}")
         if thread_summary:
-            context = f"Thread context (context only):\n{thread_summary[:1500]}\n\n"
-        user_msg = (
-            f"Confirmed categories: {', '.join(categories)}\n\n"
-            f"{context}"
-            f"Current message:\n"
+            sections.append(f"Thread context (context only):\n{thread_summary[:1500]}")
+        if supporting_signal is not None:
+            sections.append(
+                "Deterministic supporting signal: "
+                f"label={supporting_signal.label}; "
+                f"confidence={supporting_signal.confidence:.2f}; "
+                f"method={supporting_signal.method}"
+            )
+        if previous_result is not None:
+            sections.append(
+                "Previous stage result (revise if new content changes it): "
+                f"category={previous_result.category}; "
+                f"confidence={previous_result.confidence:.2f}; "
+                f"needs_more_context={previous_result.needs_more_context}; "
+                f"review_required={previous_result.review_required}"
+            )
+
+        headers = (
+            f"From: {email.from_email}\n"
             f"Subject: {email.subject_normalized}\n"
-            f"From: {email.from_email}\n\n"
-            f"{email.body_text[:1000]}"
+            f"Date: {email.date or ''}\n"
+            f"Reply-To: {email.reply_to or ''}\n"
+            f"List-ID: {email.list_id or ''}\n"
+            f"Precedence: {email.precedence or ''}\n"
+            f"Message-ID: {email.message_id or ''}\n"
+            f"In-Reply-To: {email.in_reply_to or ''}\n"
+            f"References: {' '.join(email.references)}"
         )
+        sections.append(f"Current message headers:\n{headers}")
+        if email.body_text:
+            sections.append(f"Cleaned current body:\n{email.body_text}")
+        user_msg = "\n\n".join(sections)
+
         raw = self._call(
             [
                 {"role": "system", "content": _CLASSIFY_SYSTEM},
@@ -163,17 +190,20 @@ class LLMClient:
                 needs_more_context=needs_more_context,
                 review_required=review_required,
                 reason=reason,
+                classification_stage=classification_stage,
             )
         except (TypeError, ValueError) as exc:
             raise ClassificationError(f"Invalid LLM response: {raw!r}") from exc
 
         if result.review_required and result.reason is None:
-            reason = (
-                "more context required"
-                if result.needs_more_context
-                else "classification requires review"
+            result = replace(
+                result,
+                reason=(
+                    "more context required"
+                    if result.needs_more_context
+                    else "classification requires review"
+                ),
             )
-            result = replace(result, reason=reason)
         return result
 
     def update_thread_summary(
@@ -182,7 +212,6 @@ class LLMClient:
         email: ParsedEmail,
         classification: ClassificationResult,
     ) -> ThreadSummaryUpdate:
-        """Update compact thread context using only prior summary plus the new message."""
         user_msg = (
             f"Existing summary:\n{previous_summary[:1500] or '(none)'}\n\n"
             f"New message:\n"
@@ -212,12 +241,11 @@ class LLMClient:
             summary = previous_summary
         if not summary:
             summary = previous_summary or email.subject_normalized[:500]
-        deadline = _optional_text(data.get("deadline"))
         return ThreadSummaryUpdate(
             summary=summary[:2000],
             changed=changed,
             open_action_required=open_action_required,
-            deadline=deadline,
+            deadline=_optional_text(data.get("deadline")),
         )
 
     def generate_draft(self, original_email: ParsedEmail, request: DraftRequest) -> str:

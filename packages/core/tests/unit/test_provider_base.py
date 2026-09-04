@@ -27,6 +27,9 @@ class _ConcreteProvider(EmailProvider):
     def fetch_unprocessed_emails(self, max_count: int = 20) -> list[EmailData]:
         return []
 
+    def fetch_body(self, uid: int, max_chars: int | None = None) -> tuple[str, str]:
+        return "", ""
+
     def move_email(self, uid: int, destination_folder: str) -> bool:
         return True
 

@@ -88,6 +88,7 @@ class CycleRepository:
                 needs_more_context=classification.needs_more_context,
                 review_required=classification.review_required,
                 reason=classification.reason,
+                classification_stage=classification.classification_stage,
                 method=classification.method,
                 draft_saved=draft_saved,
                 cycle_id=cycle_id,

@@ -42,29 +42,23 @@ class ClassificationResultOut(BaseModel):
     needs_more_context: bool
     review_required: bool
     reason: str | None = Field(default=None, max_length=300)
-    # Compatibility only. Routing may still use this during migration, but API
-    # consumers should treat category/subcategory as the classification concept.
+    classification_stage: int | None = Field(default=None, ge=0, le=3)
     label: str
 
 
-# ── Email accounts ────────────────────────────────────────────────────────────
 class EmailAccountCreate(BaseModel):
     imap_host: str = Field(min_length=1, max_length=255)
     imap_port: int = 993
     use_ssl: bool = True
     username: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=1, repr=False)  # write-only, encrypted
+    password: str = Field(min_length=1, repr=False)
     inbox_folder: str = "INBOX"
     unclassified_folder: str = "Sin_Clasificar"
     drafts_folder: str = "Drafts"
     interval_minutes: int = Field(default=5, ge=1, le=1440)
     provider_type: str = "imap"
     llm_provider_id: UUID | None = None
-    # Omitted => private for authenticated multi-user requests, shared in legacy
-    # single-tenant mode where there is no Better Auth user identity.
     ownership_mode: Literal["private", "shared"] | None = None
-    # Only used when ownership_mode=shared. Organization membership is validated
-    # server-side; membership in the organization alone never grants mailbox use.
     shared_user_ids: list[str] = Field(default_factory=list)
 
 
@@ -127,12 +121,11 @@ class UserRemovalPrepareOut(BaseModel):
     owned_mailboxes_resolved: int
 
 
-# ── LLM providers ─────────────────────────────────────────────────────────────
 class LLMProviderCreate(BaseModel):
     label: str = Field(min_length=1, max_length=100)
     type: str = Field(min_length=1, max_length=50)
     base_url: str = Field(min_length=1, max_length=500)
-    api_key: str | None = Field(default=None, repr=False)  # write-only, encrypted
+    api_key: str | None = Field(default=None, repr=False)
     default_classification_model: str = Field(min_length=1, max_length=200)
     default_generation_model: str = Field(min_length=1, max_length=200)
 
@@ -160,7 +153,6 @@ class LLMProviderOut(ORMModel):
     created_at: datetime
 
 
-# ── Rules ─────────────────────────────────────────────────────────────────────
 class DomainRuleCreate(BaseModel):
     domain: str = Field(min_length=1, max_length=255)
     label: str = Field(min_length=1, max_length=255)
@@ -205,7 +197,6 @@ class InternalDomainOut(ORMModel):
     domain: str
 
 
-# ── Cycles / audit log ────────────────────────────────────────────────────────
 class CycleOut(ORMModel):
     id: UUID
     account_id: UUID

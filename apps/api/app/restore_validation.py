@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.secret_storage import validate_stored_secrets
 
-EXPECTED_SCHEMA_REVISION = "010"
+EXPECTED_SCHEMA_REVISION = "011"
 
 
 class RestoreValidationError(RuntimeError):
@@ -36,7 +36,6 @@ async def _table_exists(session: AsyncSession, table_name: str) -> bool:
 
 
 async def validate_schema_revision(session: AsyncSession) -> str:
-    """Fail when the database is not at the schema revision this build expects."""
     if not await _table_exists(session, "alembic_version"):
         raise RestoreValidationError("Database has no Alembic schema revision")
 
@@ -153,7 +152,6 @@ async def _validate_mailbox_ownership(session: AsyncSession) -> tuple[int, int]:
 
 
 async def validate_restore_state(session: AsyncSession) -> RestoreValidationResult:
-    """Validate restored state before workers are allowed to resume processing."""
     schema_revision = await validate_schema_revision(session)
     encrypted_secrets = await validate_stored_secrets(session)
     private_mailboxes, shared_mailboxes = await _validate_mailbox_ownership(session)
