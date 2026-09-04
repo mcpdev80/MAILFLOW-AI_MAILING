@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
+import pytest
 from mailflow_core.decision_memory import (
     DecisionMemoryCandidate,
     DecisionMemoryMatcher,
@@ -41,6 +43,7 @@ def _candidate(
     *,
     source: str = "human_confirmed",
     sender_email: str | None = "billing@example.com",
+    sender_domain: str | None = "example.com",
     subject_pattern: str | None = "Invoice 123",
     thread_id: str | None = None,
 ) -> DecisionMemoryCandidate:
@@ -48,7 +51,7 @@ def _candidate(
         entry_id="memory-1",
         account_id="account-1",
         sender_email=sender_email,
-        sender_domain="example.com",
+        sender_domain=sender_domain,
         subject_pattern=subject_pattern,
         thread_id=thread_id,
         result=_result(),
@@ -67,6 +70,24 @@ def test_human_sender_subject_match_can_bypass() -> None:
     assert reused.method == "decision_memory"
     assert reused.decision_memory_id == "memory-1"
     assert reused.decision_memory_hint_used is False
+
+
+def test_exact_thread_match_can_bypass_without_sender_pattern() -> None:
+    match = DecisionMemoryMatcher().match(
+        _email(),
+        (
+            _candidate(
+                sender_email=None,
+                sender_domain=None,
+                subject_pattern=None,
+                thread_id="thread-1",
+            ),
+        ),
+    )
+
+    assert match is not None
+    assert match.reason == "thread_exact"
+    assert match.can_bypass is True
 
 
 def test_ai_observation_never_bypasses() -> None:
@@ -91,10 +112,10 @@ def test_sender_only_match_is_hint_not_direct_reuse() -> None:
 
 
 def test_disabled_candidate_is_ignored() -> None:
-    candidate = DecisionMemoryCandidate(
-        **{
-            **_candidate().__dict__,
-            "enabled": False,
-        }
-    )
+    candidate = replace(_candidate(), enabled=False)
     assert DecisionMemoryMatcher().match(_email(), (candidate,)) is None
+
+
+def test_unknown_memory_source_is_rejected() -> None:
+    with pytest.raises(ValueError, match="unsupported DecisionMemory source"):
+        _candidate(source="untrusted")
