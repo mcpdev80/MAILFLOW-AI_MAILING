@@ -137,6 +137,24 @@ function buildAuth() {
           residentKey: "preferred",
           userVerification: "required",
         },
+        registration: {
+          afterVerification: ({ verification }) => {
+            if (!verification.registrationInfo?.userVerified) {
+              throw new APIError("UNAUTHORIZED", {
+                message: "Passkey user verification required",
+              });
+            }
+          },
+        },
+        authentication: {
+          afterVerification: ({ verification }) => {
+            if (!verification.authenticationInfo.userVerified) {
+              throw new APIError("UNAUTHORIZED", {
+                message: "Passkey user verification required",
+              });
+            }
+          },
+        },
       }),
     ],
   });
