@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 from mailflow_core.types import ClassificationResult
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.crypto import encrypt
 from app.models.audit_log import AuditLog
@@ -169,12 +169,3 @@ async def test_find_thread_folder_returns_none_if_not_found(session, account):
     repo = CycleRepository(session)
     result = await repo.find_thread_folder(account.id, "<nonexistent@test>")
     assert result is None
-
-
-async def test_insert_processed_remains_idempotent(session, account):
-    count = (
-        await session.execute(
-            select(func.count()).where(ProcessedEmail.account_id == account.id)
-        )
-    ).scalar_one()
-    assert count >= 0
