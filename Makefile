@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: test test-container test-docker format clean-test
+.PHONY: test test-container test-docker test-llm format clean-test
 
 TEST_COMPOSE = docker compose -f infrastructure/docker-compose.test.yml
 TEST_LOG = .test-output.log
@@ -36,6 +36,11 @@ test-container:
 # Match the CI Docker image build check.
 test-docker:
 	docker build -f infrastructure/docker/Dockerfile.api -t mailflow-api:test .
+
+# Run reproducible classification evaluations against a live OpenAI-compatible LLM endpoint.
+# Configure LLM_EVAL_BASE_URL, LLM_EVAL_MODELS and optionally LLM_EVAL_API_KEY.
+test-llm:
+	uv run --project packages/core python scripts/llm-eval.py
 
 # Apply Ruff and Biome fixes to the local source tree from a container.
 format:
