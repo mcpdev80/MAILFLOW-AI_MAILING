@@ -9,7 +9,7 @@ from mailflow_core.types import ClassificationResult, MailAuthSignals, ParsedEma
 
 from app.services.bulk_apply import BulkApplyService
 from app.services.bulk_backfill import BulkBackfillService
-from app.services.bulk_preview import _snapshot
+from app.services.bulk_preview import _snapshot, classify_preview
 
 
 def _classification(**overrides) -> ClassificationResult:
@@ -32,6 +32,79 @@ def _classification(**overrides) -> ClassificationResult:
     }
     values.update(overrides)
     return ClassificationResult(**values)
+
+
+def _parsed(uid: int = 42) -> ParsedEmail:
+    return ParsedEmail(
+        uid=uid,
+        subject_normalized="Invoice 2026",
+        body_text="",
+        body_html="",
+        signature="",
+        from_email="billing@example.com",
+        from_domain="example.com",
+        date="2026-09-04",
+        auth_signals=MailAuthSignals(),
+    )
+
+
+class _SessionContext:
+    async def __aenter__(self):
+        return SimpleNamespace()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+def _session_factory():
+    return _SessionContext()
+
+
+class _ThreadRepo:
+    def __init__(self, session) -> None:
+        self.session = session
+
+    async def find_for_message(self, account_id, parsed):
+        return SimpleNamespace(thread_id="thread-1", summary="previous summary")
+
+
+class _MemoryRepo:
+    def __init__(self, session) -> None:
+        self.session = session
+
+    async def candidates_for_email(self, account_id, parsed):
+        return []
+
+
+class _Parser:
+    def parse(self, email_data):
+        return _parsed(email_data.uid)
+
+
+class _RuleEngine:
+    def __init__(self, result: ClassificationResult | None) -> None:
+        self.result = result
+
+    def supporting_signal(self, parsed):
+        return self.result
+
+
+def _patch_preview_dependencies(monkeypatch) -> None:
+    monkeypatch.setattr("app.services.bulk_preview.ThreadRepository", _ThreadRepo)
+    monkeypatch.setattr("app.services.bulk_preview.DecisionMemoryRepository", _MemoryRepo)
+    monkeypatch.setattr(
+        "app.services.bulk_preview.destination_for_classification",
+        lambda account, result: "Invoices",
+    )
+    monkeypatch.setattr(
+        "app.services.bulk_preview.evaluate_mailbox_action",
+        lambda policy, action, result: SimpleNamespace(
+            disposition="execute", reason="safe_automatic_action", execute=True
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.bulk_preview._build_action_policy", lambda account: object()
+    )
 
 
 def test_preview_snapshot_is_compact_and_actionable(monkeypatch) -> None:
@@ -98,6 +171,65 @@ def test_preview_snapshot_marks_low_confidence_for_review(monkeypatch) -> None:
     assert value["review_required"] is True
     assert value["do_move"] is False
     assert value["message_id"] is None
+
+
+async def test_classify_preview_uses_rule_signal_without_mailbox_mutation(monkeypatch) -> None:
+    _patch_preview_dependencies(monkeypatch)
+    result = _classification(method="fallback")
+    email_data = SimpleNamespace(uid=42, message_id="<rule@example>")
+
+    preview = await classify_preview(
+        account=SimpleNamespace(id=uuid4()),
+        source_folder="INBOX",
+        email_data=email_data,
+        provider=SimpleNamespace(),
+        parser=_Parser(),
+        rule_engine=_RuleEngine(result),
+        classify_client=None,
+        session_factory=_session_factory,
+    )
+
+    assert preview.classification is result
+    assert preview.snapshot["classification_source"] == "fallback"
+    assert preview.snapshot["proposed_folder"] == "Invoices"
+    assert preview.snapshot["do_move"] is True
+
+
+async def test_classify_preview_uses_adaptive_classifier(monkeypatch) -> None:
+    _patch_preview_dependencies(monkeypatch)
+    adaptive_result = _classification(method="llm", classification_stage=2)
+
+    class _Adaptive:
+        def __init__(self, client, *, config, decision_memory) -> None:
+            assert client is classify_client
+            assert decision_memory is None
+
+        def classify(self, parsed, **kwargs):
+            assert kwargs["thread_summary"] == "previous summary"
+            assert callable(kwargs["body_loader"])
+            return SimpleNamespace(result=adaptive_result, email=parsed)
+
+    monkeypatch.setattr("app.services.bulk_preview.AdaptiveClassifier", _Adaptive)
+    monkeypatch.setattr(
+        "app.services.bulk_preview.AdaptiveClassificationConfig",
+        lambda **kwargs: object(),
+    )
+    classify_client = object()
+    email_data = SimpleNamespace(uid=43, message_id="<llm@example>")
+
+    preview = await classify_preview(
+        account=SimpleNamespace(id=uuid4()),
+        source_folder="Archive",
+        email_data=email_data,
+        provider=SimpleNamespace(),
+        parser=_Parser(),
+        rule_engine=_RuleEngine(None),
+        classify_client=classify_client,
+        session_factory=_session_factory,
+    )
+
+    assert preview.classification.classification_stage == 2
+    assert preview.snapshot["classification_source"] == "llm"
 
 
 def test_bulk_backfill_result_maps_persisted_job_state() -> None:
