@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class BackfillCreate(BaseModel):
     folder: str = Field(default="INBOX", min_length=1, max_length=255)
+    mode: Literal["dry_run", "review", "apply"] = "dry_run"
     batch_size: int | None = Field(default=None, ge=1, le=100)
 
 
@@ -20,6 +22,7 @@ class BackfillJobOut(BaseModel):
     account_id: UUID
     folder: str
     state: str
+    mode: str
     batch_size: int
     uidvalidity: int | None
     cursor_uid: int | None
