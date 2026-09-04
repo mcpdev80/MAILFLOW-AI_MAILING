@@ -2,7 +2,7 @@
  * Better Auth server configuration for MailFlow's authenticated multi-user mode.
  *
  * Authentication stays in Better Auth. Mailbox ownership and authorization stay
- * in the API; adding passkeys must not create a second identity or permission
+ * in the API; passkeys and membership hooks must not create a second permission
  * system.
  */
 import { passkey } from "@better-auth/passkey";
@@ -11,6 +11,7 @@ import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/a
 import { organization } from "better-auth/plugins";
 import { Pool } from "pg";
 import { encryptSecret } from "./crypto";
+import { assertMemberRemovalSafe, finalizeMemberRemoval } from "./lifecycle";
 import { provisionOrg } from "./provision";
 
 export const authEnabled = process.env.WEB_AUTH === "on";
@@ -49,6 +50,18 @@ function resolvePasskeyConfig() {
   }
 
   return { origin, rpID, rpName };
+}
+
+function mailflowOrgId(metadata: unknown): string {
+  const value =
+    typeof metadata === "string"
+      ? (JSON.parse(metadata) as Record<string, unknown>)
+      : (metadata as Record<string, unknown> | null | undefined);
+  const orgId = value?.mf_org_id;
+  if (typeof orgId !== "string" || !orgId) {
+    throw new APIError("CONFLICT", { message: "MailFlow organization linkage missing" });
+  }
+  return orgId;
 }
 
 async function requireRecentSession(ctx: Parameters<typeof getSessionFromCtx>[0]) {
@@ -117,8 +130,6 @@ function buildAuth() {
     plugins: [
       organization({
         organizationHooks: {
-          // Provision the matching API organization before persisting Better Auth
-          // metadata so the MailFlow API key never needs to reach the browser.
           beforeCreateOrganization: async ({ organization: org }) => {
             const provisioned = await provisionOrg({
               name: org.name ?? "Organization",
@@ -134,6 +145,28 @@ function buildAuth() {
                 },
               },
             };
+          },
+          beforeRemoveMember: async ({ member, organization: org }) => {
+            try {
+              await assertMemberRemovalSafe(mailflowOrgId(org.metadata), member.userId);
+            } catch (error) {
+              throw new APIError("CONFLICT", {
+                message:
+                  error instanceof Error && error.message.includes("private_mailboxes_require_resolution")
+                    ? "Resolve private mailboxes before removing this member"
+                    : "Mailbox lifecycle check failed",
+              });
+            }
+          },
+          afterRemoveMember: async ({ member, organization: org }) => {
+            const mfOrgId = mailflowOrgId(org.metadata);
+            // Better Auth sessions belong to the auth layer. Revoke sessions tied
+            // to the removed organization before cleaning API-owned mailbox grants.
+            await authDb.query(
+              `delete from "session" where "userId" = $1 and "activeOrganizationId" = $2`,
+              [member.userId, org.id],
+            );
+            await finalizeMemberRemoval(mfOrgId, member.userId);
           },
         },
       }),
