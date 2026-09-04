@@ -142,7 +142,9 @@ class CycleService:
         password: str | None = None
         access_token: str | None = None
         if account.provider_type in ("gmail", "microsoft") and account.encrypted_oauth:
-            refresh_token = str(decrypt_secret(account.encrypted_oauth)["refresh_token"])
+            refresh_token = str(
+                decrypt_secret(account.encrypted_oauth)["refresh_token"]
+            )
             access_token = await asyncio.to_thread(
                 oauth.access_token_from_refresh,
                 account.provider_type,
@@ -168,6 +170,7 @@ class CycleService:
         emails: list[EmailData] = []
         try:
             try:
+
                 async def _connect_and_fetch() -> list[EmailData]:
                     def _sync() -> list[EmailData]:
                         provider.connect()
@@ -189,7 +192,9 @@ class CycleService:
                 safe_error = redact_text(str(exc))
                 stats["last_error"] = safe_error
                 stats["errors"] += 1
-                log.exception("IMAP fetch failed for account %s: %s", account_id, safe_error)
+                log.exception(
+                    "IMAP fetch failed for account %s: %s", account_id, safe_error
+                )
 
             for email_data in emails:
                 try:
@@ -209,7 +214,9 @@ class CycleService:
                     stats["errors"] += 1
                     safe_error = redact_text(str(exc))
                     stats["last_error"] = safe_error
-                    log.exception("Error processing uid=%s: %s", email_data.uid, safe_error)
+                    log.exception(
+                        "Error processing uid=%s: %s", email_data.uid, safe_error
+                    )
         finally:
             await asyncio.to_thread(provider.disconnect)
             password = None

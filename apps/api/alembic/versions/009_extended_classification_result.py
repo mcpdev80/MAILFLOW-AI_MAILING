@@ -22,7 +22,9 @@ def upgrade() -> None:
     )
     op.add_column(
         "processed_emails",
-        sa.Column("category", sa.String(length=64), nullable=False, server_default="other"),
+        sa.Column(
+            "category", sa.String(length=64), nullable=False, server_default="other"
+        ),
     )
     op.add_column(
         "processed_emails",
@@ -38,15 +40,24 @@ def upgrade() -> None:
     )
     op.add_column(
         "processed_emails",
-        sa.Column("importance", sa.String(length=32), nullable=False, server_default="unknown"),
+        sa.Column(
+            "importance", sa.String(length=32), nullable=False, server_default="unknown"
+        ),
     )
     op.add_column(
         "processed_emails",
-        sa.Column("urgency", sa.String(length=32), nullable=False, server_default="unknown"),
+        sa.Column(
+            "urgency", sa.String(length=32), nullable=False, server_default="unknown"
+        ),
     )
     op.add_column(
         "processed_emails",
-        sa.Column("action_required", sa.String(length=16), nullable=False, server_default="unknown"),
+        sa.Column(
+            "action_required",
+            sa.String(length=16),
+            nullable=False,
+            server_default="unknown",
+        ),
     )
     op.add_column(
         "processed_emails",
@@ -58,11 +69,18 @@ def upgrade() -> None:
     )
     op.add_column(
         "processed_emails",
-        sa.Column("needs_more_context", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column(
+            "needs_more_context",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.false(),
+        ),
     )
     op.add_column(
         "processed_emails",
-        sa.Column("review_required", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column(
+            "review_required", sa.Boolean(), nullable=False, server_default=sa.false()
+        ),
     )
     op.add_column(
         "processed_emails",

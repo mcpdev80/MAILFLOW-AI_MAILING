@@ -98,9 +98,7 @@ def test_unconfirmed_category_is_rejected() -> None:
 
 
 def test_low_confidence_is_marked_for_review() -> None:
-    client = LLMClient(
-        LLMConfig(model_id="test-model", review_confidence_threshold=0.7)
-    )
+    client = LLMClient(LLMConfig(model_id="test-model", review_confidence_threshold=0.7))
     payload = {
         "category": "work",
         "importance": "normal",

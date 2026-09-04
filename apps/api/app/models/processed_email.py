@@ -46,20 +46,36 @@ class ProcessedEmail(Base):
     # the applied mailbox action; the fields below describe the message itself.
     destination_folder: Mapped[str] = mapped_column(String(255))
     classification_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    category: Mapped[str] = mapped_column(String(64), default="other", server_default="other")
+    category: Mapped[str] = mapped_column(
+        String(64), default="other", server_default="other"
+    )
     subcategory: Mapped[str | None] = mapped_column(String(255), nullable=True)
     suggested_category: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    suggested_subcategory: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    importance: Mapped[str] = mapped_column(String(32), default="unknown", server_default="unknown")
-    urgency: Mapped[str] = mapped_column(String(32), default="unknown", server_default="unknown")
+    suggested_subcategory: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    importance: Mapped[str] = mapped_column(
+        String(32), default="unknown", server_default="unknown"
+    )
+    urgency: Mapped[str] = mapped_column(
+        String(32), default="unknown", server_default="unknown"
+    )
     action_required: Mapped[str] = mapped_column(
         String(16), default="unknown", server_default="unknown"
     )
-    system_tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
-    user_tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    system_tags: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
+    user_tags: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
     confidence: Mapped[float] = mapped_column(Float)
-    needs_more_context: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
-    review_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    needs_more_context: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    review_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     method: Mapped[str] = mapped_column(String(50))

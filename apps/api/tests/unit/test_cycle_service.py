@@ -110,7 +110,9 @@ async def test_run_mark_before_move(
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
-    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=42)]
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=42)
+    ]
     MockCycleRepo.return_value.find_thread_folder = AsyncMock(return_value=None)
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
@@ -181,10 +183,14 @@ async def test_run_draft_bytes_passed_to_save_draft(
     )
 
     MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
-    MockAccountRepo.return_value.get_full_config = AsyncMock(return_value=(account, config, None))
+    MockAccountRepo.return_value.get_full_config = AsyncMock(
+        return_value=(account, config, None)
+    )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
-    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=55)]
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=55)
+    ]
     MockCycleRepo.return_value.find_thread_folder = AsyncMock(return_value=None)
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
