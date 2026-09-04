@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from mailflow_core.types import ClassificationResult
+from mailflow_core.types import ClassificationResult, MailAuthSignals
 from sqlalchemy import select
 
 from app.crypto import encrypt
@@ -109,6 +109,14 @@ async def test_insert_processed_idempotent_and_persists_semantics(session, accou
         subject="Hi",
         destination_folder="Clients/B",
         classification=semantic_result(),
+        auth_signals=MailAuthSignals(
+            spf="pass",
+            dkim="pass",
+            dmarc="pass",
+            arc="none",
+            spam_verdict="clean",
+            spam_score=-1.0,
+        ),
         draft_saved=False,
         cycle_id=cycle_id,
     )
@@ -136,3 +144,9 @@ async def test_insert_processed_idempotent_and_persists_semantics(session, accou
     assert row.action_required == "yes"
     assert row.system_tags == ["today", "action_required"]
     assert row.user_tags == ["customer-b"]
+    assert row.auth_spf == "pass"
+    assert row.auth_dkim == "pass"
+    assert row.auth_dmarc == "pass"
+    assert row.auth_arc == "none"
+    assert row.spam_verdict == "clean"
+    assert row.spam_score == -1.0
