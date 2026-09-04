@@ -77,6 +77,9 @@ class ProcessedEmail(Base):
     review_required: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    suspicious_content: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
     classification_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
     classification_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
