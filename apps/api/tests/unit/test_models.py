@@ -18,6 +18,8 @@ def test_all_tables_registered():
         "lifecycle_events",
         "thread_summaries",
         "decision_memory_entries",
+        "backfill_jobs",
+        "backfill_failures",
     }
     assert expected == set(Base.metadata.tables.keys())
 

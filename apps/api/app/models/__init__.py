@@ -1,6 +1,7 @@
 """Re-export models so Alembic can discover them through Base.metadata."""
 
 from app.models.audit_log import AuditLog
+from app.models.backfill import BackfillFailure, BackfillJob
 from app.models.base import Base
 from app.models.decision_memory import DecisionMemoryEntry
 from app.models.email_account import EmailAccount
@@ -16,6 +17,8 @@ from app.models.thread_summary import ThreadSummary
 __all__ = [
     "Base",
     "AuditLog",
+    "BackfillFailure",
+    "BackfillJob",
     "DecisionMemoryEntry",
     "DomainRule",
     "EmailAccount",

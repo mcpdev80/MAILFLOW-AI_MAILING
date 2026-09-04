@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.routers.accounts import router as accounts_router
+from app.routers.backfill import router as backfill_router
 from app.routers.billing import router as billing_router
 from app.routers.cycles import router as cycles_router
 from app.routers.decision_memory import router as decision_memory_router
@@ -16,6 +17,7 @@ from app.routers.rules import router as rules_router
 
 __all__ = [
     "accounts_router",
+    "backfill_router",
     "billing_router",
     "cycles_router",
     "decision_memory_router",

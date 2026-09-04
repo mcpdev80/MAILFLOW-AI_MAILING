@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import email
+from dataclasses import dataclass
 from email.message import Message
 
 import imapclient
@@ -20,6 +21,18 @@ from mailflow_core.types import AttachmentInfo
 
 _MAILFLOW_KEYWORD = "MailFlowProcessed"
 _MAILFLOW_DRAFT_HEADER = "X-MailFlow-Draft"
+_BACKFILL_UID_WINDOW = 500
+
+
+@dataclass(frozen=True)
+class HistoricalBatch:
+    """One bounded historical scan result and its restart-safe position."""
+
+    uidvalidity: int
+    total_discovered: int
+    messages: tuple[EmailData, ...]
+    scan_cursor: int
+    done: bool
 
 
 def _extract_body(msg: Message) -> tuple[str, str]:
@@ -151,6 +164,7 @@ class ImapGenericProvider(EmailProvider):
         self._separator: str = "/"
         self._drafts_folder: str = "Drafts"
         self._uidvalidity: dict[str, int] = {}
+        self._source_folder: str = "INBOX"
 
     def connect(self) -> None:
         try:
@@ -180,6 +194,12 @@ class ImapGenericProvider(EmailProvider):
         if self._client:
             self._client.noop()
 
+    def set_source_folder(self, folder: str) -> None:
+        """Select the logical source used by body/move/processed operations."""
+        if not folder:
+            raise ValueError("source folder must not be empty")
+        self._source_folder = folder
+
     def _detect_separator(self) -> None:
         folders = self._client.list_folders()
         if folders:
@@ -195,50 +215,123 @@ class ImapGenericProvider(EmailProvider):
                 self._drafts_folder = name
                 return
 
+    def _folder_status(self, folder: str) -> tuple[int, int, int]:
+        status = self._client.folder_status(folder, ["UIDVALIDITY", "UIDNEXT", "MESSAGES"])
+        return (
+            int(status[b"UIDVALIDITY"]),
+            int(status.get(b"UIDNEXT", 1)),
+            int(status.get(b"MESSAGES", 0)),
+        )
+
     def _check_uidvalidity(self, folder: str) -> None:
-        status = self._client.folder_status(folder, ["UIDVALIDITY"])
-        current = int(status[b"UIDVALIDITY"])
+        current, _, _ = self._folder_status(folder)
         previous = self._uidvalidity.get(folder)
         if previous is not None and previous != current:
             raise UIDValidityChanged(folder, previous, current)
         self._uidvalidity[folder] = current
 
+    def _email_data_from_fetch(self, uid: int, data: dict) -> EmailData:
+        msg = email.message_from_bytes(_first_fetch_bytes(data))
+        refs_str = msg.get("References", "") or ""
+        attachments = _attachment_metadata(data.get(b"BODYSTRUCTURE"))
+        self._attachment_metadata_cache[uid] = attachments
+        return EmailData(
+            uid=uid,
+            message_id=msg.get("Message-ID", ""),
+            subject=msg.get("Subject", ""),
+            from_email=msg.get("From", ""),
+            to_emails=[msg.get("To", "")],
+            in_reply_to=msg.get("In-Reply-To"),
+            references=[part for part in refs_str.split() if part],
+            date=msg.get("Date"),
+            reply_to=msg.get("Reply-To"),
+            list_id=msg.get("List-ID"),
+            precedence=msg.get("Precedence"),
+            auth_signals=normalize_mail_auth_signals(msg),
+            attachments=attachments,
+        )
+
     def fetch_unprocessed_emails(self, max_count: int = 20) -> list[EmailData]:
         """Fetch candidate headers, transport signals and BODYSTRUCTURE metadata only."""
-        self._client.select_folder("INBOX")
-        self._check_uidvalidity("INBOX")
+        self.set_source_folder("INBOX")
+        self._client.select_folder(self._source_folder)
+        self._check_uidvalidity(self._source_folder)
         uids = self._client.search(["NOT", "KEYWORD", _MAILFLOW_KEYWORD])[:max_count]
         if not uids:
             return []
         raw_messages = self._client.fetch(uids, ["BODY.PEEK[HEADER]", "BODYSTRUCTURE"])
-        result: list[EmailData] = []
-        for uid, data in raw_messages.items():
-            msg = email.message_from_bytes(_first_fetch_bytes(data))
-            refs_str = msg.get("References", "") or ""
-            attachments = _attachment_metadata(data.get(b"BODYSTRUCTURE"))
-            self._attachment_metadata_cache[uid] = attachments
-            result.append(
-                EmailData(
-                    uid=uid,
-                    message_id=msg.get("Message-ID", ""),
-                    subject=msg.get("Subject", ""),
-                    from_email=msg.get("From", ""),
-                    to_emails=[msg.get("To", "")],
-                    in_reply_to=msg.get("In-Reply-To"),
-                    references=[part for part in refs_str.split() if part],
-                    date=msg.get("Date"),
-                    reply_to=msg.get("Reply-To"),
-                    list_id=msg.get("List-ID"),
-                    precedence=msg.get("Precedence"),
-                    auth_signals=normalize_mail_auth_signals(msg),
-                    attachments=attachments,
-                )
+        return [self._email_data_from_fetch(uid, data) for uid, data in raw_messages.items()]
+
+    def fetch_historical_batch(
+        self,
+        folder: str,
+        *,
+        after_uid: int | None = None,
+        max_count: int = 10,
+        uid_window: int = _BACKFILL_UID_WINDOW,
+    ) -> HistoricalBatch:
+        """Scan history in bounded UID windows without loading a whole mailbox.
+
+        ``scan_cursor`` is the highest UID position inspected, not merely the last
+        returned message. This makes sparse UID spaces restart-safe and prevents
+        repeatedly searching the same empty ranges.
+        """
+        if max_count <= 0 or uid_window <= 0:
+            raise ValueError("max_count and uid_window must be positive")
+        self.set_source_folder(folder)
+        self._client.select_folder(folder)
+        uidvalidity, uidnext, messages_count = self._folder_status(folder)
+        previous = self._uidvalidity.get(folder)
+        if previous is not None and previous != uidvalidity:
+            raise UIDValidityChanged(folder, previous, uidvalidity)
+        self._uidvalidity[folder] = uidvalidity
+
+        highest_uid = max(uidnext - 1, 0)
+        cursor = max(after_uid or 0, 0)
+        selected: list[int] = []
+
+        while cursor < highest_uid and len(selected) < max_count:
+            start = cursor + 1
+            end = min(start + uid_window - 1, highest_uid)
+            # Limit the server search itself to a bounded UID range. We never ask
+            # IMAP to return all historical UIDs just to slice them client-side.
+            candidates = self._client.search(["UID", f"{start}:{end}"])
+            for uid in candidates:
+                if uid > cursor:
+                    selected.append(uid)
+                    if len(selected) >= max_count:
+                        break
+            if len(selected) >= max_count:
+                cursor = selected[-1]
+                break
+            cursor = end
+
+        if not selected:
+            return HistoricalBatch(
+                uidvalidity=uidvalidity,
+                total_discovered=messages_count,
+                messages=(),
+                scan_cursor=cursor,
+                done=cursor >= highest_uid,
             )
-        return result
+
+        raw_messages = self._client.fetch(selected, ["BODY.PEEK[HEADER]", "BODYSTRUCTURE"])
+        ordered = tuple(
+            self._email_data_from_fetch(uid, raw_messages[uid])
+            for uid in selected
+            if uid in raw_messages
+        )
+        return HistoricalBatch(
+            uidvalidity=uidvalidity,
+            total_discovered=messages_count,
+            messages=ordered,
+            scan_cursor=cursor,
+            done=cursor >= highest_uid,
+        )
 
     def fetch_body(self, uid: int, max_chars: int | None = None) -> tuple[str, str]:
         """Fetch bounded body text; final-stage fetch may add bounded attachment context."""
-        self._client.select_folder("INBOX")
+        self._client.select_folder(self._source_folder)
         if max_chars is None:
             data = self._client.fetch([uid], ["RFC822"])[uid]
             raw = data.get(b"RFC822", b"")
@@ -282,13 +375,13 @@ class ImapGenericProvider(EmailProvider):
 
     def fetch_attachment_content(self, uid: int, attachment: AttachmentInfo) -> bytes:
         """Fetch one MIME part selected from previously discovered BODYSTRUCTURE metadata."""
-        self._client.select_folder("INBOX")
+        self._client.select_folder(self._source_folder)
         data = self._client.fetch([uid], [f"BODY.PEEK[{attachment.part_id}]"])[uid]
         return _first_fetch_bytes(data)
 
     def move_email(self, uid: int, destination_folder: str) -> bool:
         self.ensure_folder_exists(destination_folder)
-        self._client.select_folder("INBOX")
+        self._client.select_folder(self._source_folder)
         try:
             self._client.copy([uid], destination_folder)
             self._client.add_flags([uid], [r"\Deleted"])
@@ -298,7 +391,7 @@ class ImapGenericProvider(EmailProvider):
             return False
 
     def mark_as_processed(self, uid: int) -> None:
-        self._client.select_folder("INBOX")
+        self._client.select_folder(self._source_folder)
         self._client.add_flags([uid], [_MAILFLOW_KEYWORD])
 
     def ensure_folder_exists(self, folder_path: str) -> None:

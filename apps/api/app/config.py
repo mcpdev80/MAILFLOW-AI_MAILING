@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     LIFECYCLE_AUDIT_RETENTION_DAYS: int = 180
     LIFECYCLE_CLEANUP_BATCH_SIZE: int = 500
 
+    # Historical backfill intentionally works in very small resumable batches so
+    # live mail/model work can run between batches.
+    BACKFILL_BATCH_SIZE: int = Field(default=10, ge=1, le=100)
+    BACKFILL_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=20)
+    BACKFILL_REQUEUE_DELAY_SECONDS: float = Field(default=1.0, ge=0.0, le=60.0)
+
     # Adaptive classification escalates while confidence is below this value or
     # the model explicitly requests more context/review.
     CLASSIFICATION_CONFIDENCE_THRESHOLD: float = Field(default=0.85, ge=0.0, le=1.0)
