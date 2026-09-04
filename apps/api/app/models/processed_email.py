@@ -27,6 +27,7 @@ class ProcessedEmail(Base):
     __table_args__ = (
         UniqueConstraint("account_id", "uid", "uidvalidity", name="uq_processed_email"),
         Index("ix_processed_email_msg_id", "account_id", "message_id"),
+        Index("ix_processed_email_thread", "account_id", "thread_id"),
         Index("ix_processed_email_category", "account_id", "category"),
         Index("ix_processed_email_review", "account_id", "review_required"),
     )
@@ -39,6 +40,7 @@ class ProcessedEmail(Base):
     folder: Mapped[str] = mapped_column(String(255))
     uidvalidity: Mapped[int] = mapped_column(BigInteger)
     message_id: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    thread_id: Mapped[str | None] = mapped_column(String(500), nullable=True)
     from_email: Mapped[str] = mapped_column(String(500))
     subject: Mapped[str] = mapped_column(String, default="")
 
