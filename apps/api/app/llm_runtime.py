@@ -9,6 +9,8 @@ from mailflow_core.classification.llm_client import LLMClient, LLMConfig, ModelR
 from app.config import settings
 from app.crypto import decrypt_secret
 from app.models.llm_provider import LLMProvider
+from app.scheduled_llm import ScheduledLLMClient
+from app.workload import PRIORITY_LIVE, get_workload_controller
 
 
 def _optional_string(value: object) -> str | None:
@@ -33,12 +35,23 @@ def _model_role(value: str) -> ModelRole:
     return cast(ModelRole, value)
 
 
+def _scheduled(config: LLMConfig, account_id: object, priority: int) -> LLMClient:
+    return ScheduledLLMClient(
+        config,
+        controller=get_workload_controller(),
+        account_id=str(account_id) if account_id is not None else None,
+        priority=priority,
+    )
+
+
 def build_llm_client(
     llm_provider: LLMProvider | None,
     *,
     for_generation: bool,
+    account_id: object = None,
+    priority: int = PRIORITY_LIVE,
 ) -> LLMClient | None:
-    """Build a role-aware client with centrally configured resilience limits."""
+    """Build a role-aware client with resilience and global workload control."""
     if llm_provider is None or not llm_provider.is_active:
         return None
 
@@ -49,7 +62,7 @@ def build_llm_client(
     }
 
     if for_generation:
-        return LLMClient(
+        return _scheduled(
             LLMConfig(
                 model_id=(
                     _provider_string(llm_provider, "generation_model")
@@ -68,10 +81,12 @@ def build_llm_client(
                 generation_timeout=settings.LLM_GENERATION_TIMEOUT_SECONDS,
                 generation_max_retries=settings.LLM_GENERATION_MAX_RETRIES,
                 **common,
-            )
+            ),
+            account_id,
+            priority,
         )
 
-    return LLMClient(
+    return _scheduled(
         LLMConfig(
             model_id=llm_provider.default_classification_model,
             api_base=llm_provider.base_url,
@@ -104,5 +119,7 @@ def build_llm_client(
             ),
             thread_summary_role=_model_role(settings.THREAD_SUMMARY_MODEL_ROLE),
             **common,
-        )
+        ),
+        account_id,
+        priority,
     )
