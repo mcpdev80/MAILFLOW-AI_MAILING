@@ -81,9 +81,11 @@ function buildAuth() {
     emailAndPassword: { enabled: true },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
-        // Better Auth already requires ownership for passkey deletion. Freshness
-        // is an additional step-up requirement for removing authentication methods.
-        if (ctx.path === "/passkey/delete-passkey") {
+        const passkeyMethodChange =
+          ctx.path === "/passkey/generate-register-options" ||
+          ctx.path === "/passkey/verify-registration" ||
+          ctx.path === "/passkey/delete-passkey";
+        if (passkeyMethodChange) {
           await requireRecentSession(ctx);
         }
       }),
