@@ -6,10 +6,10 @@ import io
 import re
 import zipfile
 from dataclasses import dataclass
-from pathlib import PurePath
 from xml.etree import ElementTree
 
 from mailflow_core.content_security import sanitize_text
+from mailflow_core.types import AttachmentInfo
 
 AttachmentStatus = str
 
@@ -25,31 +25,6 @@ _SUPPORTED_MIME_TYPES = frozenset(
     }
 )
 _HIGH_SIGNAL_TYPES = frozenset({"application/pdf", "text/calendar"})
-
-
-@dataclass(frozen=True)
-class AttachmentMetadata:
-    """Lightweight provider metadata that never requires loading attachment bytes."""
-
-    part_id: str
-    filename: str
-    mime_type: str
-    size: int | None = None
-    disposition: str | None = None
-
-    @property
-    def extension(self) -> str:
-        return PurePath(self.filename).suffix.lower()
-
-    @property
-    def supported(self) -> bool:
-        return self.mime_type.lower() in _SUPPORTED_MIME_TYPES
-
-    @property
-    def high_signal(self) -> bool:
-        mime = self.mime_type.lower()
-        name = self.filename.lower()
-        return mime in _HIGH_SIGNAL_TYPES or name.endswith((".ics", ".pdf"))
 
 
 @dataclass(frozen=True)
@@ -70,7 +45,7 @@ class AttachmentExtractionConfig:
 
 @dataclass(frozen=True)
 class ExtractedAttachment:
-    metadata: AttachmentMetadata
+    metadata: AttachmentInfo
     status: AttachmentStatus
     text: str = ""
     error: str | None = None
@@ -85,13 +60,23 @@ class ExtractedAttachment:
         return f"{header}\n{self.text}"
 
 
+def is_supported_attachment(item: AttachmentInfo, config: AttachmentExtractionConfig) -> bool:
+    return item.mime_type.lower() in config.allowed_mime_types
+
+
+def is_high_signal_attachment(item: AttachmentInfo) -> bool:
+    mime = item.mime_type.lower()
+    name = item.filename.lower()
+    return mime in _HIGH_SIGNAL_TYPES or name.endswith((".ics", ".pdf"))
+
+
 def should_inspect_attachments(
     *,
     confidence: float,
     confidence_threshold: float,
     needs_more_context: bool,
     body_text: str,
-    attachments: tuple[AttachmentMetadata, ...],
+    attachments: tuple[AttachmentInfo, ...],
     force: bool = False,
 ) -> bool:
     """Return whether attachment content is worth an extra classification step."""
@@ -99,19 +84,19 @@ def should_inspect_attachments(
         return False
     if force or needs_more_context or confidence < confidence_threshold or not body_text.strip():
         return True
-    return any(item.high_signal for item in attachments)
+    return any(is_high_signal_attachment(item) for item in attachments)
 
 
 def eligible_attachments(
-    attachments: tuple[AttachmentMetadata, ...],
+    attachments: tuple[AttachmentInfo, ...],
     config: AttachmentExtractionConfig,
-) -> tuple[AttachmentMetadata, ...]:
+) -> tuple[AttachmentInfo, ...]:
     """Select supported, bounded attachments without touching attachment bytes."""
-    selected: list[AttachmentMetadata] = []
+    selected: list[AttachmentInfo] = []
     for item in attachments:
         if len(selected) >= config.max_attachments:
             break
-        if item.mime_type.lower() not in config.allowed_mime_types:
+        if not is_supported_attachment(item, config):
             continue
         if item.size is not None and item.size > config.max_attachment_bytes:
             continue
@@ -120,7 +105,7 @@ def eligible_attachments(
 
 
 def extract_attachment(
-    metadata: AttachmentMetadata,
+    metadata: AttachmentInfo,
     payload: bytes,
     *,
     config: AttachmentExtractionConfig,
@@ -194,7 +179,8 @@ def _extract_openxml(payload: bytes, prefixes: tuple[str, ...]) -> str:
         names = sorted(
             name
             for name in archive.namelist()
-            if name.endswith(".xml") and any(name == prefix or name.startswith(prefix) for prefix in prefixes)
+            if name.endswith(".xml")
+            and any(name == prefix or name.startswith(prefix) for prefix in prefixes)
         )
         for name in names:
             root = ElementTree.fromstring(archive.read(name))
