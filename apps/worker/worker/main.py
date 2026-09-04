@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.config import settings
 from app.database import async_session_factory
+from app.lifecycle import purge_expired_lifecycle_events
 from app.logging_config import bind_log_context, clear_log_context, setup_logging
 from app.observability import init_sentry
 from app.repositories.account import AccountRepository
@@ -115,13 +116,27 @@ async def schedule_cycles(ctx: dict) -> None:
     log.info("Scheduled %d account cycles", len(accounts))
 
 
+async def cleanup_lifecycle_history(ctx: dict) -> None:
+    """Purge expired compact lifecycle events in one bounded low-priority batch."""
+    async with ctx["session_factory"]() as session:
+        deleted = await purge_expired_lifecycle_events(
+            session,
+            retention_days=settings.LIFECYCLE_AUDIT_RETENTION_DAYS,
+            batch_size=settings.LIFECYCLE_CLEANUP_BATCH_SIZE,
+        )
+        await session.commit()
+    if deleted:
+        log.info("Purged %d expired lifecycle events", deleted)
+
+
 class WorkerSettings:
     functions = [process_account_cycle]
     cron_jobs = [
         cron(
             schedule_cycles,
             minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
-        )
+        ),
+        cron(cleanup_lifecycle_history, minute=17),
     ]
     on_startup = on_startup
     on_job_failure = on_job_failure
