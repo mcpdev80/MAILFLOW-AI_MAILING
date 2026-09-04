@@ -61,7 +61,9 @@ class ParsedEmail:
     from_email: str
     from_domain: str
     to_emails: list[str] = field(default_factory=list)
+    message_id: str | None = None
     in_reply_to: str | None = None
+    references: tuple[str, ...] = ()
     thread_id: str | None = None
     date: str | None = None
 
@@ -140,6 +142,16 @@ def _derived_system_tags(result: ClassificationResult) -> tuple[str, ...]:
     elif result.action_required == "no":
         tags.append("information_only")
     return tuple(tags)
+
+
+@dataclass(frozen=True)
+class ThreadSummaryUpdate:
+    """Compact thread-summary update returned by the fast classification model."""
+
+    summary: str
+    changed: bool
+    open_action_required: bool
+    deadline: str | None = None
 
 
 @dataclass(frozen=True)
