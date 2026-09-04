@@ -26,7 +26,12 @@ from mailflow_core.resilience import (
     RetryPolicy,
     retry_with_backoff,
 )
-from mailflow_core.types import ClassificationResult, DraftRequest, ParsedEmail, ThreadSummaryUpdate
+from mailflow_core.types import (
+    ClassificationResult,
+    DraftRequest,
+    ParsedEmail,
+    ThreadSummaryUpdate,
+)
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app import oauth
@@ -142,7 +147,9 @@ class CycleService:
         password: str | None = None
         access_token: str | None = None
         if account.provider_type in ("gmail", "microsoft") and account.encrypted_oauth:
-            refresh_token = str(decrypt_secret(account.encrypted_oauth)["refresh_token"])
+            refresh_token = str(
+                decrypt_secret(account.encrypted_oauth)["refresh_token"]
+            )
             access_token = await asyncio.to_thread(
                 oauth.access_token_from_refresh,
                 account.provider_type,
@@ -312,7 +319,11 @@ async def _process_one(
     await asyncio.to_thread(provider.move_email, email_data.uid, destination)
 
     draft_saved = False
-    if result.method != "domain_internal" and result.label != "unclassified" and generate_client:
+    if (
+        result.method != "domain_internal"
+        and result.label != "unclassified"
+        and generate_client
+    ):
         draft_email = parsed
         if not draft_email.body_text:
             draft_email = await asyncio.to_thread(load_body, None)

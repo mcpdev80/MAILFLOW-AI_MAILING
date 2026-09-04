@@ -6,8 +6,9 @@ content only when the previous result is not reliable enough.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Callable, Protocol
+from typing import Protocol
 
 from mailflow_core.types import ClassificationResult, ParsedEmail
 
