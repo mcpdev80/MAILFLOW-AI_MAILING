@@ -4,7 +4,7 @@ MailFlow treats PostgreSQL as the authoritative backup target for application st
 
 ## What to back up
 
-Back up the complete PostgreSQL database with normal PostgreSQL tooling such as `pg_dump`, storage snapshots or managed-database backups. This includes MailFlow organizations, mailbox configuration, processed-message state, rules, audit records, Better Auth users/organizations/members, passkey records and encrypted credentials stored in PostgreSQL.
+Back up the complete PostgreSQL database with normal PostgreSQL tooling such as `pg_dump`, storage snapshots or managed-database backups. This includes MailFlow organizations, mailbox configuration, processed-message state, compact thread summaries, rules, audit records, Better Auth users/organizations/members, passkey records and encrypted credentials stored in PostgreSQL.
 
 Do not make Redis part of the authoritative backup. Queued jobs are reconstructable from PostgreSQL-backed account state and scheduling.
 
