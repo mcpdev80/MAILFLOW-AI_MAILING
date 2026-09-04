@@ -12,6 +12,11 @@ from email.mime.text import MIMEText
 from typing import cast
 from uuid import UUID, uuid4
 
+from mailflow_core.action_policy import (
+    ActionMode,
+    MailboxActionPolicy,
+    evaluate_mailbox_action,
+)
 from mailflow_core.attachments import AttachmentExtractionConfig
 from mailflow_core.classification.adaptive import (
     AdaptiveClassificationConfig,
@@ -166,6 +171,14 @@ def _build_memory_config() -> DecisionMemoryConfig:
         direct_reuse_threshold=settings.DECISION_MEMORY_REUSE_THRESHOLD,
         hint_threshold=settings.DECISION_MEMORY_HINT_THRESHOLD,
         broad_pattern_decay_days=settings.DECISION_MEMORY_DECAY_DAYS,
+    )
+
+
+def _build_action_policy(account: EmailAccount) -> MailboxActionPolicy:
+    return MailboxActionPolicy(
+        move_mode=cast(ActionMode, account.move_policy),
+        archive_mode=cast(ActionMode, account.archive_policy),
+        confidence_threshold=account.action_confidence_threshold,
     )
 
 
@@ -415,9 +428,25 @@ async def _process_one(
                 redact_text(str(exc)),
             )
 
-    destination = destination_for_classification(account, result)
+    action_decision = evaluate_mailbox_action(
+        _build_action_policy(account),
+        "move",
+        result,
+    )
+    destination = (
+        destination_for_classification(account, result)
+        if action_decision.execute
+        else account.inbox_folder
+    )
+
+    # Mark before an optional move because the source UID is no longer valid
+    # after a successful move. Review/off decisions stay in the inbox but are
+    # marked processed so repeated cycles remain idempotent.
     await asyncio.to_thread(provider.mark_as_processed, email_data.uid)
-    await asyncio.to_thread(provider.move_email, email_data.uid, destination)
+    if action_decision.execute:
+        moved = await asyncio.to_thread(provider.move_email, email_data.uid, destination)
+        if not moved:
+            raise RuntimeError("mailbox_move_failed")
 
     draft_saved = False
     if (
@@ -492,6 +521,7 @@ async def _process_one(
             subject=email_data.subject,
             destination_folder=destination,
             classification=result,
+            action_decision=action_decision,
             auth_signals=parsed.auth_signals,
             draft_saved=draft_saved,
             cycle_id=cycle_id,
