@@ -71,7 +71,7 @@ async def _pause_after_enqueue_failure(
 ) -> None:
     latest = await repo.get(job_id, for_update=True)
     if latest is not None and latest.state == "running":
-        latest.state = "paused"
+        await repo.transition(job_id, "paused", actor_type="system")
         await session.commit()
 
 
@@ -92,6 +92,7 @@ async def start_backfill(
             folder=payload.folder,
             batch_size=payload.batch_size or settings.BACKFILL_BATCH_SIZE,
             start_running=True,
+            actor_user_id=identity.user_id,
         )
         await session.commit()
     except (BackfillConflictError, IntegrityError) as exc:
@@ -200,7 +201,7 @@ async def pause_backfill(
     await _load_owned_job(account_id, job_id, identity, session)
     repo = BackfillRepository(session)
     try:
-        job = await repo.transition(job_id, "paused")
+        job = await repo.transition(job_id, "paused", actor_user_id=identity.user_id)
         await session.commit()
     except BackfillStateError as exc:
         await session.rollback()
@@ -223,7 +224,7 @@ async def resume_backfill(
     previous_state = current.state
     repo = BackfillRepository(session)
     try:
-        job = await repo.transition(job_id, "running")
+        job = await repo.transition(job_id, "running", actor_user_id=identity.user_id)
         await session.commit()
     except BackfillStateError as exc:
         await session.rollback()
@@ -249,7 +250,7 @@ async def cancel_backfill(
     await _load_owned_job(account_id, job_id, identity, session)
     repo = BackfillRepository(session)
     try:
-        job = await repo.transition(job_id, "cancelled")
+        job = await repo.transition(job_id, "cancelled", actor_user_id=identity.user_id)
         await session.commit()
     except BackfillStateError as exc:
         await session.rollback()
