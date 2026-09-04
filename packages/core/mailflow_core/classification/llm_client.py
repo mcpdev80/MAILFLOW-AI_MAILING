@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Literal, TypeVar
+from typing import Literal, TypeVar, cast
 
 import litellm
 
@@ -88,10 +88,9 @@ class ModelPathConfig:
     timeout: float
     max_retries: int
 
-    @property
-    def health_key(self) -> tuple[str, str | None]:
-        # Never include credentials in the registry key or health output.
-        return (self.model_id, self.api_base)
+    def health_key(self, role: str) -> tuple[str, str, str | None]:
+        """Stable path identity without credentials; role isolation is intentional."""
+        return (role, self.model_id, self.api_base)
 
 
 @dataclass(frozen=True)
@@ -166,8 +165,10 @@ class LLMConfig:
 
 # Worker-process-local registry. LLMClient instances are intentionally short-lived
 # (often one per mailbox cycle), so breakers must outlive an individual instance.
-_PATH_BREAKERS: dict[tuple[str, str | None], CircuitBreaker] = {}
-_FALLBACK_COUNTS: dict[tuple[str, str | None], int] = {}
+# Role is part of the key so fast/deep/generation remain independently recoverable
+# even when they intentionally point at the same model and endpoint.
+_PATH_BREAKERS: dict[tuple[str, str, str | None], CircuitBreaker] = {}
+_FALLBACK_COUNTS: dict[tuple[str, str, str | None], int] = {}
 
 
 def reset_model_path_health() -> None:
@@ -196,7 +197,6 @@ class LLMClient:
         )
 
     def _classification_path(self, role: ModelRole) -> ModelPathConfig:
-        default = self._default_path()
         if role == "fast":
             return ModelPathConfig(
                 model_id=self._config.fast_model_id or self._config.model_id,
@@ -221,8 +221,8 @@ class LLMClient:
             ),
         )
 
-    def _breaker(self, path: ModelPathConfig) -> CircuitBreaker:
-        key = path.health_key
+    def _breaker(self, path: ModelPathConfig, role: str) -> CircuitBreaker:
+        key = path.health_key(role)
         breaker = _PATH_BREAKERS.get(key)
         if breaker is None:
             breaker = CircuitBreaker(
@@ -235,22 +235,22 @@ class LLMClient:
     def health_snapshot(self) -> dict[str, ModelPathHealth]:
         """Return current path health without message data or credentials."""
         result: dict[str, ModelPathHealth] = {}
-        for role in ("fast", "deep"):
-            typed_role: ModelRole = role  # type: ignore[assignment]
-            path = self._classification_path(typed_role)
-            result[role] = ModelPathHealth(
-                role=role,
+        for role_name in ("fast", "deep"):
+            role = cast(ModelRole, role_name)
+            path = self._classification_path(role)
+            result[role_name] = ModelPathHealth(
+                role=role_name,
                 model_id=path.model_id,
                 api_base=path.api_base,
-                circuit=self._breaker(path).health(),
-                fallback_count=_FALLBACK_COUNTS.get(path.health_key, 0),
+                circuit=self._breaker(path, role_name).health(),
+                fallback_count=_FALLBACK_COUNTS.get(path.health_key(role_name), 0),
             )
         generation = self._default_path()
         result["generation"] = ModelPathHealth(
             role="generation",
             model_id=generation.model_id,
             api_base=generation.api_base,
-            circuit=self._breaker(generation).health(),
+            circuit=self._breaker(generation, "generation").health(),
             fallback_count=0,
         )
         return result
@@ -278,7 +278,7 @@ class LLMClient:
 
     def _call_default(self, messages: list[dict]) -> str:
         path = self._default_path()
-        breaker = self._breaker(path)
+        breaker = self._breaker(path, "generation")
         if breaker.state == "open":
             raise CircuitOpenError("generation model circuit is open")
         try:
@@ -305,7 +305,7 @@ class LLMClient:
             path = self._classification_path(role)
             if index == 1 and path == primary_path:
                 break
-            breaker = self._breaker(path)
+            breaker = self._breaker(path, role)
             if breaker.state == "open":
                 error = CircuitOpenError(f"classification path {role} circuit is open")
                 if first_error is None:
@@ -321,9 +321,8 @@ class LLMClient:
                 continue
             breaker.record_success()
             if index == 1:
-                _FALLBACK_COUNTS[path.health_key] = (
-                    _FALLBACK_COUNTS.get(path.health_key, 0) + 1
-                )
+                key = path.health_key(role)
+                _FALLBACK_COUNTS[key] = _FALLBACK_COUNTS.get(key, 0) + 1
             return parsed, role
         if first_error is not None:
             raise first_error
