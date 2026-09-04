@@ -16,6 +16,7 @@ def test_all_tables_registered():
         "audit_log",
         "stripe_events",
         "lifecycle_events",
+        "thread_summaries",
     }
     assert expected == set(Base.metadata.tables.keys())
 
