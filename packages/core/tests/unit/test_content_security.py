@@ -22,6 +22,7 @@ def test_html_sanitization_removes_active_and_tracking_content() -> None:
 def test_parser_never_preserves_active_html_for_deeper_processing() -> None:
     email = EmailData(
         uid=1,
+        message_id="<msg-1@example.com>",
         subject="Hello",
         from_email="sender@example.com",
         to_emails=["me@example.com"],
