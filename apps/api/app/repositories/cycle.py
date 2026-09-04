@@ -1,4 +1,4 @@
-"""CycleRepository — audit_log and processed email persistence."""
+"""CycleRepository — cycle log and processed email persistence."""
 
 from __future__ import annotations
 
@@ -7,11 +7,13 @@ from uuid import UUID
 
 from mailflow_core.action_policy import ActionDecision
 from mailflow_core.types import ClassificationResult, MailAuthSignals
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.lifecycle import record_lifecycle_event
 from app.models.audit_log import AuditLog
+from app.models.email_account import EmailAccount
 from app.models.processed_email import ProcessedEmail
 
 
@@ -64,7 +66,7 @@ class CycleRepository:
         draft_saved: bool,
         cycle_id: UUID,
     ) -> bool:
-        """Persist one processed-message row and report whether it was newly inserted."""
+        """Persist final message state and audit only meaningful mailbox mutations."""
         memory_id = (
             UUID(classification.decision_memory_id)
             if classification.decision_memory_id is not None
@@ -122,4 +124,40 @@ class CycleRepository:
             .returning(ProcessedEmail.id)
         )
         inserted_id = (await self._session.execute(stmt)).scalar_one_or_none()
-        return inserted_id is not None
+        if inserted_id is None:
+            return False
+
+        org_id = await self._session.scalar(
+            select(EmailAccount.org_id).where(EmailAccount.id == account_id)
+        )
+        if org_id is None:
+            raise RuntimeError("processed_email_account_missing")
+
+        message_ref = f"{uidvalidity}:{uid}"
+        if action_decision.execute:
+            await record_lifecycle_event(
+                self._session,
+                org_id=org_id,
+                account_id=account_id,
+                event="message_moved",
+                message_ref=message_ref,
+                details={
+                    "from_folder": folder,
+                    "to_folder": destination_folder,
+                    "mode": "automatic",
+                },
+            )
+        elif classification.suspicious_content and action_decision.requires_review:
+            await record_lifecycle_event(
+                self._session,
+                org_id=org_id,
+                account_id=account_id,
+                event="mailbox_action_blocked",
+                status="blocked",
+                message_ref=message_ref,
+                details={
+                    "action": action_decision.action,
+                    "reason": action_decision.reason,
+                },
+            )
+        return True
