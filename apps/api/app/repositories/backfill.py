@@ -71,6 +71,7 @@ class BackfillRepository:
             details={
                 "job_id": str(job.id),
                 "folder": job.folder,
+                "mode": job.mode,
                 "processed": job.processed,
                 "successful": job.successful,
                 "review_required": job.review_required,
@@ -120,12 +121,15 @@ class BackfillRepository:
         account_id: UUID,
         *,
         folder: str = "INBOX",
+        mode: str = "dry_run",
         batch_size: int = 10,
         start_running: bool = True,
         actor_user_id: str | None = None,
     ) -> BackfillJob:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
+        if mode not in {"dry_run", "review", "apply"}:
+            raise ValueError("unsupported backfill mode")
         if await self.active_for_folder(account_id, folder) is not None:
             raise BackfillConflictError(
                 f"active backfill already exists for account={account_id} folder={folder}"
@@ -133,6 +137,7 @@ class BackfillRepository:
         job = BackfillJob(
             account_id=account_id,
             folder=folder,
+            mode=mode,
             batch_size=batch_size,
             state="running" if start_running else "paused",
         )
