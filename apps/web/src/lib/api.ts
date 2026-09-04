@@ -3,6 +3,8 @@ import { API_BASE } from "./config";
 import type {
   Cycle,
   CycleEnqueued,
+  DecisionMemoryEntry,
+  DecisionMemoryWrite,
   EmailAccount,
   EmailAccountCreate,
   EmailAccountUpdate,
@@ -84,6 +86,28 @@ export const api = {
     }),
   listUnresolvedMailboxes: () =>
     request<EmailAccount[]>("/accounts/unresolved-mailboxes"),
+
+  // DecisionMemory
+  listDecisionMemory: (accountId: string, includeDisabled = true) =>
+    request<DecisionMemoryEntry[]>(
+      `/accounts/${accountId}/decision-memory?include_disabled=${includeDisabled}`,
+    ),
+  updateDecisionMemory: (
+    accountId: string,
+    entryId: string,
+    payload: DecisionMemoryWrite,
+  ) =>
+    request<DecisionMemoryEntry>(
+      `/accounts/${accountId}/decision-memory/${entryId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      },
+    ),
+  deleteDecisionMemory: (accountId: string, entryId: string) =>
+    request<void>(`/accounts/${accountId}/decision-memory/${entryId}`, {
+      method: "DELETE",
+    }),
 
   // LLM providers
   listProviders: () => request<LLMProvider[]>("/llm-providers"),

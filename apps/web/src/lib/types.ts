@@ -134,6 +134,76 @@ export interface CycleEnqueued {
   job_id: string | null;
 }
 
+export type DecisionMemoryCategory =
+  | "work"
+  | "private"
+  | "finance"
+  | "orders"
+  | "appointments"
+  | "newsletters"
+  | "notifications"
+  | "other";
+
+export type DecisionMemoryImportance =
+  | "critical"
+  | "high"
+  | "normal"
+  | "low"
+  | "unknown";
+
+export type DecisionMemoryUrgency =
+  | "immediate"
+  | "today"
+  | "this_week"
+  | "none"
+  | "unknown";
+
+export type DecisionMemoryActionRequired = "yes" | "no" | "unknown";
+export type DecisionMemoryTrustedSource = "human_confirmed" | "human_corrected";
+
+export interface DecisionMemoryEntry {
+  id: string;
+  account_id: string;
+  sender_email: string | null;
+  sender_domain: string | null;
+  subject_pattern: string | null;
+  thread_id: string | null;
+  category: DecisionMemoryCategory;
+  subcategory: string | null;
+  importance: DecisionMemoryImportance;
+  urgency: DecisionMemoryUrgency;
+  action_required: DecisionMemoryActionRequired;
+  system_tags: string[];
+  user_tags: string[];
+  routing_target: string | null;
+  source: DecisionMemoryTrustedSource | "ai_observed";
+  trust_score: number;
+  enabled: boolean;
+  hit_count: number;
+  last_used: string | null;
+  superseded_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DecisionMemoryWrite {
+  sender_email: string | null;
+  sender_domain: string | null;
+  subject_pattern: string | null;
+  thread_id: string | null;
+  category: DecisionMemoryCategory;
+  subcategory: string | null;
+  importance: DecisionMemoryImportance;
+  urgency: DecisionMemoryUrgency;
+  action_required: DecisionMemoryActionRequired;
+  system_tags: string[];
+  user_tags: string[];
+  routing_target: string | null;
+  source: DecisionMemoryTrustedSource;
+  trust_score: number;
+  enabled: boolean;
+}
+
 export interface PlanStatus {
   plan: string;
   label: string;
