@@ -160,6 +160,27 @@ class DecisionMemoryMatcher:
         return max(0.50, 1.0 - 0.15 * periods)
 
 
+class PrefetchedDecisionMemoryLookup:
+    """Synchronous lookup over candidates loaded by the application layer."""
+
+    def __init__(
+        self,
+        candidates: tuple[DecisionMemoryCandidate, ...],
+        *,
+        config: DecisionMemoryConfig | None = None,
+    ) -> None:
+        self._candidates = candidates
+        self._matcher = DecisionMemoryMatcher(config)
+
+    def lookup(
+        self,
+        email: ParsedEmail,
+        thread_summary: str | None,
+    ) -> DecisionMemoryMatch | None:
+        del thread_summary
+        return self._matcher.match(email, self._candidates)
+
+
 def result_for_direct_reuse(match: DecisionMemoryMatch) -> ClassificationResult:
     """Mark a trusted reused decision with observable memory metadata."""
     return replace(
