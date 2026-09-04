@@ -73,6 +73,14 @@ class ParsedEmail:
 
 
 @dataclass(frozen=True)
+class ThreadSummaryUpdate:
+    summary: str
+    changed: bool
+    open_action_required: bool
+    deadline: str | None = None
+
+
+@dataclass(frozen=True)
 class ClassificationResult:
     """Semantic email classification with legacy ``label`` compatibility."""
 
@@ -91,6 +99,7 @@ class ClassificationResult:
     user_tags: tuple[str, ...] = ()
     needs_more_context: bool = False
     review_required: bool = False
+    suspicious_content: bool = False
     reason: str | None = None
     classification_stage: int | None = None
     classification_model: str | None = None
@@ -126,7 +135,7 @@ class ClassificationResult:
             or self.urgency == "unknown"
             or self.action_required == "unknown"
         )
-        if required_unknown or self.needs_more_context:
+        if required_unknown or self.needs_more_context or self.suspicious_content:
             object.__setattr__(self, "review_required", True)
 
     def requires_review(self, confidence_threshold: float) -> bool:
@@ -148,14 +157,6 @@ def _derived_system_tags(result: ClassificationResult) -> tuple[str, ...]:
     elif result.action_required == "no":
         tags.append("information_only")
     return tuple(tags)
-
-
-@dataclass(frozen=True)
-class ThreadSummaryUpdate:
-    summary: str
-    changed: bool
-    open_action_required: bool
-    deadline: str | None = None
 
 
 @dataclass(frozen=True)

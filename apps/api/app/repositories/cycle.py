@@ -87,6 +87,7 @@ class CycleRepository:
                 confidence=classification.confidence,
                 needs_more_context=classification.needs_more_context,
                 review_required=classification.review_required,
+                suspicious_content=classification.suspicious_content,
                 reason=classification.reason,
                 classification_stage=classification.classification_stage,
                 classification_model=classification.classification_model,
