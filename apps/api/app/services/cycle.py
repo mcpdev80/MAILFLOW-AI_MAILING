@@ -12,6 +12,7 @@ from email.mime.text import MIMEText
 from typing import cast
 from uuid import UUID, uuid4
 
+from mailflow_core.attachments import AttachmentExtractionConfig
 from mailflow_core.classification.adaptive import (
     AdaptiveClassificationConfig,
     AdaptiveClassifier,
@@ -142,6 +143,19 @@ def _build_llm_client(
     )
 
 
+def _build_attachment_config() -> AttachmentExtractionConfig:
+    return AttachmentExtractionConfig(
+        max_attachment_bytes=settings.ATTACHMENT_MAX_BYTES,
+        max_extracted_chars=settings.ATTACHMENT_MAX_EXTRACTED_CHARS,
+        max_attachments=settings.ATTACHMENT_MAX_COUNT,
+        max_pdf_pages=settings.ATTACHMENT_MAX_PDF_PAGES,
+        max_archive_entries=settings.ATTACHMENT_MAX_ARCHIVE_ENTRIES,
+        max_archive_uncompressed_bytes=(
+            settings.ATTACHMENT_MAX_ARCHIVE_UNCOMPRESSED_BYTES
+        ),
+    )
+
+
 def _build_draft_bytes(
     subject: str,
     from_email: str,
@@ -223,6 +237,7 @@ class CycleService:
             password=password,
             use_ssl=account.use_ssl,
             access_token=access_token,
+            attachment_config=_build_attachment_config(),
         )
         parser = EmailParser()
         classify_client = _build_llm_client(llm_provider, for_generation=False)
