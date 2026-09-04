@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # Solo debe viajar por la red interna; nunca exponerlo públicamente.
     INTERNAL_API_SECRET: str = ""
 
+    # Workers can be started in a fail-closed paused state during restore. In this
+    # mode scheduled and already queued mailbox jobs are skipped without mutation.
+    WORKER_PAUSED: bool = False
+
     # Observabilidad.
     #   LOG_FORMAT: "json" (producción, una línea por evento) o "text" (dev).
     #   LOG_LEVEL: nivel raíz (DEBUG/INFO/WARNING/...).
