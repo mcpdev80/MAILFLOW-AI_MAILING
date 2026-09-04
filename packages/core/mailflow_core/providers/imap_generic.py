@@ -247,9 +247,12 @@ class ImapGenericProvider(EmailProvider):
             used = tuple(item for item in extracted if item.status == "used" and item.text)
             if used:
                 context = "\n\n".join(item.prompt_block() for item in used)
-                body_text = (
-                    f"{body_text}\n\n" if body_text else ""
-                ) + f"BEGIN_UNTRUSTED_ATTACHMENT_CONTEXT\n{context}\nEND_UNTRUSTED_ATTACHMENT_CONTEXT"
+                attachment_context = (
+                    "BEGIN_UNTRUSTED_ATTACHMENT_CONTEXT\n"
+                    f"{context}\n"
+                    "END_UNTRUSTED_ATTACHMENT_CONTEXT"
+                )
+                body_text = (f"{body_text}\n\n" if body_text else "") + attachment_context
             return body_text, body_html
 
         max_bytes = max(max_chars * 2, max_chars)
@@ -278,7 +281,7 @@ class ImapGenericProvider(EmailProvider):
         return tuple(results)
 
     def fetch_attachment_content(self, uid: int, attachment: AttachmentInfo) -> bytes:
-        """Fetch exactly one MIME part selected from previously discovered BODYSTRUCTURE metadata."""
+        """Fetch one MIME part selected from previously discovered BODYSTRUCTURE metadata."""
         self._client.select_folder("INBOX")
         data = self._client.fetch([uid], [f"BODY.PEEK[{attachment.part_id}]"])[uid]
         return _first_fetch_bytes(data)
