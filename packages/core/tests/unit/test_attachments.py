@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import io
+import zipfile
+
 from mailflow_core.attachments import (
     AttachmentExtractionConfig,
     eligible_attachments,
@@ -65,6 +68,26 @@ def test_calendar_extracts_only_structured_fields() -> None:
     assert "SUMMARY: Planning" in result.text
     assert "LOCATION: Room 4" in result.text
     assert "DESCRIPTION" not in result.text
+
+
+def test_openxml_rejects_large_uncompressed_content() -> None:
+    payload = io.BytesIO()
+    with zipfile.ZipFile(payload, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", "<w:t>" + ("x" * 10_000) + "</w:t>")
+    data = payload.getvalue()
+    item = attachment(
+        filename="document.docx",
+        mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        size=len(data),
+    )
+    result = extract_attachment(
+        item,
+        data,
+        config=AttachmentExtractionConfig(max_archive_uncompressed_bytes=512),
+    )
+    assert result.status == "failed"
+    assert result.error is not None
+    assert "archive_uncompressed_limit_exceeded" in result.error
 
 
 def test_pdf_or_low_confidence_can_trigger_attachment_escalation() -> None:
