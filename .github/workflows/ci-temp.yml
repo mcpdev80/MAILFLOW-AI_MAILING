@@ -5,6 +5,7 @@ on:
     branches:
       - issue-15-global-workload-control
 
+# Final branch validation after Ruff formatting.
 jobs:
   lint-python:
     name: Lint Python (ruff)
