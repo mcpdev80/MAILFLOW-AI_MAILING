@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from mailflow_core.types import MailAuthSignals
+from mailflow_core.types import AttachmentInfo, MailAuthSignals
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ class EmailData:
     list_id: str | None = None
     precedence: str | None = None
     auth_signals: MailAuthSignals = field(default_factory=MailAuthSignals)
+    attachments: tuple[AttachmentInfo, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -62,11 +63,15 @@ class EmailProvider(ABC):
 
     @abstractmethod
     def fetch_unprocessed_emails(self, max_count: int = 20) -> list[EmailData]:
-        """Fetch candidate message headers without fetching message bodies."""
+        """Fetch candidate headers and lightweight metadata without message bodies."""
 
     @abstractmethod
     def fetch_body(self, uid: int, max_chars: int | None = None) -> tuple[str, str]:
         """Fetch only the body content needed by the current classification stage."""
+
+    def fetch_attachment_content(self, uid: int, attachment: AttachmentInfo) -> bytes:
+        """Fetch one attachment payload when the provider supports staged attachment access."""
+        raise NotImplementedError("attachment content fetching is not supported by this provider")
 
     @abstractmethod
     def move_email(self, uid: int, destination_folder: str) -> bool: ...

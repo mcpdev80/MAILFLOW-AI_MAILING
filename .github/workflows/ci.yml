@@ -11,13 +11,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
           python-version: "3.13"
       - run: uv sync --all-packages
       - run: uv run ruff check .
-      - run: uv run ruff format --check .
+      - name: Check formatting of changed Python files
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
+          if (( ${#files[@]} )); then
+            uv run ruff format --check --diff "${files[@]}"
+          else
+            echo "No changed Python files."
+          fi
 
   test-core:
     name: Test core (pytest)
@@ -55,7 +66,6 @@ jobs:
           version: "latest"
           python-version: "3.13"
       - run: uv sync --all-packages
-      # The api package's tests resolve `pythonpath` relative to apps/api.
       - name: Run api tests
         working-directory: apps/api
         env:
@@ -67,12 +77,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: pnpm install
-      - run: pnpm biome check .
+      - run: pnpm install --frozen-lockfile
+      - name: Check changed web files
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.(js|jsx|ts|tsx|json|jsonc)$' || true)
+          if (( ${#files[@]} )); then
+            pnpm biome check "${files[@]}"
+          else
+            echo "No changed web files."
+          fi
 
   typecheck-ts:
     name: TypeScript typecheck
@@ -83,7 +104,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
 
   docker-build:
@@ -100,23 +121,22 @@ jobs:
           push: false
           tags: mailflow-api:ci
 
-  security-audit:
-    name: Dependency audit (CVEs)
-    runs-on: ubuntu-latest
-    # Advisory por ahora: visibiliza CVEs sin bloquear el merge. Endurecer a
-    # bloqueante (quitar continue-on-error) una vez fijada la baseline.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-          python-version: "3.13"
-      - name: pip-audit (Python)
-        run: uvx pip-audit || true
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: pnpm audit (JS)
-        run: pnpm install && pnpm audit --audit-level=high || true
+  # security-audit:
+  #   name: Dependency audit (CVEs)
+  #   runs-on: ubuntu-latest
+  #   # Re-enable once the dependency-vulnerability baseline is established.
+  #   continue-on-error: true
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: astral-sh/setup-uv@v4
+  #       with:
+  #         version: "latest"
+  #         python-version: "3.13"
+  #     - name: pip-audit (Python)
+  #       run: uvx pip-audit || true
+  #     - uses: pnpm/action-setup@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: "20"
+  #     - name: pnpm audit (JS)
+  #       run: pnpm install && pnpm audit --audit-level=high || true

@@ -31,6 +31,7 @@ SpfResult = Literal["pass", "fail", "softfail", "neutral", "none", "unknown"]
 AuthResult = Literal["pass", "fail", "none", "unknown"]
 DmarcResult = Literal["pass", "fail", "bestguesspass", "none", "unknown"]
 SpamVerdict = Literal["spam", "suspicious", "clean", "unknown"]
+AttachmentExtractionStatus = Literal["not_needed", "used", "skipped", "failed"]
 
 CONFIRMED_CATEGORIES: tuple[Category, ...] = (
     "work",
@@ -79,6 +80,17 @@ class MailAuthSignals:
 
 
 @dataclass(frozen=True)
+class AttachmentInfo:
+    """Lightweight attachment metadata carried with a message without downloading content."""
+
+    part_id: str
+    filename: str
+    mime_type: str
+    size: int | None = None
+    disposition: str | None = None
+
+
+@dataclass(frozen=True)
 class ParsedEmail:
     """Refined email data produced by EmailParser."""
 
@@ -99,6 +111,7 @@ class ParsedEmail:
     thread_id: str | None = None
     date: str | None = None
     auth_signals: MailAuthSignals = field(default_factory=MailAuthSignals)
+    attachments: tuple[AttachmentInfo, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -132,6 +145,10 @@ class ClassificationResult:
     reason: str | None = None
     classification_stage: int | None = None
     classification_model: str | None = None
+    attachment_context_used: bool = False
+    attachment_types_used: tuple[str, ...] = ()
+    attachment_extraction_status: AttachmentExtractionStatus = "not_needed"
+    attachment_extraction_error: str | None = None
     # Deep classification can optionally return the compact thread update in the
     # same response so the worker does not need a second model call.
     thread_summary_update: ThreadSummaryUpdate | None = None
@@ -149,6 +166,10 @@ class ClassificationResult:
             raise ValueError(f"unsupported action_required: {self.action_required}")
         if self.classification_stage is not None and self.classification_stage not in {0, 1, 2, 3}:
             raise ValueError("classification_stage must be 0, 1, 2, 3 or None")
+        if self.attachment_extraction_status not in {"not_needed", "used", "skipped", "failed"}:
+            raise ValueError(
+                f"unsupported attachment extraction status: {self.attachment_extraction_status}"
+            )
         unsupported_tags = set(self.system_tags) - SYSTEM_TAGS
         if unsupported_tags:
             raise ValueError(f"unsupported system tags: {sorted(unsupported_tags)}")

@@ -9,10 +9,10 @@ from mailflow_core.classification.adaptive import (
     AdaptiveClassificationConfig,
     AdaptiveClassifier,
 )
-from mailflow_core.types import ClassificationResult, ParsedEmail
+from mailflow_core.types import AttachmentInfo, ClassificationResult, ParsedEmail
 
 
-def email(body: str = "") -> ParsedEmail:
+def email(body: str = "", *, attachments: tuple[AttachmentInfo, ...] = ()) -> ParsedEmail:
     return ParsedEmail(
         uid=1,
         subject_normalized="Invoice question",
@@ -24,6 +24,7 @@ def email(body: str = "") -> ParsedEmail:
         to_emails=["me@company.com"],
         message_id="<m1@example.com>",
         date="Fri, 4 Sep 2026 10:00:00 +0200",
+        attachments=attachments,
     )
 
 
@@ -156,3 +157,40 @@ def test_stage_three_uses_full_body_loader():
     assert outcome.stage == 3
     assert requested == [1_000, 4_000, None]
     assert outcome.email.body_text == "full"
+
+
+def test_high_signal_attachment_prevents_fast_exit_and_records_final_context():
+    pdf = AttachmentInfo(
+        part_id="2",
+        filename="invoice.pdf",
+        mime_type="application/pdf",
+        size=1200,
+        disposition="attachment",
+    )
+    llm = MagicMock()
+    llm.classify.side_effect = [result(0.95), result(0.95), result(0.95), result(0.97)]
+    requested: list[int | None] = []
+
+    def loader(limit: int | None) -> ParsedEmail:
+        requested.append(limit)
+        if limit is None:
+            body = (
+                "Please see attached.\n\nBEGIN_UNTRUSTED_ATTACHMENT_CONTEXT\n"
+                "filename=invoice.pdf; mime=application/pdf\nInvoice 4711"
+                "\nEND_UNTRUSTED_ATTACHMENT_CONTEXT"
+            )
+        else:
+            body = "Please see attached."
+        return email(body, attachments=(pdf,))
+
+    outcome = AdaptiveClassifier(llm).classify(
+        email(attachments=(pdf,)),
+        thread_summary=None,
+        body_loader=loader,
+    )
+
+    assert requested == [1_000, 4_000, None]
+    assert outcome.stage == 3
+    assert outcome.result.attachment_context_used is True
+    assert outcome.result.attachment_extraction_status == "used"
+    assert outcome.result.attachment_types_used == ("application/pdf",)

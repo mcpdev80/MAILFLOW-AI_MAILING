@@ -1,4 +1,4 @@
-"""IMAP email provider with staged body fetching."""
+"""IMAP email provider with staged body and attachment fetching."""
 
 from __future__ import annotations
 
@@ -7,9 +7,16 @@ from email.message import Message
 
 import imapclient
 
+from mailflow_core.attachments import (
+    AttachmentExtractionConfig,
+    ExtractedAttachment,
+    eligible_attachments,
+    extract_attachment,
+)
 from mailflow_core.exceptions import IMAPConnectionError, UIDValidityChanged
 from mailflow_core.mail_auth import normalize_mail_auth_signals
 from mailflow_core.providers.base import DraftRef, EmailData, EmailProvider
+from mailflow_core.types import AttachmentInfo
 
 _MAILFLOW_KEYWORD = "MailFlowProcessed"
 _MAILFLOW_DRAFT_HEADER = "X-MailFlow-Draft"
@@ -39,9 +46,81 @@ def _extract_body(msg: Message) -> tuple[str, str]:
 
 def _first_fetch_bytes(data: dict) -> bytes:
     for key, value in data.items():
-        if isinstance(key, bytes) and key != b"SEQ" and isinstance(value, bytes):
+        if (
+            isinstance(key, bytes)
+            and key not in {b"SEQ", b"BODYSTRUCTURE"}
+            and isinstance(value, bytes)
+        ):
             return value
     return b""
+
+
+def _decode_atom(value: object) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value or "")
+
+
+def _parameter_dict(value: object) -> dict[str, str]:
+    if not isinstance(value, tuple):
+        return {}
+    result: dict[str, str] = {}
+    items = list(value)
+    for index in range(0, len(items) - 1, 2):
+        result[_decode_atom(items[index]).lower()] = _decode_atom(items[index + 1])
+    return result
+
+
+def _find_disposition(structure: tuple) -> tuple[str | None, dict[str, str]]:
+    for value in structure[7:]:
+        if not isinstance(value, tuple) or not value:
+            continue
+        disposition = _decode_atom(value[0]).lower()
+        if disposition in {"attachment", "inline"}:
+            params = _parameter_dict(value[1] if len(value) > 1 else None)
+            return disposition, params
+    return None, {}
+
+
+def _attachment_metadata(structure: object, prefix: str = "") -> tuple[AttachmentInfo, ...]:
+    """Convert an IMAP BODYSTRUCTURE tuple into lightweight attachment metadata."""
+    if not isinstance(structure, tuple) or not structure:
+        return ()
+
+    if isinstance(structure[0], tuple):
+        attachments: list[AttachmentInfo] = []
+        part_index = 1
+        for child in structure:
+            if not isinstance(child, tuple):
+                break
+            part_id = f"{prefix}.{part_index}" if prefix else str(part_index)
+            attachments.extend(_attachment_metadata(child, part_id))
+            part_index += 1
+        return tuple(attachments)
+
+    if len(structure) < 7:
+        return ()
+    media_type = _decode_atom(structure[0]).lower()
+    subtype = _decode_atom(structure[1]).lower()
+    mime_type = f"{media_type}/{subtype}"
+    params = _parameter_dict(structure[2])
+    disposition, disposition_params = _find_disposition(structure)
+    filename = disposition_params.get("filename") or params.get("name") or ""
+    if disposition != "attachment" and not filename:
+        return ()
+    try:
+        size = int(structure[6]) if structure[6] is not None else None
+    except (TypeError, ValueError):
+        size = None
+    return (
+        AttachmentInfo(
+            part_id=prefix or "1",
+            filename=filename or f"attachment-{prefix or '1'}",
+            mime_type=mime_type,
+            size=size,
+            disposition=disposition,
+        ),
+    )
 
 
 class ImapGenericProvider(EmailProvider):
@@ -55,6 +134,7 @@ class ImapGenericProvider(EmailProvider):
         password: str | None = None,
         use_ssl: bool = True,
         access_token: str | None = None,
+        attachment_config: AttachmentExtractionConfig | None = None,
     ) -> None:
         if not password and not access_token:
             raise ValueError("ImapGenericProvider requires password or access_token")
@@ -64,6 +144,9 @@ class ImapGenericProvider(EmailProvider):
         self._password = password
         self._access_token = access_token
         self._use_ssl = use_ssl
+        self._attachment_config = attachment_config or AttachmentExtractionConfig()
+        self._attachment_metadata_cache: dict[int, tuple[AttachmentInfo, ...]] = {}
+        self._attachment_extraction_cache: dict[tuple[int, str], ExtractedAttachment] = {}
         self._client: imapclient.IMAPClient | None = None
         self._separator: str = "/"
         self._drafts_folder: str = "Drafts"
@@ -121,17 +204,19 @@ class ImapGenericProvider(EmailProvider):
         self._uidvalidity[folder] = current
 
     def fetch_unprocessed_emails(self, max_count: int = 20) -> list[EmailData]:
-        """Fetch candidate headers and compact normalized transport metadata."""
+        """Fetch candidate headers, transport signals and BODYSTRUCTURE metadata only."""
         self._client.select_folder("INBOX")
         self._check_uidvalidity("INBOX")
         uids = self._client.search(["NOT", "KEYWORD", _MAILFLOW_KEYWORD])[:max_count]
         if not uids:
             return []
-        raw_messages = self._client.fetch(uids, ["BODY.PEEK[HEADER]"])
+        raw_messages = self._client.fetch(uids, ["BODY.PEEK[HEADER]", "BODYSTRUCTURE"])
         result: list[EmailData] = []
         for uid, data in raw_messages.items():
             msg = email.message_from_bytes(_first_fetch_bytes(data))
             refs_str = msg.get("References", "") or ""
+            attachments = _attachment_metadata(data.get(b"BODYSTRUCTURE"))
+            self._attachment_metadata_cache[uid] = attachments
             result.append(
                 EmailData(
                     uid=uid,
@@ -146,24 +231,60 @@ class ImapGenericProvider(EmailProvider):
                     list_id=msg.get("List-ID"),
                     precedence=msg.get("Precedence"),
                     auth_signals=normalize_mail_auth_signals(msg),
+                    attachments=attachments,
                 )
             )
         return result
 
     def fetch_body(self, uid: int, max_chars: int | None = None) -> tuple[str, str]:
-        """Fetch a bounded text fragment, or the full MIME body for the final stage."""
+        """Fetch bounded body text; final-stage fetch may add bounded attachment context."""
         self._client.select_folder("INBOX")
         if max_chars is None:
             data = self._client.fetch([uid], ["RFC822"])[uid]
             raw = data.get(b"RFC822", b"")
-            return _extract_body(email.message_from_bytes(raw))
+            body_text, body_html = _extract_body(email.message_from_bytes(raw))
+            extracted = self._extract_relevant_attachments(uid)
+            used = tuple(item for item in extracted if item.status == "used" and item.text)
+            if used:
+                context = "\n\n".join(item.prompt_block() for item in used)
+                attachment_context = (
+                    "BEGIN_UNTRUSTED_ATTACHMENT_CONTEXT\n"
+                    f"{context}\n"
+                    "END_UNTRUSTED_ATTACHMENT_CONTEXT"
+                )
+                body_text = (f"{body_text}\n\n" if body_text else "") + attachment_context
+            return body_text, body_html
 
-        # Request only a bounded body fragment from the server. Extra bytes leave
-        # room for transfer encoding and MIME framing while still avoiding a full fetch.
         max_bytes = max(max_chars * 2, max_chars)
         data = self._client.fetch([uid], [f"BODY.PEEK[TEXT]<0.{max_bytes}>"])[uid]
         raw = _first_fetch_bytes(data)
         return raw.decode("utf-8", errors="replace")[:max_chars], ""
+
+    def _extract_relevant_attachments(self, uid: int) -> tuple[ExtractedAttachment, ...]:
+        metadata = self._attachment_metadata_cache.get(uid, ())
+        selected = eligible_attachments(metadata, self._attachment_config)
+        results: list[ExtractedAttachment] = []
+        for attachment in selected:
+            key = (uid, attachment.part_id)
+            cached = self._attachment_extraction_cache.get(key)
+            if cached is not None:
+                results.append(cached)
+                continue
+            payload = self.fetch_attachment_content(uid, attachment)
+            result = extract_attachment(
+                attachment,
+                payload,
+                config=self._attachment_config,
+            )
+            self._attachment_extraction_cache[key] = result
+            results.append(result)
+        return tuple(results)
+
+    def fetch_attachment_content(self, uid: int, attachment: AttachmentInfo) -> bytes:
+        """Fetch one MIME part selected from previously discovered BODYSTRUCTURE metadata."""
+        self._client.select_folder("INBOX")
+        data = self._client.fetch([uid], [f"BODY.PEEK[{attachment.part_id}]"])[uid]
+        return _first_fetch_bytes(data)
 
     def move_email(self, uid: int, destination_folder: str) -> bool:
         self.ensure_folder_exists(destination_folder)
