@@ -24,7 +24,10 @@ class DecisionMemoryRepository:
         if not include_disabled:
             stmt = stmt.where(DecisionMemoryEntry.enabled.is_(True))
         rows = await self._session.execute(
-            stmt.order_by(DecisionMemoryEntry.updated_at.desc(), DecisionMemoryEntry.created_at.desc())
+            stmt.order_by(
+                DecisionMemoryEntry.updated_at.desc(),
+                DecisionMemoryEntry.created_at.desc(),
+            )
         )
         return list(rows.scalars())
 
@@ -82,8 +85,8 @@ class DecisionMemoryRepository:
     ) -> DecisionMemoryEntry:
         entry = DecisionMemoryEntry(
             account_id=account_id,
-            sender_email=_clean(sender_email),
-            sender_domain=_clean(sender_domain),
+            sender_email=_clean_lower(sender_email),
+            sender_domain=_clean_lower(sender_domain),
             subject_pattern=_clean(subject_pattern),
             thread_id=_clean(thread_id),
             category=classification.category,
@@ -102,6 +105,44 @@ class DecisionMemoryRepository:
         await self._session.flush()
         await self._supersede_conflicts(entry)
         return entry
+
+    async def update_entry(
+        self,
+        entry: DecisionMemoryEntry,
+        *,
+        sender_email: str | None,
+        sender_domain: str | None,
+        subject_pattern: str | None,
+        thread_id: str | None,
+        classification: ClassificationResult,
+        routing_target: str | None,
+        source: str,
+        trust_score: float,
+        enabled: bool,
+    ) -> DecisionMemoryEntry:
+        entry.sender_email = _clean_lower(sender_email)
+        entry.sender_domain = _clean_lower(sender_domain)
+        entry.subject_pattern = _clean(subject_pattern)
+        entry.thread_id = _clean(thread_id)
+        entry.category = classification.category
+        entry.subcategory = classification.subcategory
+        entry.importance = classification.importance
+        entry.urgency = classification.urgency
+        entry.action_required = classification.action_required
+        entry.system_tags = list(classification.system_tags)
+        entry.user_tags = list(classification.user_tags)
+        entry.routing_target = _clean(routing_target)
+        entry.source = source
+        entry.trust_score = trust_score
+        entry.enabled = enabled
+        entry.updated_at = datetime.now(tz=UTC)
+        await self._session.flush()
+        if enabled:
+            await self._supersede_conflicts(entry)
+        return entry
+
+    async def delete_entry(self, entry: DecisionMemoryEntry) -> None:
+        await self._session.delete(entry)
 
     async def mark_used(self, account_id: UUID, entry_id: UUID) -> None:
         await self._session.execute(
@@ -180,3 +221,8 @@ def _clean(value: str | None) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+def _clean_lower(value: str | None) -> str | None:
+    cleaned = _clean(value)
+    return cleaned.lower() if cleaned else None
