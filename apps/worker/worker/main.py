@@ -11,6 +11,7 @@ from app.database import async_session_factory
 from app.logging_config import bind_log_context, clear_log_context, setup_logging
 from app.observability import init_sentry
 from app.repositories.account import AccountRepository
+from app.restore_validation import validate_schema_revision
 from app.secret_storage import validate_stored_secrets
 from app.services.cycle import CycleService
 from arq import cron
@@ -20,17 +21,30 @@ log = logging.getLogger("mailflow.worker")
 
 
 async def on_startup(ctx: dict) -> None:
-    """Initialize shared resources and verify the worker can decrypt stored secrets."""
+    """Initialize resources and verify restored state before processing can start."""
     setup_logging()
     init_sentry()
     ctx["session_factory"] = async_session_factory
     async with async_session_factory() as session:
+        revision = await validate_schema_revision(session)
         validated = await validate_stored_secrets(session)
-    log.info("Validated %d encrypted application secrets", validated)
+    log.info(
+        "Validated database schema revision %s and %d encrypted application secrets",
+        revision,
+        validated,
+    )
+    if settings.WORKER_PAUSED:
+        log.warning(
+            "Worker processing is paused by WORKER_PAUSED; mailbox mutations are disabled"
+        )
 
 
 async def process_account_cycle(ctx: dict, account_id: str) -> dict:
     """Process one mailbox by stable ID; plaintext credentials never enter Redis."""
+    if settings.WORKER_PAUSED:
+        log.warning("Skipping queued cycle for account=%s while worker is paused", account_id)
+        return {"account_id": account_id, "skipped": "worker_paused"}
+
     job_try = ctx.get("job_try", 1)
     bind_log_context(account_id=account_id, job_id=ctx.get("job_id"), job_try=job_try)
     try:
@@ -82,6 +96,10 @@ async def on_job_failure(ctx: dict, exc: BaseException) -> None:
 
 async def schedule_cycles(ctx: dict) -> None:
     """Enqueue due accounts by ID only."""
+    if settings.WORKER_PAUSED:
+        log.info("Skipping cycle scheduling while worker is paused")
+        return
+
     now = datetime.now(tz=UTC)
     async with ctx["session_factory"]() as session:
         accounts = await AccountRepository(session).get_accounts_due(now)
