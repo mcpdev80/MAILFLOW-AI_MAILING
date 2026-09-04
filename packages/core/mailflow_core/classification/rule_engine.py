@@ -46,7 +46,7 @@ class AccountConfig:
 
 
 class RuleEngine:
-    """Six-step classification cascade: domain → thread → keyword → LLM → fallback."""
+    """Classification cascade: deterministic rules, contextual LLM, then fallback."""
 
     def __init__(self, config: AccountConfig, llm_client: object | None = None) -> None:
         self._config = config
@@ -55,7 +55,7 @@ class RuleEngine:
     def classify(
         self,
         email: ParsedEmail,
-        thread_history: list[ClassificationResult] | None = None,
+        thread_summary: str | None = None,
         available_labels: list[str] | None = None,
     ) -> ClassificationResult:
         labels = available_labels or [r.label for r in self._config.client_domain_rules] + [
@@ -74,27 +74,6 @@ class RuleEngine:
                         "domain_client",
                         rule_id=rule.rule_id,
                     )
-
-        if thread_history:
-            last = thread_history[-1]
-            if last.confidence >= 0.80:
-                return ClassificationResult(
-                    label=last.label,
-                    confidence=0.90,
-                    method="thread",
-                    category=last.category,
-                    subcategory=last.subcategory,
-                    suggested_category=last.suggested_category,
-                    suggested_subcategory=last.suggested_subcategory,
-                    importance=last.importance,
-                    urgency=last.urgency,
-                    action_required=last.action_required,
-                    system_tags=last.system_tags,
-                    user_tags=last.user_tags,
-                    needs_more_context=last.needs_more_context,
-                    review_required=last.review_required,
-                    reason=last.reason,
-                )
 
         search_text = f"{email.subject_normalized} {email.body_text}".lower()
         for rule in self._config.keyword_rules:
@@ -118,6 +97,7 @@ class RuleEngine:
                     email,
                     available_labels=labels,
                     available_categories=list(CONFIRMED_CATEGORIES),
+                    thread_summary=thread_summary,
                 )
                 if result.confidence >= 0.60:
                     return result
