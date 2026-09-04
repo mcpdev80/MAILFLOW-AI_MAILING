@@ -16,10 +16,13 @@ from app.logging_config import bind_log_context, clear_log_context, setup_loggin
 from app.observability import init_sentry
 from app.repositories.account import AccountRepository
 from app.repositories.backfill import BackfillRepository
+from app.repositories.bulk import BulkRepository
 from app.restore_validation import validate_schema_revision
 from app.secret_storage import validate_stored_secrets
 from app.services.backfill import BackfillService
 from app.services.backfill_failure import BackfillFailureService
+from app.services.bulk_apply import BulkApplyService
+from app.services.bulk_backfill import BulkBackfillService
 from app.services.cycle import CycleService
 from app.workload import PRIORITY_BACKFILL, PRIORITY_LIVE, PRIORITY_REVIEW
 from app.workload_context import workload_scope
@@ -106,7 +109,10 @@ async def _set_backfill_state(
         repo = BackfillRepository(session)
         job = await repo.get(UUID(job_id), for_update=True)
         if job is not None and job.state == "running":
-            job.state = state
+            try:
+                await repo.transition(UUID(job_id), state, actor_type="system")
+            except Exception:
+                job.state = state
             job.last_error = reason[:500]
             await session.commit()
 
@@ -148,6 +154,7 @@ async def process_backfill_batch(ctx: dict, job_id: str) -> dict:
         account_id = str(job.account_id)
         cursor_uid = job.cursor_uid
         state = job.state
+        mode = job.mode
     if state != "running":
         return {"job_id": job_id, "state": state, "requeued": False}
 
@@ -178,7 +185,14 @@ async def process_backfill_batch(ctx: dict, job_id: str) -> dict:
     try:
         try:
             with workload_scope(account_id=account_id, priority=PRIORITY_BACKFILL):
-                result = await BackfillService(ctx["session_factory"]).run_batch(UUID(job_id))
+                if mode in {"dry_run", "review"}:
+                    result = await BulkBackfillService(ctx["session_factory"]).run_batch(
+                        UUID(job_id)
+                    )
+                else:
+                    result = await BackfillService(ctx["session_factory"]).run_batch(
+                        UUID(job_id)
+                    )
         except Exception as exc:
             if job_try >= WORKER_MAX_TRIES:
                 await _fail_running_backfill(
@@ -216,6 +230,7 @@ async def process_backfill_batch(ctx: dict, job_id: str) -> dict:
         return {
             "job_id": job_id,
             "account_id": account_id,
+            "mode": mode,
             "state": result.state if requeued or not result.requeue else "paused",
             "cursor_uid": result.cursor_uid,
             "processed": result.processed,
@@ -291,6 +306,62 @@ async def process_backfill_failure(ctx: dict, job_id: str, failure_id: str) -> d
     }
 
 
+async def process_bulk_apply(ctx: dict, apply_job_id: str) -> dict:
+    """Apply one approved snapshot batch and requeue until complete."""
+    async with ctx["session_factory"]() as session:
+        repo = BulkRepository(session)
+        job = await repo.get_apply_job(UUID(apply_job_id), for_update=True)
+        if job is None:
+            return {"apply_job_id": apply_job_id, "skipped": "not_found"}
+        if settings.WORKER_PAUSED:
+            if job.state == "running":
+                job.state = "paused"
+                job.last_error = "worker_paused"
+                await session.commit()
+            return {"apply_job_id": apply_job_id, "state": job.state, "skipped": "worker_paused"}
+        account_id = str(job.account_id)
+        state = job.state
+    if state != "running":
+        return {"apply_job_id": apply_job_id, "state": state, "requeued": False}
+
+    bind_log_context(account_id=account_id, job_id=apply_job_id, job_try=ctx.get("job_try", 1))
+    try:
+        with workload_scope(account_id=account_id, priority=PRIORITY_REVIEW):
+            result = await BulkApplyService(ctx["session_factory"]).run_batch(
+                UUID(apply_job_id)
+            )
+        requeued = False
+        if result.requeue:
+            queued = await ctx["redis"].enqueue_job(
+                "process_bulk_apply",
+                apply_job_id,
+                _defer_by=settings.BACKFILL_REQUEUE_DELAY_SECONDS,
+            )
+            requeued = queued is not None
+            if not requeued:
+                async with ctx["session_factory"]() as session:
+                    job = await BulkRepository(session).get_apply_job(
+                        UUID(apply_job_id), for_update=True
+                    )
+                    if job is not None and job.state == "running":
+                        job.state = "paused"
+                        job.last_error = "apply_requeue_failed"
+                        await session.commit()
+        return {
+            "apply_job_id": apply_job_id,
+            "account_id": account_id,
+            "state": result.state if requeued or not result.requeue else "paused",
+            "processed": result.processed,
+            "applied": result.applied,
+            "skipped": result.skipped,
+            "failed": result.failed,
+            "review_required": result.review_required,
+            "requeued": requeued,
+        }
+    finally:
+        clear_log_context()
+
+
 async def on_job_failure(ctx: dict, exc: BaseException) -> None:
     log.error(
         "DEAD-LETTER job_id=%s func=%s exhausted retries: %s: %s",
@@ -329,7 +400,12 @@ async def cleanup_lifecycle_history(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [process_account_cycle, process_backfill_batch, process_backfill_failure]
+    functions = [
+        process_account_cycle,
+        process_backfill_batch,
+        process_backfill_failure,
+        process_bulk_apply,
+    ]
     cron_jobs = [
         cron(
             schedule_cycles,
