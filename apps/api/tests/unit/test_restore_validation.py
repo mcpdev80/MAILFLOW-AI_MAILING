@@ -12,7 +12,12 @@ from app.restore_validation import (
 
 
 class FakeSchemaSession:
-    def __init__(self, *, revision: str | None, has_version_table: bool = True):
+    def __init__(
+        self,
+        *,
+        revision: str | None,
+        has_version_table: bool = True,
+    ):
         self.revision = revision
         self.has_version_table = has_version_table
 
@@ -32,11 +37,17 @@ async def test_schema_validation_accepts_expected_revision():
 
 async def test_schema_validation_rejects_old_revision():
     session = FakeSchemaSession(revision="006")
-    with pytest.raises(RestoreValidationError, match="Unsupported database schema revision"):
+    with pytest.raises(
+        RestoreValidationError,
+        match="Unsupported database schema revision",
+    ):
         await validate_schema_revision(session)
 
 
 async def test_schema_validation_rejects_unversioned_database():
     session = FakeSchemaSession(revision=None, has_version_table=False)
-    with pytest.raises(RestoreValidationError, match="no Alembic schema revision"):
+    with pytest.raises(
+        RestoreValidationError,
+        match="no Alembic schema revision",
+    ):
         await validate_schema_revision(session)
