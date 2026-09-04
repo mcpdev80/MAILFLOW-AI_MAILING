@@ -152,7 +152,11 @@ async def test_run_mark_before_safe_move(
     configure_memory_repo(MockDecisionMemoryRepo)
     MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
     MockAccountRepo.return_value.get_full_config = AsyncMock(
-        return_value=(make_account(), AccountConfig(account_id=str(ACCOUNT_ID)), MagicMock())
+        return_value=(
+            make_account(),
+            AccountConfig(account_id=str(ACCOUNT_ID)),
+            MagicMock(),
+        )
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
@@ -218,7 +222,9 @@ async def test_review_action_stays_in_inbox_without_move(
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
-    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=43)]
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=43)
+    ]
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     classify_client = MagicMock()
