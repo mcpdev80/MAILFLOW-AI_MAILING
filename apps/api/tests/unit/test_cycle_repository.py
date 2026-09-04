@@ -1,14 +1,18 @@
-"""Tests de CycleRepository con Postgres real."""
+"""CycleRepository tests with real Postgres."""
 
 from __future__ import annotations
 
 from uuid import uuid4
 
 import pytest
+from mailflow_core.types import ClassificationResult
+from sqlalchemy import select
+
 from app.crypto import encrypt
 from app.models.audit_log import AuditLog
 from app.models.email_account import EmailAccount
 from app.models.organization import Organization
+from app.models.processed_email import ProcessedEmail
 from app.repositories.cycle import CycleRepository
 
 TEST_SECRET_KEY = "qdCa5nGhLjd8qY0CCaQP2dE000lbSYDmtPnhzAVeVgs="
@@ -16,15 +20,15 @@ TEST_SECRET_KEY = "qdCa5nGhLjd8qY0CCaQP2dE000lbSYDmtPnhzAVeVgs="
 
 @pytest.fixture()
 async def org(session):
-    o = Organization(name="Org", slug=f"org-{uuid4().hex[:8]}")
-    session.add(o)
+    organization = Organization(name="Org", slug=f"org-{uuid4().hex[:8]}")
+    session.add(organization)
     await session.commit()
-    return o
+    return organization
 
 
 @pytest.fixture()
 async def account(session, org):
-    acc = EmailAccount(
+    mailbox = EmailAccount(
         org_id=org.id,
         imap_host="localhost",
         imap_port=1143,
@@ -32,9 +36,23 @@ async def account(session, org):
         username="test",
         encrypted_credentials=encrypt({"password": "pw"}, TEST_SECRET_KEY),
     )
-    session.add(acc)
+    session.add(mailbox)
     await session.commit()
-    return acc
+    return mailbox
+
+
+def semantic_result() -> ClassificationResult:
+    return ClassificationResult(
+        label="Clients/B",
+        category="finance",
+        subcategory="invoice",
+        importance="high",
+        urgency="today",
+        action_required="yes",
+        confidence=0.95,
+        method="llm",
+        user_tags=("customer-b",),
+    )
 
 
 async def test_create_audit_log(session, account):
@@ -65,8 +83,6 @@ async def test_finalize_audit_log(session, account):
     )
     await session.commit()
 
-    from sqlalchemy import select
-
     log = (
         await session.execute(select(AuditLog).where(AuditLog.cycle_id == cycle_id))
     ).scalar_one()
@@ -76,7 +92,7 @@ async def test_finalize_audit_log(session, account):
     assert log.finalized_at is not None
 
 
-async def test_insert_processed_idempotent(session, account):
+async def test_insert_processed_idempotent_and_persists_semantics(session, account):
     cycle_id = uuid4()
     session.add(AuditLog(account_id=account.id, cycle_id=cycle_id))
     await session.commit()
@@ -91,26 +107,33 @@ async def test_insert_processed_idempotent(session, account):
         from_email="a@b.com",
         subject="Hi",
         destination_folder="Clients/B",
-        method="domain_client",
-        confidence=0.95,
+        classification=semantic_result(),
         draft_saved=False,
         cycle_id=cycle_id,
     )
     await repo.insert_processed(**kwargs)
     await session.commit()
-    # Segunda inserción idempotente (ON CONFLICT DO NOTHING)
     await repo.insert_processed(**kwargs)
     await session.commit()
 
-    from app.models.processed_email import ProcessedEmail
-    from sqlalchemy import func, select
-
-    count = (
-        await session.execute(
-            select(func.count()).where(ProcessedEmail.account_id == account.id)
-        )
-    ).scalar_one()
-    assert count == 1
+    rows = list(
+        (
+            await session.execute(
+                select(ProcessedEmail).where(ProcessedEmail.account_id == account.id)
+            )
+        ).scalars()
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.destination_folder == "Clients/B"
+    assert row.classification_label == "Clients/B"
+    assert row.category == "finance"
+    assert row.subcategory == "invoice"
+    assert row.importance == "high"
+    assert row.urgency == "today"
+    assert row.action_required == "yes"
+    assert row.system_tags == ["today", "action_required"]
+    assert row.user_tags == ["customer-b"]
 
 
 async def test_find_thread_folder_returns_folder(session, account):
@@ -128,8 +151,11 @@ async def test_find_thread_folder_returns_folder(session, account):
         from_email="x@y.com",
         subject="Orig",
         destination_folder="Clients/X",
-        method="domain_client",
-        confidence=0.95,
+        classification=ClassificationResult(
+            label="Clients/X",
+            confidence=0.95,
+            method="domain_client",
+        ),
         draft_saved=False,
         cycle_id=cycle_id,
     )

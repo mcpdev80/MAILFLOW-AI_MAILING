@@ -1,4 +1,4 @@
-"""Modelo ProcessedEmail — registro idempotente de cada email procesado."""
+"""Processed email state and persisted semantic classification."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
@@ -26,6 +27,8 @@ class ProcessedEmail(Base):
     __table_args__ = (
         UniqueConstraint("account_id", "uid", "uidvalidity", name="uq_processed_email"),
         Index("ix_processed_email_msg_id", "account_id", "message_id"),
+        Index("ix_processed_email_category", "account_id", "category"),
+        Index("ix_processed_email_review", "account_id", "review_required"),
     )
 
     id: Mapped[UUID] = uuid_pk()
@@ -38,9 +41,44 @@ class ProcessedEmail(Base):
     message_id: Mapped[str | None] = mapped_column(String(500), nullable=True)
     from_email: Mapped[str] = mapped_column(String(500))
     subject: Mapped[str] = mapped_column(String, default="")
+
+    # Routing remains separate from semantic classification. destination_folder is
+    # the applied mailbox action; the fields below describe the message itself.
     destination_folder: Mapped[str] = mapped_column(String(255))
-    method: Mapped[str] = mapped_column(String(50))
+    classification_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    category: Mapped[str] = mapped_column(
+        String(64), default="other", server_default="other"
+    )
+    subcategory: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    suggested_category: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    suggested_subcategory: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    importance: Mapped[str] = mapped_column(
+        String(32), default="unknown", server_default="unknown"
+    )
+    urgency: Mapped[str] = mapped_column(
+        String(32), default="unknown", server_default="unknown"
+    )
+    action_required: Mapped[str] = mapped_column(
+        String(16), default="unknown", server_default="unknown"
+    )
+    system_tags: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
+    user_tags: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
     confidence: Mapped[float] = mapped_column(Float)
+    needs_more_context: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    review_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+    method: Mapped[str] = mapped_column(String(50))
     draft_saved: Mapped[bool] = mapped_column(Boolean, default=False)
     cycle_id: Mapped[UUID] = mapped_column(
         ForeignKey("audit_log.cycle_id", ondelete="CASCADE")
