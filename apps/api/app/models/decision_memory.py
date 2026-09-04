@@ -44,15 +44,21 @@ class DecisionMemoryEntry(Base):
     importance: Mapped[str] = mapped_column(String(32))
     urgency: Mapped[str] = mapped_column(String(32))
     action_required: Mapped[str] = mapped_column(String(16))
-    system_tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
-    user_tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    system_tags: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
+    user_tags: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
     routing_target: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     source: Mapped[str] = mapped_column(String(32))
     trust_score: Mapped[float] = mapped_column(Float, default=1.0, server_default="1")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     hit_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    last_used: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     superseded_by_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("decision_memory_entries.id", ondelete="SET NULL"), nullable=True
     )
