@@ -1,18 +1,15 @@
-"""Endpoints internos (server-to-server), no expuestos al público.
+"""Server-to-server endpoints for trusted web/API integration.
 
-Los usa el servidor web (Better Auth) para aprovisionar una organización cuando
-un usuario se registra: crea la org en la tabla `organizations` del API y emite
-su API key. La confianza viene de un secreto compartido `INTERNAL_API_SECRET`
-(header `X-Internal-Secret`), nunca de la sesión del usuario.
-
-NUNCA debe ser accesible desde internet: en el reverse proxy / Coolify hay que
-bloquear `/internal/*` desde fuera; aquí además exige el secreto.
+The web server uses these routes for organization provisioning and Better Auth
+membership lifecycle hooks. Trust comes from ``INTERNAL_API_SECRET`` and these
+routes must also stay blocked from the public reverse proxy.
 """
 
 from __future__ import annotations
 
 import re
 import secrets
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
@@ -22,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import generate_api_key
 from app.config import settings
 from app.database import get_session
+from app.lifecycle import finalize_removed_member, private_mailboxes_owned_by
 from app.models.organization import Organization
 
 router = APIRouter(prefix="/internal", tags=["internal"])
@@ -30,7 +28,7 @@ router = APIRouter(prefix="/internal", tags=["internal"])
 async def require_internal_secret(
     x_internal_secret: str | None = Header(default=None, alias="X-Internal-Secret"),
 ) -> None:
-    """Guard: exige el secreto compartido. 501 si no está configurado, 403 si no coincide."""
+    """Require the shared server secret for internal-only operations."""
     if not settings.INTERNAL_API_SECRET:
         raise HTTPException(status_code=501, detail="internal_api_disabled")
     if not x_internal_secret or not secrets.compare_digest(
@@ -47,9 +45,18 @@ class OrgCreate(BaseModel):
 class OrgCreated(BaseModel):
     org_id: str
     slug: str
-    # La API key en claro viaja UNA sola vez (server-to-server); luego solo se
-    # guarda su hash. El web la cifra en el metadata de la org de Better Auth.
+    # The raw API key crosses this server-to-server boundary once. The web layer
+    # encrypts it before persisting Better Auth organization metadata.
     api_key: str
+
+
+class MemberLifecyclePayload(BaseModel):
+    org_id: UUID
+    user_id: str = Field(min_length=1, max_length=255)
+
+
+class MemberRemovalCheck(BaseModel):
+    ready: bool
 
 
 def _slugify(value: str) -> str:
@@ -67,10 +74,9 @@ async def create_org(
     payload: OrgCreate,
     session: AsyncSession = Depends(get_session),
 ) -> OrgCreated:
-    """Crea una organización y emite su API key (idempotente por slug)."""
+    """Create an organization and emit its API key, idempotent by generated slug."""
     base_slug = _slugify(payload.slug or payload.name)
     slug = base_slug
-    # Garantiza unicidad del slug añadiendo un sufijo corto si choca.
     for _ in range(5):
         exists = (
             await session.execute(
@@ -87,3 +93,44 @@ async def create_org(
     await session.commit()
     await session.refresh(org)
     return OrgCreated(org_id=str(org.id), slug=org.slug, api_key=raw_key)
+
+
+@router.post(
+    "/lifecycle/member-removal-check",
+    response_model=MemberRemovalCheck,
+    dependencies=[Depends(require_internal_secret)],
+)
+async def member_removal_check(
+    payload: MemberLifecyclePayload,
+    session: AsyncSession = Depends(get_session),
+) -> MemberRemovalCheck:
+    """Block Better Auth member removal until private ownership is resolved."""
+    owned = await private_mailboxes_owned_by(
+        session,
+        org_id=payload.org_id,
+        user_id=payload.user_id,
+    )
+    if owned:
+        raise HTTPException(status_code=409, detail="private_mailboxes_require_resolution")
+    return MemberRemovalCheck(ready=True)
+
+
+@router.post(
+    "/lifecycle/member-removed",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_internal_secret)],
+)
+async def member_removed(
+    payload: MemberLifecyclePayload,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Finalize resource access cleanup after Better Auth removed membership."""
+    try:
+        await finalize_removed_member(
+            session,
+            org_id=payload.org_id,
+            user_id=payload.user_id,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    await session.commit()
