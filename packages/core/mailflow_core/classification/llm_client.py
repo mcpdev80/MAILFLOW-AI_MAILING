@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import litellm
 
@@ -157,9 +157,7 @@ class LLMClient:
                 if result.needs_more_context
                 else "classification requires review"
             )
-            result = ClassificationResult(
-                **{**result.__dict__, "reason": reason}
-            )
+            result = replace(result, reason=reason)
         return result
 
     def generate_draft(self, original_email: ParsedEmail, request: DraftRequest) -> str:
