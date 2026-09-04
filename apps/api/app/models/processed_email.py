@@ -52,7 +52,9 @@ class ProcessedEmail(Base):
     mailbox_action_status: Mapped[str] = mapped_column(
         String(16), default="execute", server_default="execute"
     )
-    mailbox_action_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    mailbox_action_reason: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
     action_review_required: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
