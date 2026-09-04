@@ -81,6 +81,25 @@ class Settings(BaseSettings):
     LLM_CIRCUIT_RESET_SECONDS: float = Field(default=60.0, gt=0)
     LLM_HEALTH_TTL_SECONDS: int = Field(default=180, gt=0)
 
+    # Global model workload admission. Batch size and model parallelism are
+    # intentionally independent. Defaults reserve one global slot from bulk work.
+    WORKLOAD_GLOBAL_CONCURRENCY: int = Field(default=3, ge=1, le=128)
+    WORKLOAD_FAST_CONCURRENCY: int = Field(default=2, ge=1, le=128)
+    WORKLOAD_DEEP_CONCURRENCY: int = Field(default=1, ge=1, le=128)
+    WORKLOAD_GENERATION_CONCURRENCY: int = Field(default=1, ge=1, le=128)
+    WORKLOAD_PER_ACCOUNT_CONCURRENCY: int = Field(default=1, ge=1, le=128)
+    WORKLOAD_LIVE_RESERVED_SLOTS: int = Field(default=1, ge=0, le=127)
+    WORKLOAD_QUEUE_MAX: int = Field(default=500, ge=1, le=100_000)
+    WORKLOAD_WAIT_TIMEOUT_SECONDS: float = Field(default=300.0, gt=0)
+    WORKLOAD_LEASE_SECONDS: float = Field(default=180.0, gt=0)
+    WORKLOAD_POLL_INTERVAL_SECONDS: float = Field(default=0.05, gt=0, le=5.0)
+    WORKLOAD_FAST_REQUESTS_PER_MINUTE: int = Field(default=0, ge=0)
+    WORKLOAD_DEEP_REQUESTS_PER_MINUTE: int = Field(default=0, ge=0)
+    WORKLOAD_GENERATION_REQUESTS_PER_MINUTE: int = Field(default=0, ge=0)
+    WORKLOAD_FAST_MIN_DELAY_SECONDS: float = Field(default=0.0, ge=0)
+    WORKLOAD_DEEP_MIN_DELAY_SECONDS: float = Field(default=0.0, ge=0)
+    WORKLOAD_GENERATION_MIN_DELAY_SECONDS: float = Field(default=0.0, ge=0)
+
     LOG_FORMAT: str = "json"
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "development"
@@ -130,6 +149,28 @@ class Settings(BaseSettings):
         if self.DECISION_MEMORY_HINT_THRESHOLD > self.DECISION_MEMORY_REUSE_THRESHOLD:
             raise ValueError(
                 "DecisionMemory hint threshold must not exceed reuse threshold"
+            )
+        if self.WORKLOAD_LIVE_RESERVED_SLOTS >= self.WORKLOAD_GLOBAL_CONCURRENCY:
+            raise ValueError(
+                "WORKLOAD_LIVE_RESERVED_SLOTS must be smaller than WORKLOAD_GLOBAL_CONCURRENCY"
+            )
+        for role_limit in (
+            self.WORKLOAD_FAST_CONCURRENCY,
+            self.WORKLOAD_DEEP_CONCURRENCY,
+            self.WORKLOAD_GENERATION_CONCURRENCY,
+            self.WORKLOAD_PER_ACCOUNT_CONCURRENCY,
+        ):
+            if role_limit > self.WORKLOAD_GLOBAL_CONCURRENCY:
+                raise ValueError(
+                    "workload role/account limits must not exceed global concurrency"
+                )
+        if self.WORKLOAD_LEASE_SECONDS < max(
+            self.LLM_FAST_TIMEOUT_SECONDS,
+            self.LLM_DEEP_TIMEOUT_SECONDS,
+            self.LLM_GENERATION_TIMEOUT_SECONDS,
+        ):
+            raise ValueError(
+                "WORKLOAD_LEASE_SECONDS must cover the longest LLM timeout"
             )
         return self
 
