@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -27,6 +28,18 @@ class EmailAccount(Base):
             "(ownership_mode = 'private' AND owner_user_id IS NOT NULL) OR "
             "(ownership_mode IN ('shared', 'unresolved') AND owner_user_id IS NULL)",
             name="ck_email_accounts_ownership",
+        ),
+        CheckConstraint(
+            "move_policy IN ('off', 'review', 'automatic')",
+            name="ck_email_accounts_move_policy",
+        ),
+        CheckConstraint(
+            "archive_policy IN ('off', 'review', 'automatic')",
+            name="ck_email_accounts_archive_policy",
+        ),
+        CheckConstraint(
+            "action_confidence_threshold >= 0 AND action_confidence_threshold <= 1",
+            name="ck_email_accounts_action_confidence",
         ),
     )
 
@@ -63,6 +76,20 @@ class EmailAccount(Base):
     llm_provider_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("llm_providers.id", ondelete="SET NULL"), nullable=True
     )
+
+    # Side-effect policy stays independent from semantic classification. Delete
+    # and send remain explicit-approval-only and therefore are not configurable
+    # as automatic actions here.
+    move_policy: Mapped[str] = mapped_column(
+        String(16), default="automatic", server_default="automatic"
+    )
+    archive_policy: Mapped[str] = mapped_column(
+        String(16), default="off", server_default="off"
+    )
+    action_confidence_threshold: Mapped[float] = mapped_column(
+        Float, default=0.85, server_default="0.85"
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
