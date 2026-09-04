@@ -1,4 +1,4 @@
-/** MailFlow API DTOs (mirror of apps/api/app/schemas.py). */
+/** MailFlow API DTOs (mirror of backend HTTP contracts). */
 
 export interface EmailAccount {
   id: string;
@@ -52,8 +52,17 @@ export interface LLMProvider {
   base_url: string;
   default_classification_model: string;
   default_generation_model: string;
+  fast_classification_model: string | null;
+  deep_classification_model: string | null;
+  generation_model: string | null;
+  fast_classification_base_url: string | null;
+  deep_classification_base_url: string | null;
+  generation_base_url: string | null;
   is_active: boolean;
   has_api_key: boolean;
+  has_fast_api_key: boolean;
+  has_deep_api_key: boolean;
+  has_generation_api_key: boolean;
   created_at: string;
 }
 
@@ -62,9 +71,22 @@ export interface LLMProviderCreate {
   type: string;
   base_url: string;
   api_key?: string | null;
-  default_classification_model: string;
-  default_generation_model: string;
+  default_classification_model?: string | null;
+  default_generation_model?: string | null;
+  fast_classification_model?: string | null;
+  deep_classification_model?: string | null;
+  generation_model?: string | null;
+  fast_classification_base_url?: string | null;
+  deep_classification_base_url?: string | null;
+  generation_base_url?: string | null;
+  fast_api_key?: string | null;
+  deep_api_key?: string | null;
+  generation_api_key?: string | null;
 }
+
+export type LLMProviderUpdate = Partial<LLMProviderCreate> & {
+  is_active?: boolean;
+};
 
 export interface Cycle {
   id: string;
