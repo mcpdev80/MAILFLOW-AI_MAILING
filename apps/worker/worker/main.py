@@ -42,7 +42,10 @@ async def on_startup(ctx: dict) -> None:
 async def process_account_cycle(ctx: dict, account_id: str) -> dict:
     """Process one mailbox by stable ID; plaintext credentials never enter Redis."""
     if settings.WORKER_PAUSED:
-        log.warning("Skipping queued cycle for account=%s while worker is paused", account_id)
+        log.warning(
+            "Skipping queued cycle for account=%s while worker is paused",
+            account_id,
+        )
         return {"account_id": account_id, "skipped": "worker_paused"}
 
     job_try = ctx.get("job_try", 1)
@@ -116,7 +119,12 @@ async def schedule_cycles(ctx: dict) -> None:
 
 class WorkerSettings:
     functions = [process_account_cycle]
-    cron_jobs = [cron(schedule_cycles, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55})]
+    cron_jobs = [
+        cron(
+            schedule_cycles,
+            minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
+        )
+    ]
     on_startup = on_startup
     on_job_failure = on_job_failure
     max_tries = 3
