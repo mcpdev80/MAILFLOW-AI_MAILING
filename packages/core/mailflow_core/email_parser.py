@@ -72,4 +72,5 @@ class EmailParser:
             precedence=email_data.precedence,
             thread_id=thread_id,
             date=email_data.date,
+            auth_signals=email_data.auth_signals,
         )
