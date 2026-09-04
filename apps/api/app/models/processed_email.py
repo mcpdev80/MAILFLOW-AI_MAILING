@@ -83,9 +83,9 @@ class ProcessedEmail(Base):
     reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
     classification_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
     classification_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    decision_memory_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("decision_memory_entries.id", ondelete="SET NULL"), nullable=True
-    )
+    # This is provenance, not an ownership relationship. Keep the UUID even if a
+    # learned entry is later deleted so historical classifications stay auditable.
+    decision_memory_id: Mapped[UUID | None] = mapped_column(nullable=True)
     decision_memory_match_confidence: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )
