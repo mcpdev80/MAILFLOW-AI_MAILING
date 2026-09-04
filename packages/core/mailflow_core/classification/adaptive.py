@@ -181,9 +181,7 @@ class AdaptiveClassifier:
                         ),
                         attachment_extraction_status="used",
                     )
-                    attachment_result = self._annotate_memory_hint(
-                        attachment_result, memory_match
-                    )
+                    attachment_result = self._annotate_memory_hint(attachment_result, memory_match)
                     return AdaptiveClassificationOutcome(
                         result=attachment_result,
                         email=current,
