@@ -122,13 +122,17 @@ def _build_llm_client(
             api_base=llm_provider.base_url,
             api_key=shared_api_key,
             fast_model_id=_provider_string(llm_provider, "fast_classification_model"),
-            fast_api_base=_provider_string(llm_provider, "fast_classification_base_url"),
+            fast_api_base=_provider_string(
+                llm_provider, "fast_classification_base_url"
+            ),
             fast_api_key=(
                 _decrypt_llm_key(getattr(llm_provider, "encrypted_fast_api_key", None))
                 or shared_api_key
             ),
             deep_model_id=_provider_string(llm_provider, "deep_classification_model"),
-            deep_api_base=_provider_string(llm_provider, "deep_classification_base_url"),
+            deep_api_base=_provider_string(
+                llm_provider, "deep_classification_base_url"
+            ),
             deep_api_key=(
                 _decrypt_llm_key(getattr(llm_provider, "encrypted_deep_api_key", None))
                 or shared_api_key
@@ -228,7 +232,9 @@ class CycleService:
         password: str | None = None
         access_token: str | None = None
         if account.provider_type in ("gmail", "microsoft") and account.encrypted_oauth:
-            refresh_token = str(decrypt_secret(account.encrypted_oauth)["refresh_token"])
+            refresh_token = str(
+                decrypt_secret(account.encrypted_oauth)["refresh_token"]
+            )
             access_token = await asyncio.to_thread(
                 oauth.access_token_from_refresh,
                 account.provider_type,
@@ -277,7 +283,9 @@ class CycleService:
                 safe_error = redact_text(str(exc))
                 stats["last_error"] = safe_error
                 stats["errors"] += 1
-                log.exception("IMAP fetch failed for account %s: %s", account_id, safe_error)
+                log.exception(
+                    "IMAP fetch failed for account %s: %s", account_id, safe_error
+                )
 
             for email_data in emails:
                 try:
@@ -298,7 +306,9 @@ class CycleService:
                     stats["errors"] += 1
                     safe_error = redact_text(str(exc))
                     stats["last_error"] = safe_error
-                    log.exception("Error processing uid=%s: %s", email_data.uid, safe_error)
+                    log.exception(
+                        "Error processing uid=%s: %s", email_data.uid, safe_error
+                    )
         finally:
             await asyncio.to_thread(provider.disconnect)
             password = None
@@ -341,20 +351,28 @@ async def _process_one(
             thread = await thread_repo.create_thread(account.id, headers_only)
         thread_id = thread.thread_id
         previous_summary = thread.summary
-        memory_candidates = await DecisionMemoryRepository(session).candidates_for_email(
-            account.id, headers_only
-        )
+        # Thread resolution belongs to MailFlow rather than the raw provider, so
+        # attach it before memory lookup and keep it on every later body parse.
+        headers_only = replace(headers_only, thread_id=thread_id)
+        memory_candidates = await DecisionMemoryRepository(
+            session
+        ).candidates_for_email(account.id, headers_only)
         await session.commit()
 
     def load_body(max_chars: int | None) -> ParsedEmail:
         body_text, body_html = provider.fetch_body(email_data.uid, max_chars)
-        return parser.parse(replace(email_data, body_text=body_text, body_html=body_html))
+        parsed_body = parser.parse(
+            replace(email_data, body_text=body_text, body_html=body_html)
+        )
+        return replace(parsed_body, thread_id=thread_id)
 
     supporting_signal = rule_engine.supporting_signal(headers_only)
     parsed = headers_only
     if classify_client is not None:
         memory_lookup = (
-            PrefetchedDecisionMemoryLookup(memory_candidates, config=_build_memory_config())
+            PrefetchedDecisionMemoryLookup(
+                memory_candidates, config=_build_memory_config()
+            )
             if memory_candidates
             else None
         )
@@ -402,7 +420,11 @@ async def _process_one(
     await asyncio.to_thread(provider.move_email, email_data.uid, destination)
 
     draft_saved = False
-    if result.method != "domain_internal" and result.label != "unclassified" and generate_client:
+    if (
+        result.method != "domain_internal"
+        and result.label != "unclassified"
+        and generate_client
+    ):
         draft_email = parsed
         if not draft_email.body_text:
             draft_email = await asyncio.to_thread(load_body, None)
@@ -416,7 +438,9 @@ async def _process_one(
         )
 
         async def _generate() -> str:
-            return await asyncio.to_thread(generate_client.generate_draft, draft_email, draft_request)
+            return await asyncio.to_thread(
+                generate_client.generate_draft, draft_email, draft_request
+            )
 
         async def _generate_with_retry() -> str:
             return await retry_with_backoff(
