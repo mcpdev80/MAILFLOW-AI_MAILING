@@ -1,8 +1,7 @@
 from __future__ import annotations
 
+import time
 from collections import defaultdict
-
-import pytest
 
 from app import workload
 from app.workload import (
@@ -240,9 +239,10 @@ def test_snapshot_reports_backfill_yield_when_higher_priority_waits(monkeypatch)
     client = FakeRedis()
     controller = RedisWorkloadController(client)
     monkeypatch.setattr(workload.settings, "WORKLOAD_WAIT_TIMEOUT_SECONDS", 300.0)
+    now = time.time()
 
-    _queue(client, _request("b", "account-b", PRIORITY_BACKFILL, 1, enqueued_at=100.0))
-    _queue(client, _request("l", "account-l", PRIORITY_LIVE, 2, enqueued_at=100.0))
+    _queue(client, _request("b", "account-b", PRIORITY_BACKFILL, 1, enqueued_at=now))
+    _queue(client, _request("l", "account-l", PRIORITY_LIVE, 2, enqueued_at=now))
 
     snapshot = controller.snapshot()
     assert snapshot["backfill_yielding"] is True
