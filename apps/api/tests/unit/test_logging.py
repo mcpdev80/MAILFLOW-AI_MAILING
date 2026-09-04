@@ -82,6 +82,21 @@ def test_formatter_redacts_bearer_and_json_secrets():
     assert "[REDACTED]" in payload["message"]
 
 
+def test_formatter_redacts_key_value_and_credential_url():
+    from app.logging_config import JsonFormatter
+
+    record = _record(
+        msg=(
+            "provider failed password=plain-secret "
+            "dsn=postgresql://mailflow:db-password@postgres:5432/mailflow"
+        )
+    )
+    payload = json.loads(JsonFormatter().format(record))
+    assert "plain-secret" not in payload["message"]
+    assert "db-password" not in payload["message"]
+    assert payload["message"].count("[REDACTED]") >= 2
+
+
 def test_redaction_filter_masks_structured_secret_extra():
     from app.logging_config import SecretRedactionFilter
 
