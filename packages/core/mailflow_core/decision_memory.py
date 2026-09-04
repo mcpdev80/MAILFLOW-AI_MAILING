@@ -16,6 +16,7 @@ from mailflow_core.types import ClassificationResult, ParsedEmail
 MemorySource = Literal["human_confirmed", "human_corrected", "ai_observed"]
 
 _SUBJECT_TOKEN = re.compile(r"[a-z0-9]+", re.IGNORECASE)
+_MEMORY_SOURCES = frozenset({"human_confirmed", "human_corrected", "ai_observed"})
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,8 @@ class DecisionMemoryCandidate:
     updated_at: datetime | None = None
 
     def __post_init__(self) -> None:
+        if self.source not in _MEMORY_SOURCES:
+            raise ValueError(f"unsupported DecisionMemory source: {self.source}")
         if not 0.0 <= self.trust_score <= 1.0:
             raise ValueError("trust_score must be between 0.0 and 1.0")
 
@@ -118,8 +121,8 @@ class DecisionMemoryMatcher:
 
         score = 0.0
         reason = ""
-        if thread_exact and sender_exact:
-            score, reason = 1.0, "thread_and_sender"
+        if thread_exact:
+            score, reason = 1.0, "thread_exact"
         elif sender_exact and subject_exact:
             score, reason = 0.97, "sender_and_subject"
         elif sender_exact and subject_similarity >= 0.80:
