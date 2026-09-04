@@ -59,10 +59,22 @@ class CycleResult:
     errors: int
 
 
-def _decrypt_llm_key(value: str | None) -> str | None:
-    if not value:
+def _optional_string(value: object) -> str | None:
+    if not isinstance(value, str):
         return None
-    return str(decrypt_secret(value)["api_key"])
+    stripped = value.strip()
+    return stripped or None
+
+
+def _provider_string(provider: object, field: str) -> str | None:
+    return _optional_string(getattr(provider, field, None))
+
+
+def _decrypt_llm_key(value: object) -> str | None:
+    encrypted = _optional_string(value)
+    if not encrypted:
+        return None
+    return str(decrypt_secret(encrypted)["api_key"])
 
 
 def _model_role(value: str) -> ModelRole:
@@ -82,12 +94,17 @@ def _build_llm_client(
         return LLMClient(
             LLMConfig(
                 model_id=(
-                    llm_provider.generation_model
+                    _provider_string(llm_provider, "generation_model")
                     or llm_provider.default_generation_model
                 ),
-                api_base=llm_provider.generation_base_url or llm_provider.base_url,
+                api_base=(
+                    _provider_string(llm_provider, "generation_base_url")
+                    or llm_provider.base_url
+                ),
                 api_key=(
-                    _decrypt_llm_key(llm_provider.encrypted_generation_api_key)
+                    _decrypt_llm_key(
+                        getattr(llm_provider, "encrypted_generation_api_key", None)
+                    )
                     or shared_api_key
                 ),
             )
@@ -98,16 +115,28 @@ def _build_llm_client(
             model_id=llm_provider.default_classification_model,
             api_base=llm_provider.base_url,
             api_key=shared_api_key,
-            fast_model_id=llm_provider.fast_classification_model,
-            fast_api_base=llm_provider.fast_classification_base_url,
+            fast_model_id=_provider_string(
+                llm_provider, "fast_classification_model"
+            ),
+            fast_api_base=_provider_string(
+                llm_provider, "fast_classification_base_url"
+            ),
             fast_api_key=(
-                _decrypt_llm_key(llm_provider.encrypted_fast_api_key)
+                _decrypt_llm_key(
+                    getattr(llm_provider, "encrypted_fast_api_key", None)
+                )
                 or shared_api_key
             ),
-            deep_model_id=llm_provider.deep_classification_model,
-            deep_api_base=llm_provider.deep_classification_base_url,
+            deep_model_id=_provider_string(
+                llm_provider, "deep_classification_model"
+            ),
+            deep_api_base=_provider_string(
+                llm_provider, "deep_classification_base_url"
+            ),
             deep_api_key=(
-                _decrypt_llm_key(llm_provider.encrypted_deep_api_key)
+                _decrypt_llm_key(
+                    getattr(llm_provider, "encrypted_deep_api_key", None)
+                )
                 or shared_api_key
             ),
             stage_roles=(
