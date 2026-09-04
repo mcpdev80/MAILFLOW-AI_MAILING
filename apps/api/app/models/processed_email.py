@@ -13,6 +13,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Integer,
     String,
     UniqueConstraint,
     func,
@@ -44,8 +45,6 @@ class ProcessedEmail(Base):
     from_email: Mapped[str] = mapped_column(String(500))
     subject: Mapped[str] = mapped_column(String, default="")
 
-    # Routing remains separate from semantic classification. destination_folder is
-    # the applied mailbox action; the fields below describe the message itself.
     destination_folder: Mapped[str] = mapped_column(String(255))
     classification_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     category: Mapped[str] = mapped_column(
@@ -79,6 +78,7 @@ class ProcessedEmail(Base):
         Boolean, default=False, server_default="false"
     )
     reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    classification_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     method: Mapped[str] = mapped_column(String(50))
     draft_saved: Mapped[bool] = mapped_column(Boolean, default=False)
