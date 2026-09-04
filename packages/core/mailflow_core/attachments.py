@@ -8,6 +8,8 @@ import zipfile
 from dataclasses import dataclass
 from xml.etree import ElementTree
 
+from pypdf import PdfReader
+
 from mailflow_core.content_security import sanitize_text
 from mailflow_core.types import AttachmentInfo
 
@@ -133,7 +135,11 @@ def extract_attachment(
         elif mime.endswith("presentationml.presentation"):
             text = _extract_openxml(payload, ("ppt/slides/",))
         else:
-            return ExtractedAttachment(metadata=metadata, status="skipped", error="unsupported_type")
+            return ExtractedAttachment(
+                metadata=metadata,
+                status="skipped",
+                error="unsupported_type",
+            )
     except Exception as exc:
         return ExtractedAttachment(
             metadata=metadata,
@@ -150,8 +156,6 @@ def extract_attachment(
 
 
 def _extract_pdf(payload: bytes) -> str:
-    from pypdf import PdfReader
-
     reader = PdfReader(io.BytesIO(payload), strict=False)
     parts: list[str] = []
     for page in reader.pages:
