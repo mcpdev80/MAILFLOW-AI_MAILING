@@ -67,6 +67,13 @@ def configure_thread_repo(MockThreadRepo, *, summary: str = "", existing: bool =
     return thread
 
 
+def configure_memory_repo(MockDecisionMemoryRepo):
+    MockDecisionMemoryRepo.return_value.candidates_for_email = AsyncMock(
+        return_value=()
+    )
+    MockDecisionMemoryRepo.return_value.mark_used = AsyncMock()
+
+
 @patch("app.services.cycle.AccountRepository")
 @patch("app.services.cycle.CycleRepository")
 async def test_run_aborts_when_claim_cycle_fails(MockCycleRepo, MockAccountRepo):
@@ -108,6 +115,7 @@ async def test_run_imap_connect_failure(
     MockCycleRepo.return_value.finalize_audit_log.assert_awaited_once()
 
 
+@patch("app.services.cycle.DecisionMemoryRepository")
 @patch("app.services.cycle.ThreadRepository")
 @patch("app.services.cycle.AccountRepository")
 @patch("app.services.cycle.CycleRepository")
@@ -121,10 +129,12 @@ async def test_run_mark_before_move(
     MockCycleRepo,
     MockAccountRepo,
     MockThreadRepo,
+    MockDecisionMemoryRepo,
 ):
     from app.services.cycle import CycleService
 
     configure_thread_repo(MockThreadRepo)
+    configure_memory_repo(MockDecisionMemoryRepo)
     MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
     MockAccountRepo.return_value.get_full_config = AsyncMock(
         return_value=(make_account(), AccountConfig(account_id=str(ACCOUNT_ID)), None)
@@ -154,6 +164,7 @@ async def test_run_mark_before_move(
     )
 
 
+@patch("app.services.cycle.DecisionMemoryRepository")
 @patch("app.services.cycle.ThreadRepository")
 @patch("app.services.cycle.AccountRepository")
 @patch("app.services.cycle.CycleRepository")
@@ -167,6 +178,7 @@ async def test_existing_thread_summary_is_context_not_inherited_classification(
     MockCycleRepo,
     MockAccountRepo,
     MockThreadRepo,
+    MockDecisionMemoryRepo,
 ):
     from app.services.cycle import CycleService
 
@@ -175,6 +187,7 @@ async def test_existing_thread_summary_is_context_not_inherited_classification(
         summary="Invoice was open and the customer needed to pay.",
         existing=True,
     )
+    configure_memory_repo(MockDecisionMemoryRepo)
     account = make_account()
     MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
     MockAccountRepo.return_value.get_full_config = AsyncMock(
@@ -217,6 +230,7 @@ async def test_existing_thread_summary_is_context_not_inherited_classification(
     classify_client.update_thread_summary.assert_called_once()
 
 
+@patch("app.services.cycle.DecisionMemoryRepository")
 @patch("app.services.cycle.ThreadRepository")
 @patch("app.services.cycle.AccountRepository")
 @patch("app.services.cycle.CycleRepository")
@@ -230,11 +244,13 @@ async def test_run_draft_bytes_passed_to_save_draft(
     MockCycleRepo,
     MockAccountRepo,
     MockThreadRepo,
+    MockDecisionMemoryRepo,
 ):
     from app.services.cycle import CycleService
     from mailflow_core.classification.rule_engine import DomainRule as CoreDomainRule
 
     configure_thread_repo(MockThreadRepo)
+    configure_memory_repo(MockDecisionMemoryRepo)
     account = make_account()
     config = AccountConfig(
         account_id=str(ACCOUNT_ID),

@@ -2,6 +2,7 @@
 
 from app.models.audit_log import AuditLog
 from app.models.base import Base
+from app.models.decision_memory import DecisionMemoryEntry
 from app.models.email_account import EmailAccount
 from app.models.lifecycle_event import LifecycleEvent
 from app.models.llm_provider import LLMProvider
@@ -15,6 +16,7 @@ from app.models.thread_summary import ThreadSummary
 __all__ = [
     "Base",
     "AuditLog",
+    "DecisionMemoryEntry",
     "DomainRule",
     "EmailAccount",
     "InternalDomain",

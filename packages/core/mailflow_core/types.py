@@ -149,6 +149,9 @@ class ClassificationResult:
     attachment_types_used: tuple[str, ...] = ()
     attachment_extraction_status: AttachmentExtractionStatus = "not_needed"
     attachment_extraction_error: str | None = None
+    decision_memory_id: str | None = None
+    decision_memory_match_confidence: float | None = None
+    decision_memory_hint_used: bool = False
     # Deep classification can optionally return the compact thread update in the
     # same response so the worker does not need a second model call.
     thread_summary_update: ThreadSummaryUpdate | None = None
@@ -170,6 +173,11 @@ class ClassificationResult:
             raise ValueError(
                 f"unsupported attachment extraction status: {self.attachment_extraction_status}"
             )
+        if (
+            self.decision_memory_match_confidence is not None
+            and not 0.0 <= self.decision_memory_match_confidence <= 1.0
+        ):
+            raise ValueError("decision_memory_match_confidence must be between 0.0 and 1.0")
         unsupported_tags = set(self.system_tags) - SYSTEM_TAGS
         if unsupported_tags:
             raise ValueError(f"unsupported system tags: {sorted(unsupported_tags)}")

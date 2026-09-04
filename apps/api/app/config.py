@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     # Adaptive classification escalates while confidence is below this value or
     # the model explicitly requests more context/review.
     CLASSIFICATION_CONFIDENCE_THRESHOLD: float = Field(default=0.85, ge=0.0, le=1.0)
+
+    # DecisionMemory is conservative by default: only very strong trusted matches
+    # bypass classification while weaker matches may be supplied as hints.
+    DECISION_MEMORY_REUSE_THRESHOLD: float = Field(default=0.93, ge=0.0, le=1.0)
+    DECISION_MEMORY_HINT_THRESHOLD: float = Field(default=0.68, ge=0.0, le=1.0)
+    DECISION_MEMORY_DECAY_DAYS: int = Field(default=180, gt=0)
 
     # Attachment extraction is optional escalation context. Keep all limits
     # centrally configurable so deployments can tune local resource use safely.
@@ -99,6 +105,14 @@ class Settings(BaseSettings):
                 raise ValueError("classification model role must be fast or deep")
             return role
         return value
+
+    @model_validator(mode="after")
+    def _validate_memory_thresholds(self) -> "Settings":
+        if self.DECISION_MEMORY_HINT_THRESHOLD > self.DECISION_MEMORY_REUSE_THRESHOLD:
+            raise ValueError(
+                "DecisionMemory hint threshold must not exceed reuse threshold"
+            )
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

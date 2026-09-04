@@ -19,6 +19,7 @@ from mailflow_core.attachments import (
     is_supported_attachment,
     should_inspect_attachments,
 )
+from mailflow_core.decision_memory import DecisionMemoryMatch, result_for_direct_reuse
 from mailflow_core.mail_auth import auth_signals_block_memory_reuse
 from mailflow_core.types import ClassificationResult, ParsedEmail
 
@@ -28,13 +29,13 @@ _ATTACHMENT_MARKER = "BEGIN_UNTRUSTED_ATTACHMENT_CONTEXT"
 
 
 class DecisionMemoryLookup(Protocol):
-    """Minimal lookup boundary implemented by persistent DecisionMemory later."""
+    """Minimal lookup boundary implemented by persistent DecisionMemory."""
 
     def lookup(
         self,
         email: ParsedEmail,
         thread_summary: str | None,
-    ) -> ClassificationResult | None: ...
+    ) -> DecisionMemoryMatch | None: ...
 
 
 @dataclass(frozen=True)
@@ -81,13 +82,18 @@ class AdaptiveClassifier:
         supporting_signal: ClassificationResult | None = None,
         attachment_loader: AttachmentLoader | None = None,
     ) -> AdaptiveClassificationOutcome:
+        memory_match: DecisionMemoryMatch | None = None
         if self._memory is not None and not auth_signals_block_memory_reuse(
             headers_only.auth_signals
         ):
-            remembered = self._memory.lookup(headers_only, thread_summary)
-            if remembered is not None and self._is_reliable(remembered):
+            memory_match = self._memory.lookup(headers_only, thread_summary)
+            if (
+                memory_match is not None
+                and memory_match.can_bypass
+                and self._is_reliable(memory_match.result)
+            ):
                 return AdaptiveClassificationOutcome(
-                    result=remembered,
+                    result=result_for_direct_reuse(memory_match),
                     email=headers_only,
                     stage=None,
                     decision_memory_hit=True,
@@ -99,7 +105,9 @@ class AdaptiveClassifier:
             (2, self._config.stage_2_chars),
             (3, None),
         )
-        previous_result: ClassificationResult | None = None
+        previous_result: ClassificationResult | None = (
+            memory_match.result if memory_match is not None else None
+        )
         current = headers_only
 
         for stage, body_limit in stages:
@@ -113,6 +121,7 @@ class AdaptiveClassifier:
                 classification_stage=stage,
             )
             result = replace(result, classification_stage=stage)
+            result = self._annotate_memory_hint(result, memory_match)
 
             if _ATTACHMENT_MARKER in current.body_text:
                 default_attachment_config = AttachmentExtractionConfig()
@@ -172,6 +181,7 @@ class AdaptiveClassifier:
                         ),
                         attachment_extraction_status="used",
                     )
+                    attachment_result = self._annotate_memory_hint(attachment_result, memory_match)
                     return AdaptiveClassificationOutcome(
                         result=attachment_result,
                         email=current,
@@ -193,6 +203,20 @@ class AdaptiveClassifier:
             previous_result = result
 
         raise AssertionError("adaptive classification exhausted without a final result")
+
+    @staticmethod
+    def _annotate_memory_hint(
+        result: ClassificationResult,
+        memory_match: DecisionMemoryMatch | None,
+    ) -> ClassificationResult:
+        if memory_match is None:
+            return result
+        return replace(
+            result,
+            decision_memory_id=memory_match.candidate.entry_id,
+            decision_memory_match_confidence=memory_match.match_confidence,
+            decision_memory_hint_used=True,
+        )
 
     def _is_reliable(self, result: ClassificationResult) -> bool:
         return (

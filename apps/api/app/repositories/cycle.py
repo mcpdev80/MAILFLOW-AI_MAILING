@@ -63,6 +63,11 @@ class CycleRepository:
         cycle_id: UUID,
     ) -> bool:
         """Persist one processed-message row and report whether it was newly inserted."""
+        memory_id = (
+            UUID(classification.decision_memory_id)
+            if classification.decision_memory_id is not None
+            else None
+        )
         stmt = (
             pg_insert(ProcessedEmail)
             .values(
@@ -92,6 +97,11 @@ class CycleRepository:
                 reason=classification.reason,
                 classification_stage=classification.classification_stage,
                 classification_model=classification.classification_model,
+                decision_memory_id=memory_id,
+                decision_memory_match_confidence=(
+                    classification.decision_memory_match_confidence
+                ),
+                decision_memory_hint_used=classification.decision_memory_hint_used,
                 auth_spf=auth_signals.spf,
                 auth_dkim=auth_signals.dkim,
                 auth_dmarc=auth_signals.dmarc,

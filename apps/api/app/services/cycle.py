@@ -19,6 +19,10 @@ from mailflow_core.classification.adaptive import (
 )
 from mailflow_core.classification.llm_client import LLMClient, LLMConfig, ModelRole
 from mailflow_core.classification.rule_engine import RuleEngine
+from mailflow_core.decision_memory import (
+    DecisionMemoryConfig,
+    PrefetchedDecisionMemoryLookup,
+)
 from mailflow_core.email_parser import EmailParser
 from mailflow_core.providers.base import EmailData
 from mailflow_core.providers.imap_generic import ImapGenericProvider
@@ -45,6 +49,7 @@ from app.models.organization import Organization
 from app.quota import can_process_more
 from app.repositories.account import AccountRepository
 from app.repositories.cycle import CycleRepository
+from app.repositories.decision_memory import DecisionMemoryRepository
 from app.repositories.thread import ThreadRepository
 from app.routing import destination_for_classification
 from app.secrets import redact_text
@@ -153,6 +158,14 @@ def _build_attachment_config() -> AttachmentExtractionConfig:
         max_archive_uncompressed_bytes=(
             settings.ATTACHMENT_MAX_ARCHIVE_UNCOMPRESSED_BYTES
         ),
+    )
+
+
+def _build_memory_config() -> DecisionMemoryConfig:
+    return DecisionMemoryConfig(
+        direct_reuse_threshold=settings.DECISION_MEMORY_REUSE_THRESHOLD,
+        hint_threshold=settings.DECISION_MEMORY_HINT_THRESHOLD,
+        broad_pattern_decay_days=settings.DECISION_MEMORY_DECAY_DAYS,
     )
 
 
@@ -338,22 +351,37 @@ async def _process_one(
             thread = await thread_repo.create_thread(account.id, headers_only)
         thread_id = thread.thread_id
         previous_summary = thread.summary
+        # Thread resolution belongs to MailFlow rather than the raw provider, so
+        # attach it before memory lookup and keep it on every later body parse.
+        headers_only = replace(headers_only, thread_id=thread_id)
+        memory_candidates = await DecisionMemoryRepository(
+            session
+        ).candidates_for_email(account.id, headers_only)
         await session.commit()
 
     def load_body(max_chars: int | None) -> ParsedEmail:
         body_text, body_html = provider.fetch_body(email_data.uid, max_chars)
-        return parser.parse(
+        parsed_body = parser.parse(
             replace(email_data, body_text=body_text, body_html=body_html)
         )
+        return replace(parsed_body, thread_id=thread_id)
 
     supporting_signal = rule_engine.supporting_signal(headers_only)
     parsed = headers_only
     if classify_client is not None:
+        memory_lookup = (
+            PrefetchedDecisionMemoryLookup(
+                memory_candidates, config=_build_memory_config()
+            )
+            if memory_candidates
+            else None
+        )
         adaptive = AdaptiveClassifier(
             classify_client,
             config=AdaptiveClassificationConfig(
                 confidence_threshold=settings.CLASSIFICATION_CONFIDENCE_THRESHOLD
             ),
+            decision_memory=memory_lookup,
         )
         outcome = await asyncio.to_thread(
             adaptive.classify,
@@ -372,7 +400,7 @@ async def _process_one(
         )
 
     summary_update: ThreadSummaryUpdate | None = None
-    if classify_client is not None:
+    if classify_client is not None and result.method != "decision_memory":
         try:
             summary_update = await asyncio.to_thread(
                 classify_client.update_thread_summary,
@@ -470,6 +498,10 @@ async def _process_one(
         )
         if inserted:
             await thread_repo.apply_message(current_thread, parsed, summary_update)
+            if result.decision_memory_id is not None:
+                await DecisionMemoryRepository(session).mark_used(
+                    account.id, UUID(result.decision_memory_id)
+                )
         await session.commit()
 
     stats["emails"] += 1

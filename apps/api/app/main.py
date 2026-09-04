@@ -20,6 +20,7 @@ from app.routers import (
     accounts_router,
     billing_router,
     cycles_router,
+    decision_memory_router,
     internal_router,
     lifecycle_router,
     llm_providers_router,
@@ -53,6 +54,7 @@ app.include_router(accounts_router)
 app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
 app.include_router(rules_router)
+app.include_router(decision_memory_router)
 app.include_router(cycles_router)
 app.include_router(oauth_router)
 app.include_router(billing_router)
