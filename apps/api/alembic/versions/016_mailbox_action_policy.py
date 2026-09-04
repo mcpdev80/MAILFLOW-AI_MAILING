@@ -107,9 +107,7 @@ def downgrade() -> None:
     op.drop_constraint(
         "ck_email_accounts_archive_policy", "email_accounts", type_="check"
     )
-    op.drop_constraint(
-        "ck_email_accounts_move_policy", "email_accounts", type_="check"
-    )
+    op.drop_constraint("ck_email_accounts_move_policy", "email_accounts", type_="check")
     op.drop_column("email_accounts", "action_confidence_threshold")
     op.drop_column("email_accounts", "archive_policy")
     op.drop_column("email_accounts", "move_policy")
