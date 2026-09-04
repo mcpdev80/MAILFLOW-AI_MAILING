@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     # the model explicitly requests more context/review.
     CLASSIFICATION_CONFIDENCE_THRESHOLD: float = Field(default=0.85, ge=0.0, le=1.0)
 
+    # Global stage-to-model defaults. Account-level role overrides can be added
+    # later without changing the adaptive classifier contract.
+    CLASSIFICATION_STAGE_0_ROLE: str = "fast"
+    CLASSIFICATION_STAGE_1_ROLE: str = "fast"
+    CLASSIFICATION_STAGE_2_ROLE: str = "deep"
+    CLASSIFICATION_STAGE_3_ROLE: str = "deep"
+    THREAD_SUMMARY_MODEL_ROLE: str = "fast"
+
     LOG_FORMAT: str = "json"
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "development"
@@ -61,6 +69,23 @@ class Settings(BaseSettings):
     def _split_cors_origins(cls, value: object) -> object:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @field_validator(
+        "CLASSIFICATION_STAGE_0_ROLE",
+        "CLASSIFICATION_STAGE_1_ROLE",
+        "CLASSIFICATION_STAGE_2_ROLE",
+        "CLASSIFICATION_STAGE_3_ROLE",
+        "THREAD_SUMMARY_MODEL_ROLE",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_model_role(cls, value: object) -> object:
+        if isinstance(value, str):
+            role = value.strip().lower()
+            if role not in {"fast", "deep"}:
+                raise ValueError("classification model role must be fast or deep")
+            return role
         return value
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

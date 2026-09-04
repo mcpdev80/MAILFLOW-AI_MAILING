@@ -79,6 +79,7 @@ class ProcessedEmail(Base):
     )
     reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
     classification_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    classification_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     method: Mapped[str] = mapped_column(String(50))
     draft_saved: Mapped[bool] = mapped_column(Boolean, default=False)

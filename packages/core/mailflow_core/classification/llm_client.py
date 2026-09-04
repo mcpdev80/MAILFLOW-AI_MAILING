@@ -1,9 +1,11 @@
-"""LiteLLM wrapper for email classification and draft generation."""
+"""LiteLLM wrapper for staged classification and draft generation."""
 
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, replace
+from typing import Literal
 
 import litellm
 
@@ -15,6 +17,8 @@ from mailflow_core.types import (
     ParsedEmail,
     ThreadSummaryUpdate,
 )
+
+ModelRole = Literal["fast", "deep"]
 
 _CLASSIFY_SYSTEM = (
     "You are an email classification assistant. Classify the current message semantically; "
@@ -43,8 +47,18 @@ _DRAFT_SYSTEM = (
 )
 
 
+@dataclass(frozen=True)
+class ModelPathConfig:
+    model_id: str
+    api_base: str | None
+    api_key: str | None
+    timeout: float
+    max_retries: int
+
+
 @dataclass
 class LLMConfig:
+    # Compatibility/default path. Existing callers only need these fields.
     model_id: str
     api_base: str | None = None
     api_key: str | None = None
@@ -52,29 +66,150 @@ class LLMConfig:
     max_retries: int = 2
     review_confidence_threshold: float = 0.60
 
+    # Optional role-specific classification paths. Missing values fall back to
+    # the compatibility path so old single-model installations keep working.
+    fast_model_id: str | None = None
+    fast_api_base: str | None = None
+    fast_api_key: str | None = None
+    deep_model_id: str | None = None
+    deep_api_base: str | None = None
+    deep_api_key: str | None = None
+    stage_roles: tuple[ModelRole, ModelRole, ModelRole, ModelRole] = (
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+    )
+    thread_summary_role: ModelRole = "fast"
+    path_failure_threshold: int = 3
+    path_reset_timeout: float = 60.0
+
+    def __post_init__(self) -> None:
+        if self.path_failure_threshold <= 0:
+            raise ValueError("path_failure_threshold must be positive")
+        if self.path_reset_timeout <= 0:
+            raise ValueError("path_reset_timeout must be positive")
+        if len(self.stage_roles) != 4 or any(
+            role not in {"fast", "deep"} for role in self.stage_roles
+        ):
+            raise ValueError("stage_roles must contain four fast/deep values")
+        if self.thread_summary_role not in {"fast", "deep"}:
+            raise ValueError("thread_summary_role must be fast or deep")
+
 
 class LLMClient:
-    """Wrapper around litellm.completion for classification and draft generation."""
+    """LiteLLM client with independent fast/deep classification paths."""
 
     def __init__(self, config: LLMConfig) -> None:
         self._config = config
-
-    def _call(self, messages: list[dict]) -> str:
-        kwargs: dict = {
-            "model": self._config.model_id,
-            "messages": messages,
-            "timeout": self._config.timeout,
-            "num_retries": self._config.max_retries,
+        self._path_failures: dict[ModelRole, int] = {"fast": 0, "deep": 0}
+        self._path_opened_at: dict[ModelRole, float | None] = {
+            "fast": None,
+            "deep": None,
         }
-        if self._config.api_base:
-            kwargs["api_base"] = self._config.api_base
-        if self._config.api_key:
-            kwargs["api_key"] = self._config.api_key
+
+    def _default_path(self) -> ModelPathConfig:
+        return ModelPathConfig(
+            model_id=self._config.model_id,
+            api_base=self._config.api_base,
+            api_key=self._config.api_key,
+            timeout=self._config.timeout,
+            max_retries=self._config.max_retries,
+        )
+
+    def _classification_path(self, role: ModelRole) -> ModelPathConfig:
+        default = self._default_path()
+        if role == "fast":
+            return ModelPathConfig(
+                model_id=self._config.fast_model_id or default.model_id,
+                api_base=self._config.fast_api_base or default.api_base,
+                api_key=self._config.fast_api_key or default.api_key,
+                timeout=default.timeout,
+                max_retries=default.max_retries,
+            )
+        return ModelPathConfig(
+            model_id=self._config.deep_model_id or default.model_id,
+            api_base=self._config.deep_api_base or default.api_base,
+            api_key=self._config.deep_api_key or default.api_key,
+            timeout=default.timeout,
+            max_retries=default.max_retries,
+        )
+
+    def _path_is_open(self, role: ModelRole) -> bool:
+        opened_at = self._path_opened_at[role]
+        if opened_at is None:
+            return False
+        if time.monotonic() - opened_at >= self._config.path_reset_timeout:
+            self._path_opened_at[role] = None
+            self._path_failures[role] = 0
+            return False
+        return True
+
+    def _call_path(self, messages: list[dict], path: ModelPathConfig) -> str:
+        kwargs: dict = {
+            "model": path.model_id,
+            "messages": messages,
+            "timeout": path.timeout,
+            "num_retries": path.max_retries,
+        }
+        if path.api_base:
+            kwargs["api_base"] = path.api_base
+        if path.api_key:
+            kwargs["api_key"] = path.api_key
         try:
             response = litellm.completion(**kwargs)
             return response.choices[0].message.content or ""
         except Exception as exc:
             raise LLMError(str(exc)) from exc
+
+    def _call_default(self, messages: list[dict]) -> str:
+        return self._call_path(messages, self._default_path())
+
+    def _call_classification(
+        self,
+        messages: list[dict],
+        primary_role: ModelRole,
+    ) -> tuple[str, str, ModelRole]:
+        """Call one classification role and fall back only to the other role."""
+        roles: tuple[ModelRole, ModelRole] = (
+            primary_role,
+            "deep" if primary_role == "fast" else "fast",
+        )
+        first_error: Exception | None = None
+        primary_path = self._classification_path(primary_role)
+
+        for index, role in enumerate(roles):
+            path = self._classification_path(role)
+            if index == 1 and path == primary_path:
+                break
+            if self._path_is_open(role):
+                error = LLMError(f"classification path {role} circuit is open")
+                if first_error is None:
+                    first_error = error
+                continue
+            try:
+                raw = self._call_path(messages, path)
+            except Exception as exc:
+                self._path_failures[role] += 1
+                if self._path_failures[role] >= self._config.path_failure_threshold:
+                    self._path_opened_at[role] = time.monotonic()
+                if first_error is None:
+                    first_error = exc
+                continue
+            self._path_failures[role] = 0
+            self._path_opened_at[role] = None
+            return raw, path.model_id, role
+
+        if first_error is not None:
+            raise first_error
+        raise LLMError("no classification model path is available")
+
+    def _role_for_stage(self, stage: int | None) -> ModelRole:
+        if stage is None:
+            return self._config.stage_roles[0]
+        if stage not in {0, 1, 2, 3}:
+            raise ValueError("classification stage must be 0, 1, 2, 3 or None")
+        return self._config.stage_roles[stage]
 
     def classify(
         self,
@@ -86,7 +221,7 @@ class LLMClient:
         previous_result: ClassificationResult | None = None,
         classification_stage: int | None = None,
     ) -> ClassificationResult:
-        """Classify one stage of the current message."""
+        """Classify one stage using the configured fast/deep model mapping."""
         categories = available_categories or list(CONFIRMED_CATEGORIES)
         invalid_categories = set(categories) - set(CONFIRMED_CATEGORIES)
         if invalid_categories:
@@ -94,9 +229,11 @@ class LLMClient:
                 f"Unsupported confirmed categories: {sorted(invalid_categories)}"
             )
 
+        role = self._role_for_stage(classification_stage)
         sections = [f"Confirmed categories: {', '.join(categories)}"]
         if classification_stage is not None:
             sections.append(f"Classification stage: {classification_stage}")
+        sections.append(f"Requested model role: {role}")
         if thread_summary:
             sections.append(f"Thread context (context only):\n{thread_summary[:1500]}")
         if supporting_signal is not None:
@@ -129,14 +266,19 @@ class LLMClient:
         sections.append(f"Current message headers:\n{headers}")
         if email.body_text:
             sections.append(f"Cleaned current body:\n{email.body_text}")
+        if role == "deep":
+            sections.append(
+                "When enough thread context is available, also include "
+                "thread_summary_update={changed, summary, open_action_required, deadline} "
+                "so no second summary call is needed."
+            )
         user_msg = "\n\n".join(sections)
 
-        raw = self._call(
-            [
-                {"role": "system", "content": _CLASSIFY_SYSTEM},
-                {"role": "user", "content": user_msg},
-            ]
-        )
+        messages = [
+            {"role": "system", "content": _CLASSIFY_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
+        raw, model_used, _actual_role = self._call_classification(messages, role)
         try:
             data = json.loads(raw)
             confidence = float(data["confidence"])
@@ -165,8 +307,8 @@ class LLMClient:
         importance = str(data.get("importance", "unknown"))
         urgency = str(data.get("urgency", "unknown"))
         action_required = str(data.get("action_required", "unknown"))
-        needs_more_context = bool(data.get("needs_more_context", False))
-        review_required = bool(data.get("review_required", False)) or (
+        needs_more_context = _strict_bool(data.get("needs_more_context", False))
+        review_required = _strict_bool(data.get("review_required", False)) or (
             confidence < self._config.review_confidence_threshold
         )
         reason = data.get("reason")
@@ -191,6 +333,10 @@ class LLMClient:
                 review_required=review_required,
                 reason=reason,
                 classification_stage=classification_stage,
+                classification_model=model_used,
+                thread_summary_update=_optional_thread_summary_update(
+                    data.get("thread_summary_update")
+                ),
             )
         except (TypeError, ValueError) as exc:
             raise ClassificationError(f"Invalid LLM response: {raw!r}") from exc
@@ -212,6 +358,9 @@ class LLMClient:
         email: ParsedEmail,
         classification: ClassificationResult,
     ) -> ThreadSummaryUpdate:
+        if classification.thread_summary_update is not None:
+            return classification.thread_summary_update
+
         user_msg = (
             f"Existing summary:\n{previous_summary[:1500] or '(none)'}\n\n"
             f"New message:\n"
@@ -223,17 +372,18 @@ class LLMClient:
             f"category={classification.category}; importance={classification.importance}; "
             f"urgency={classification.urgency}; action_required={classification.action_required}"
         )
-        raw = self._call(
+        raw, _model_used, _role = self._call_classification(
             [
                 {"role": "system", "content": _THREAD_SUMMARY_SYSTEM},
                 {"role": "user", "content": user_msg},
-            ]
+            ],
+            self._config.thread_summary_role,
         )
         try:
             data = json.loads(raw)
-            changed = bool(data["changed"])
+            changed = _strict_bool(data["changed"])
             summary = str(data["summary"]).strip()
-            open_action_required = bool(data["open_action_required"])
+            open_action_required = _strict_bool(data["open_action_required"])
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ClassificationError(f"Invalid thread summary response: {raw!r}") from exc
 
@@ -259,12 +409,36 @@ class LLMClient:
             f"Classification: {classification}\n"
             f"Reply subject: {request.subject}"
         )
-        return self._call(
+        return self._call_default(
             [
                 {"role": "system", "content": _DRAFT_SYSTEM},
                 {"role": "user", "content": user_msg},
             ]
         )
+
+
+def _strict_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value in (0, 1):
+        return bool(value)
+    raise ValueError("expected boolean value")
+
+
+def _optional_thread_summary_update(value: object) -> ThreadSummaryUpdate | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("thread_summary_update must be an object")
+    summary = str(value.get("summary", "")).strip()
+    if not summary:
+        return None
+    return ThreadSummaryUpdate(
+        summary=summary[:2000],
+        changed=_strict_bool(value.get("changed", True)),
+        open_action_required=_strict_bool(value.get("open_action_required", False)),
+        deadline=_optional_text(value.get("deadline")),
+    )
 
 
 def _optional_text(value: object) -> str | None:
