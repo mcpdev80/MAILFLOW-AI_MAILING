@@ -126,26 +126,26 @@ class BulkApplyService:
                         )
                         if tags:
                             await asyncio.to_thread(provider.apply_tags, proposal.uid, tags)
-                        if bool(snapshot.get("do_move", False)):
-                            destination = str(snapshot.get("proposed_folder") or "")
-                            if not destination or destination == proposal.source_folder:
-                                result = "skipped"
-                                error = None
-                            else:
-                                moved = await asyncio.to_thread(
-                                    provider.move_email,
-                                    proposal.uid,
-                                    destination,
-                                )
-                                if not moved:
-                                    raise RuntimeError("mailbox_move_failed")
-                                result = "applied"
-                                error = None
-                        else:
-                            result = "applied" if tags else "skipped"
-                            error = None
-                        if result == "applied":
+
+                        do_move = bool(snapshot.get("do_move", False))
+                        destination = str(snapshot.get("proposed_folder") or "")
+                        has_move = do_move and bool(destination) and destination != proposal.source_folder
+                        has_action = bool(tags) or has_move
+
+                        if has_action:
                             await asyncio.to_thread(provider.mark_as_processed, proposal.uid)
+
+                        if has_move:
+                            moved = await asyncio.to_thread(
+                                provider.move_email,
+                                proposal.uid,
+                                destination,
+                            )
+                            if not moved:
+                                raise RuntimeError("mailbox_move_failed")
+
+                        result = "applied" if has_action else "skipped"
+                        error = None
                 except Exception as exc:  # noqa: BLE001
                     result = "failed"
                     error = (redact_text(str(exc)) or type(exc).__name__)[:500]
