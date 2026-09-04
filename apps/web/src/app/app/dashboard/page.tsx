@@ -64,12 +64,18 @@ export default function DashboardPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: "0.75rem",
         }}
       >
         <h1>Dashboard</h1>
-        <Link className="btn" href="/onboarding">
-          + Connect mailbox
-        </Link>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <Link className="btn secondary" href="/app/settings/security">
+            Security
+          </Link>
+          <Link className="btn" href="/onboarding">
+            + Connect mailbox
+          </Link>
+        </div>
       </div>
 
       {error && <div className="alert error">{error}</div>}
