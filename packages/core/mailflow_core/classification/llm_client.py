@@ -102,13 +102,15 @@ class LLMClient:
         if supporting_signal is not None:
             sections.append(
                 "Deterministic supporting signal: "
-                f"label={supporting_signal.label}; confidence={supporting_signal.confidence:.2f}; "
+                f"label={supporting_signal.label}; "
+                f"confidence={supporting_signal.confidence:.2f}; "
                 f"method={supporting_signal.method}"
             )
         if previous_result is not None:
             sections.append(
                 "Previous stage result (revise if new content changes it): "
-                f"category={previous_result.category}; confidence={previous_result.confidence:.2f}; "
+                f"category={previous_result.category}; "
+                f"confidence={previous_result.confidence:.2f}; "
                 f"needs_more_context={previous_result.needs_more_context}; "
                 f"review_required={previous_result.review_required}"
             )
