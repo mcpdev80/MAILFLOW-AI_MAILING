@@ -51,7 +51,22 @@ def make_account():
     acc.unclassified_folder = "Sin_Clasificar"
     acc.drafts_folder = "Drafts"
     acc.llm_provider = None
+    acc.move_policy = "automatic"
+    acc.archive_policy = "off"
+    acc.action_confidence_threshold = 0.85
     return acc
+
+
+def safe_classification(confidence: float = 0.95) -> ClassificationResult:
+    return ClassificationResult(
+        label="work",
+        category="work",
+        importance="normal",
+        urgency="none",
+        action_required="no",
+        confidence=confidence,
+        method="llm",
+    )
 
 
 def configure_thread_repo(MockThreadRepo, *, summary: str = "", existing: bool = False):
@@ -121,8 +136,8 @@ async def test_run_imap_connect_failure(
 @patch("app.services.cycle.CycleRepository")
 @patch("app.services.cycle.ImapGenericProvider")
 @patch("app.services.cycle.decrypt_secret", return_value={"password": "pw"})
-@patch("app.services.cycle._build_llm_client", return_value=None)
-async def test_run_mark_before_move(
+@patch("app.services.cycle._build_llm_client")
+async def test_run_mark_before_safe_move(
     mock_build,
     mock_decrypt,
     MockProvider,
@@ -137,7 +152,7 @@ async def test_run_mark_before_move(
     configure_memory_repo(MockDecisionMemoryRepo)
     MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
     MockAccountRepo.return_value.get_full_config = AsyncMock(
-        return_value=(make_account(), AccountConfig(account_id=str(ACCOUNT_ID)), None)
+        return_value=(make_account(), AccountConfig(account_id=str(ACCOUNT_ID)), MagicMock())
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
@@ -146,22 +161,84 @@ async def test_run_mark_before_move(
     ]
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
+    classify_client = MagicMock()
+    classify_client.classify.return_value = safe_classification()
+    classify_client.update_thread_summary.return_value = ThreadSummaryUpdate(
+        summary="No open action.",
+        changed=True,
+        open_action_required=False,
+    )
+    mock_build.side_effect = [classify_client, None]
+
     call_order: list[str] = []
     MockProvider.return_value.mark_as_processed.side_effect = lambda uid: (
         call_order.append(f"mark:{uid}")
     )
-    MockProvider.return_value.move_email.side_effect = lambda uid, dest: (
+
+    def move(uid: int, destination: str) -> bool:
         call_order.append(f"move:{uid}")
-    )
+        return True
+
+    MockProvider.return_value.move_email.side_effect = move
 
     result = await CycleService(make_sf()).run(ACCOUNT_ID)
 
     assert result.emails_processed == 1
     assert call_order == ["mark:42", "move:42"]
-    assert (
-        MockCycleRepo.return_value.insert_processed.call_args.kwargs["thread_id"]
-        == "thread-1"
+    inserted = MockCycleRepo.return_value.insert_processed.call_args.kwargs
+    assert inserted["thread_id"] == "thread-1"
+    assert inserted["action_decision"].disposition == "execute"
+
+
+@patch("app.services.cycle.DecisionMemoryRepository")
+@patch("app.services.cycle.ThreadRepository")
+@patch("app.services.cycle.AccountRepository")
+@patch("app.services.cycle.CycleRepository")
+@patch("app.services.cycle.ImapGenericProvider")
+@patch("app.services.cycle.decrypt_secret", return_value={"password": "pw"})
+@patch("app.services.cycle._build_llm_client")
+async def test_review_action_stays_in_inbox_without_move(
+    mock_build,
+    mock_decrypt,
+    MockProvider,
+    MockCycleRepo,
+    MockAccountRepo,
+    MockThreadRepo,
+    MockDecisionMemoryRepo,
+):
+    from app.services.cycle import CycleService
+
+    configure_thread_repo(MockThreadRepo)
+    configure_memory_repo(MockDecisionMemoryRepo)
+    account = make_account()
+    account.move_policy = "review"
+    MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
+    MockAccountRepo.return_value.get_full_config = AsyncMock(
+        return_value=(account, AccountConfig(account_id=str(ACCOUNT_ID)), MagicMock())
     )
+    MockCycleRepo.return_value.create_audit_log = AsyncMock()
+    MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=43)]
+    MockCycleRepo.return_value.insert_processed = AsyncMock()
+
+    classify_client = MagicMock()
+    classify_client.classify.return_value = safe_classification()
+    classify_client.update_thread_summary.return_value = ThreadSummaryUpdate(
+        summary="No open action.",
+        changed=True,
+        open_action_required=False,
+    )
+    mock_build.side_effect = [classify_client, None]
+
+    result = await CycleService(make_sf()).run(ACCOUNT_ID)
+
+    assert result.emails_processed == 1
+    MockProvider.return_value.mark_as_processed.assert_called_once_with(43)
+    MockProvider.return_value.move_email.assert_not_called()
+    inserted = MockCycleRepo.return_value.insert_processed.call_args.kwargs
+    assert inserted["destination_folder"] == "INBOX"
+    assert inserted["action_decision"].disposition == "review"
+    assert inserted["action_decision"].requires_review is True
 
 
 @patch("app.services.cycle.DecisionMemoryRepository")
@@ -198,6 +275,7 @@ async def test_existing_thread_summary_is_context_not_inherited_classification(
     MockProvider.return_value.fetch_unprocessed_emails.return_value = [
         make_email(uid=99, in_reply_to="<original@test>")
     ]
+    MockProvider.return_value.move_email.return_value = True
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     classify_client = MagicMock()
