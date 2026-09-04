@@ -111,7 +111,9 @@ class RedisWorkloadController:
     """
 
     def __init__(self, client: redis.Redis | None = None) -> None:
-        self._redis = client or redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        self._redis = client or redis.Redis.from_url(
+            settings.REDIS_URL, decode_responses=True
+        )
 
     @staticmethod
     def _endpoint_key(api_base: str | None, model_id: str) -> str:
@@ -156,16 +158,10 @@ class RedisWorkloadController:
         return f"mailflow:workload:last-grant:{account_id}"
 
     def _rpm_key(self, request: _Request, minute: int) -> str:
-        return (
-            "mailflow:workload:rpm:"
-            f"{request.endpoint_key}:{request.role}:{minute}"
-        )
+        return f"mailflow:workload:rpm:{request.endpoint_key}:{request.role}:{minute}"
 
     def _last_request_key(self, request: _Request) -> str:
-        return (
-            "mailflow:workload:last-request:"
-            f"{request.endpoint_key}:{request.role}"
-        )
+        return f"mailflow:workload:last-request:{request.endpoint_key}:{request.role}"
 
     def _load_requests(self, key: str) -> list[tuple[str, _Request]]:
         result: list[tuple[str, _Request]] = []
@@ -189,7 +185,9 @@ class RedisWorkloadController:
         active = self._load_requests(_ACTIVE_KEY)
         for _, request in active:
             role_counts[request.role] = role_counts.get(request.role, 0) + 1
-            account_counts[request.account_id] = account_counts.get(request.account_id, 0) + 1
+            account_counts[request.account_id] = (
+                account_counts.get(request.account_id, 0) + 1
+            )
         return len(active), role_counts, account_counts
 
     def _rate_limit_allows(self, request: _Request, now: float) -> bool:
@@ -219,12 +217,16 @@ class RedisWorkloadController:
             return False
         if role_counts.get(request.role, 0) >= self._role_limit(request.role):
             return False
-        if account_counts.get(request.account_id, 0) >= settings.WORKLOAD_PER_ACCOUNT_CONCURRENCY:
+        if (
+            account_counts.get(request.account_id, 0)
+            >= settings.WORKLOAD_PER_ACCOUNT_CONCURRENCY
+        ):
             return False
         if request.priority >= PRIORITY_BACKFILL:
             low_priority_cap = max(
                 0,
-                settings.WORKLOAD_GLOBAL_CONCURRENCY - settings.WORKLOAD_LIVE_RESERVED_SLOTS,
+                settings.WORKLOAD_GLOBAL_CONCURRENCY
+                - settings.WORKLOAD_LIVE_RESERVED_SLOTS,
             )
             if active_total >= low_priority_cap:
                 return False
@@ -235,7 +237,9 @@ class RedisWorkloadController:
         if not queued:
             return None
         highest_priority = min(item.priority for _, item in queued)
-        candidates = [(raw, item) for raw, item in queued if item.priority == highest_priority]
+        candidates = [
+            (raw, item) for raw, item in queued if item.priority == highest_priority
+        ]
         active_total, role_counts, account_counts = self._active_counts()
 
         ranked: list[tuple[int, int, str, _Request]] = []
@@ -248,7 +252,9 @@ class RedisWorkloadController:
                 now=now,
             ):
                 continue
-            last_grant = int(self._redis.get(self._last_grant_key(request.account_id)) or 0)
+            last_grant = int(
+                self._redis.get(self._last_grant_key(request.account_id)) or 0
+            )
             ranked.append((last_grant, request.sequence, raw, request))
         if not ranked:
             return None
@@ -267,7 +273,9 @@ class RedisWorkloadController:
         if self._role_min_delay(request.role) > 0:
             self._redis.set(self._last_request_key(request), str(now), ex=120)
         grant_sequence = int(self._redis.incr(_GRANT_SEQUENCE_KEY))
-        self._redis.set(self._last_grant_key(request.account_id), grant_sequence, ex=86_400)
+        self._redis.set(
+            self._last_grant_key(request.account_id), grant_sequence, ex=86_400
+        )
         self._redis.hincrby(_METRICS_KEY, f"granted:{request.role}", 1)
 
     def acquire(
@@ -299,7 +307,9 @@ class RedisWorkloadController:
             if int(self._redis.zcard(_QUEUE_KEY)) >= settings.WORKLOAD_QUEUE_MAX:
                 self._redis.hincrby(_METRICS_KEY, "queue_full", 1)
                 raise WorkloadQueueFull("global model workload queue is full")
-            self._redis.zadd(_QUEUE_KEY, {member: self._queue_score(priority, sequence)})
+            self._redis.zadd(
+                _QUEUE_KEY, {member: self._queue_score(priority, sequence)}
+            )
 
         deadline = time.monotonic() + settings.WORKLOAD_WAIT_TIMEOUT_SECONDS
         deferred_recorded = False
@@ -322,7 +332,9 @@ class RedisWorkloadController:
                     deferred_recorded = True
                 if time.monotonic() >= deadline:
                     self._redis.hincrby(_METRICS_KEY, "acquire_timeout", 1)
-                    raise WorkloadAcquireTimeout("timed out waiting for global model capacity")
+                    raise WorkloadAcquireTimeout(
+                        "timed out waiting for global model capacity"
+                    )
                 time.sleep(settings.WORKLOAD_POLL_INTERVAL_SECONDS)
         except Exception:
             self._redis.zrem(_QUEUE_KEY, member)
@@ -348,7 +360,9 @@ class RedisWorkloadController:
             self._cleanup(now)
             queued = [item for _, item in self._load_requests(_QUEUE_KEY)]
             active = [item for _, item in self._load_requests(_ACTIVE_KEY)]
-            metrics = {str(k): float(v) for k, v in self._redis.hgetall(_METRICS_KEY).items()}
+            metrics = {
+                str(k): float(v) for k, v in self._redis.hgetall(_METRICS_KEY).items()
+            }
 
         queued_by_priority: dict[str, int] = {}
         queued_by_account: dict[str, int] = {}
@@ -356,7 +370,9 @@ class RedisWorkloadController:
         for item in queued:
             name = _PRIORITY_NAMES.get(item.priority, str(item.priority))
             queued_by_priority[name] = queued_by_priority.get(name, 0) + 1
-            queued_by_account[item.account_id] = queued_by_account.get(item.account_id, 0) + 1
+            queued_by_account[item.account_id] = (
+                queued_by_account.get(item.account_id, 0) + 1
+            )
         for item in active:
             active_by_role[item.role] = active_by_role.get(item.role, 0) + 1
 
@@ -384,7 +400,11 @@ class RedisWorkloadController:
             },
             "average_request_latency_ms": latency_ms,
             "throttled_or_deferred": int(
-                sum(value for key, value in metrics.items() if key.startswith("deferred:"))
+                sum(
+                    value
+                    for key, value in metrics.items()
+                    if key.startswith("deferred:")
+                )
             ),
             "backfill_yielding": bool(
                 queued_by_priority.get("backfill", 0) and higher_waiting

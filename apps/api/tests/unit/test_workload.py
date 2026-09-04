@@ -104,7 +104,9 @@ class FakeRedis:
     def zremrangebyscore(self, key, minimum, maximum):
         low = float("-inf") if minimum == "-inf" else float(minimum)
         high = float("inf") if maximum == "+inf" else float(maximum)
-        doomed = [member for member, score in self.zsets[key].items() if low <= score <= high]
+        doomed = [
+            member for member, score in self.zsets[key].items() if low <= score <= high
+        ]
         return self.zrem(key, *doomed)
 
     def zcard(self, key):
@@ -139,7 +141,11 @@ def _request(token, account, priority, sequence, role="fast", enqueued_at=100.0)
 def _queue(client, request):
     client.zadd(
         workload._QUEUE_KEY,
-        {request.encode(): RedisWorkloadController._queue_score(request.priority, request.sequence)},
+        {
+            request.encode(): RedisWorkloadController._queue_score(
+                request.priority, request.sequence
+            )
+        },
     )
 
 

@@ -87,7 +87,9 @@ class ScheduledLLMClient(LLMClient):
             breaker.record_success()
             if index == 1:
                 key = path.health_key(role)
-                llm_module._FALLBACK_COUNTS[key] = llm_module._FALLBACK_COUNTS.get(key, 0) + 1
+                llm_module._FALLBACK_COUNTS[key] = (
+                    llm_module._FALLBACK_COUNTS.get(key, 0) + 1
+                )
             return parsed, role
         if first_error is not None:
             raise first_error

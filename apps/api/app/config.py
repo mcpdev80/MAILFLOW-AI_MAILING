@@ -161,13 +161,17 @@ class Settings(BaseSettings):
             self.WORKLOAD_PER_ACCOUNT_CONCURRENCY,
         ):
             if role_limit > self.WORKLOAD_GLOBAL_CONCURRENCY:
-                raise ValueError("workload role/account limits must not exceed global concurrency")
+                raise ValueError(
+                    "workload role/account limits must not exceed global concurrency"
+                )
         if self.WORKLOAD_LEASE_SECONDS < max(
             self.LLM_FAST_TIMEOUT_SECONDS,
             self.LLM_DEEP_TIMEOUT_SECONDS,
             self.LLM_GENERATION_TIMEOUT_SECONDS,
         ):
-            raise ValueError("WORKLOAD_LEASE_SECONDS must cover the longest LLM timeout")
+            raise ValueError(
+                "WORKLOAD_LEASE_SECONDS must cover the longest LLM timeout"
+            )
         return self
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
