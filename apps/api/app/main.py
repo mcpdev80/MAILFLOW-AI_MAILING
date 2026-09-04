@@ -18,6 +18,7 @@ from app.observability import init_sentry
 from app.restore_validation import RestoreValidationError, validate_schema_revision
 from app.routers import (
     accounts_router,
+    audit_router,
     backfill_router,
     billing_router,
     cycles_router,
@@ -54,6 +55,7 @@ app.add_middleware(
 )
 
 app.include_router(accounts_router)
+app.include_router(audit_router)
 app.include_router(backfill_router)
 app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
