@@ -47,7 +47,8 @@ _THREAD_SUMMARY_SYSTEM = (
     "changed (boolean), summary (string), open_action_required (boolean), "
     "deadline (string or null). The summary must capture current topic, status, open points, "
     "who needs to act, and any deadline. Set changed=false when the new message adds no relevant "
-    "thread information; in that case keep the existing summary unchanged. Keep the summary concise."
+    "thread information; in that case keep the existing summary unchanged. "
+    "Keep the summary concise."
 )
 
 _DRAFT_SYSTEM = (
