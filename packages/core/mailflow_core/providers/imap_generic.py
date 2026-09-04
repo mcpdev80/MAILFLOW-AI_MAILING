@@ -8,6 +8,7 @@ from email.message import Message
 import imapclient
 
 from mailflow_core.exceptions import IMAPConnectionError, UIDValidityChanged
+from mailflow_core.mail_auth import normalize_mail_auth_signals
 from mailflow_core.providers.base import DraftRef, EmailData, EmailProvider
 
 _MAILFLOW_KEYWORD = "MailFlowProcessed"
@@ -120,7 +121,7 @@ class ImapGenericProvider(EmailProvider):
         self._uidvalidity[folder] = current
 
     def fetch_unprocessed_emails(self, max_count: int = 20) -> list[EmailData]:
-        """Fetch only headers for candidate messages."""
+        """Fetch candidate headers and compact normalized transport metadata."""
         self._client.select_folder("INBOX")
         self._check_uidvalidity("INBOX")
         uids = self._client.search(["NOT", "KEYWORD", _MAILFLOW_KEYWORD])[:max_count]
@@ -144,6 +145,7 @@ class ImapGenericProvider(EmailProvider):
                     reply_to=msg.get("Reply-To"),
                     list_id=msg.get("List-ID"),
                     precedence=msg.get("Precedence"),
+                    auth_signals=normalize_mail_auth_signals(msg),
                 )
             )
         return result
