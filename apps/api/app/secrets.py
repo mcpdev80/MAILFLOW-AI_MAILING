@@ -33,6 +33,9 @@ _BEARER_RE = re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+")
 _QUERY_SECRET_RE = re.compile(
     r"(?i)([?&](?:access_token|refresh_token|api_key|key|token|password|secret)=)[^&\s]+"
 )
+_KEY_VALUE_SECRET_RE = re.compile(
+    r"(?i)(\b(?:password|passwd|secret|api_key|apikey|access_token|refresh_token|client_secret|authorization)\s*[=:]\s*)([^\s,;]+)"
+)
 _JSON_SECRET_RE = re.compile(
     r'(?i)("(?:password|secret|api_key|access_token|refresh_token|client_secret)"\s*:\s*")[^"]*(")'
 )
@@ -85,6 +88,9 @@ def redact_text(value: str) -> str:
     """Remove common credentials from log/error text without hiding useful context."""
     value = _BEARER_RE.sub(lambda match: f"{match.group(1)} {REDACTED}", value)
     value = _QUERY_SECRET_RE.sub(lambda match: f"{match.group(1)}{REDACTED}", value)
+    value = _KEY_VALUE_SECRET_RE.sub(
+        lambda match: f"{match.group(1)}{REDACTED}", value
+    )
     value = _JSON_SECRET_RE.sub(
         lambda match: f"{match.group(1)}{REDACTED}{match.group(2)}", value
     )
