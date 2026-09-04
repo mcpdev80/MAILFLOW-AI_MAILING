@@ -94,14 +94,16 @@ async def classify_preview(
     previous_summary: str | None = None
     thread_id: str | None = None
     async with session_factory() as session:
-        thread = await ThreadRepository(session).find_for_message(account.id, headers_only)
+        thread = await ThreadRepository(session).find_for_message(
+            account.id, headers_only
+        )
         if thread is not None:
             thread_id = thread.thread_id
             previous_summary = thread.summary or None
             headers_only = replace(headers_only, thread_id=thread_id)
-        memory_candidates = await DecisionMemoryRepository(session).candidates_for_email(
-            account.id, headers_only
-        )
+        memory_candidates = await DecisionMemoryRepository(
+            session
+        ).candidates_for_email(account.id, headers_only)
 
     def load_body(max_chars: int | None) -> ParsedEmail:
         body_text, body_html = provider.fetch_body(email_data.uid, max_chars)

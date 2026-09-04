@@ -48,7 +48,9 @@ class BulkApplyService:
 
         if not proposals:
             async with self._sf() as session:
-                final = await BulkRepository(session).finalize_apply_if_done(apply_job_id)
+                final = await BulkRepository(session).finalize_apply_if_done(
+                    apply_job_id
+                )
                 await session.commit()
                 return self._result(final, requeue=False)
 
@@ -94,7 +96,9 @@ class BulkApplyService:
                         await session.commit()
                     continue
 
-                if snapshot.get("suspicious_content") or snapshot.get("review_required"):
+                if snapshot.get("suspicious_content") or snapshot.get(
+                    "review_required"
+                ):
                     async with self._sf() as session:
                         await BulkRepository(session).mark_apply_result(
                             apply_job_id,
@@ -125,15 +129,23 @@ class BulkApplyService:
                             snapshot.get("user_tags") or []
                         )
                         if tags:
-                            await asyncio.to_thread(provider.apply_tags, proposal.uid, tags)
+                            await asyncio.to_thread(
+                                provider.apply_tags, proposal.uid, tags
+                            )
 
                         do_move = bool(snapshot.get("do_move", False))
                         destination = str(snapshot.get("proposed_folder") or "")
-                        has_move = do_move and bool(destination) and destination != proposal.source_folder
+                        has_move = (
+                            do_move
+                            and bool(destination)
+                            and destination != proposal.source_folder
+                        )
                         has_action = bool(tags) or has_move
 
                         if has_action:
-                            await asyncio.to_thread(provider.mark_as_processed, proposal.uid)
+                            await asyncio.to_thread(
+                                provider.mark_as_processed, proposal.uid
+                            )
 
                         if has_move:
                             moved = await asyncio.to_thread(

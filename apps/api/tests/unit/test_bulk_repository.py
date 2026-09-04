@@ -156,12 +156,12 @@ async def test_filters_counts_and_exclusion(session) -> None:
     assert [p.id for p in await repo.list_proposals(job.id, category="work")] == [
         second.id
     ]
-    assert [
-        p.id for p in await repo.list_proposals(job.id, destination="Work")
-    ] == [second.id]
-    assert [
-        p.id for p in await repo.list_proposals(job.id, review_required=True)
-    ] == [second.id]
+    assert [p.id for p in await repo.list_proposals(job.id, destination="Work")] == [
+        second.id
+    ]
+    assert [p.id for p in await repo.list_proposals(job.id, review_required=True)] == [
+        second.id
+    ]
     assert await repo.counts(job.id) == {"excluded": 1, "proposed": 1}
 
 

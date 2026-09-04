@@ -191,9 +191,7 @@ async def process_backfill_batch(ctx: dict, job_id: str) -> dict:
                         UUID(job_id)
                     )
                 else:
-                    result = await BackfillService(ctx["session_factory"]).run_batch(
-                        UUID(job_id)
-                    )
+                    result = await BackfillService(ctx["session_factory"]).run_batch(UUID(job_id))
         except Exception as exc:
             if job_try >= WORKER_MAX_TRIES:
                 await _fail_running_backfill(
@@ -335,9 +333,7 @@ async def process_bulk_apply(ctx: dict, apply_job_id: str) -> dict:
     bind_log_context(account_id=account_id, job_id=apply_job_id, job_try=ctx.get("job_try", 1))
     try:
         with workload_scope(account_id=account_id, priority=PRIORITY_REVIEW):
-            result = await BulkApplyService(ctx["session_factory"]).run_batch(
-                UUID(apply_job_id)
-            )
+            result = await BulkApplyService(ctx["session_factory"]).run_batch(UUID(apply_job_id))
         requeued = False
         if result.requeue:
             queued = await ctx["redis"].enqueue_job(

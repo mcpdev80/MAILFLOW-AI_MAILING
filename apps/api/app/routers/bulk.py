@@ -38,7 +38,9 @@ async def _owned_source_job(
     if job is None or job.account_id != account_id:
         raise HTTPException(status_code=404, detail="backfill_job_not_found")
     if job.mode not in {"dry_run", "review"}:
-        raise HTTPException(status_code=409, detail="bulk_review_requires_dry_run_or_review")
+        raise HTTPException(
+            status_code=409, detail="bulk_review_requires_dry_run_or_review"
+        )
     return job
 
 
@@ -51,7 +53,11 @@ async def _owned_proposal(
 ):
     await _owned_source_job(account_id, job_id, identity, session)
     proposal = await BulkRepository(session).get_proposal(proposal_id)
-    if proposal is None or proposal.job_id != job_id or proposal.account_id != account_id:
+    if (
+        proposal is None
+        or proposal.job_id != job_id
+        or proposal.account_id != account_id
+    ):
         raise HTTPException(status_code=404, detail="bulk_proposal_not_found")
     return proposal
 
@@ -106,9 +112,7 @@ async def bulk_counts(
     return BulkCountsOut(counts=await BulkRepository(session).counts(job_id))
 
 
-@router.patch(
-    "/{job_id}/proposals/{proposal_id}", response_model=BulkProposalOut
-)
+@router.patch("/{job_id}/proposals/{proposal_id}", response_model=BulkProposalOut)
 async def edit_bulk_proposal(
     account_id: UUID,
     job_id: UUID,

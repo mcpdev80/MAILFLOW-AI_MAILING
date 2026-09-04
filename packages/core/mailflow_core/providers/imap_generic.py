@@ -95,9 +95,7 @@ def _find_disposition(structure: tuple) -> tuple[str | None, dict[str, str]]:
     return None, {}
 
 
-def _attachment_metadata(
-    structure: object, prefix: str = ""
-) -> tuple[AttachmentInfo, ...]:
+def _attachment_metadata(structure: object, prefix: str = "") -> tuple[AttachmentInfo, ...]:
     """Convert an IMAP BODYSTRUCTURE tuple into lightweight attachment metadata."""
     if not isinstance(structure, tuple) or not structure:
         return ()
@@ -207,24 +205,18 @@ class ImapGenericProvider(EmailProvider):
         if folders:
             _, delimiter, _ = folders[0]
             self._separator = (
-                delimiter.decode()
-                if isinstance(delimiter, bytes)
-                else (delimiter or "/")
+                delimiter.decode() if isinstance(delimiter, bytes) else (delimiter or "/")
             )
 
     def _detect_drafts_folder(self) -> None:
         for flags, _, name in self._client.list_folders():
-            str_flags = [
-                flag.decode() if isinstance(flag, bytes) else flag for flag in flags
-            ]
+            str_flags = [flag.decode() if isinstance(flag, bytes) else flag for flag in flags]
             if "\\Drafts" in str_flags:
                 self._drafts_folder = name
                 return
 
     def _folder_status(self, folder: str) -> tuple[int, int, int]:
-        status = self._client.folder_status(
-            folder, ["UIDVALIDITY", "UIDNEXT", "MESSAGES"]
-        )
+        status = self._client.folder_status(folder, ["UIDVALIDITY", "UIDNEXT", "MESSAGES"])
         return (
             int(status[b"UIDVALIDITY"]),
             int(status.get(b"UIDNEXT", 1)),
@@ -267,13 +259,8 @@ class ImapGenericProvider(EmailProvider):
         uids = self._client.search(["NOT", "KEYWORD", _MAILFLOW_KEYWORD])[:max_count]
         if not uids:
             return []
-        raw_messages = self._client.fetch(
-            uids, ["BODY.PEEK[HEADER]", "BODYSTRUCTURE"]
-        )
-        return [
-            self._email_data_from_fetch(uid, data)
-            for uid, data in raw_messages.items()
-        ]
+        raw_messages = self._client.fetch(uids, ["BODY.PEEK[HEADER]", "BODYSTRUCTURE"])
+        return [self._email_data_from_fetch(uid, data) for uid, data in raw_messages.items()]
 
     def fetch_historical_batch(
         self,
@@ -326,9 +313,7 @@ class ImapGenericProvider(EmailProvider):
                 done=cursor >= highest_uid,
             )
 
-        raw_messages = self._client.fetch(
-            selected, ["BODY.PEEK[HEADER]", "BODYSTRUCTURE"]
-        )
+        raw_messages = self._client.fetch(selected, ["BODY.PEEK[HEADER]", "BODYSTRUCTURE"])
         ordered = tuple(
             self._email_data_from_fetch(uid, raw_messages[uid])
             for uid in selected
@@ -350,9 +335,7 @@ class ImapGenericProvider(EmailProvider):
             raw = data.get(b"RFC822", b"")
             body_text, body_html = _extract_body(email.message_from_bytes(raw))
             extracted = self._extract_relevant_attachments(uid)
-            used = tuple(
-                item for item in extracted if item.status == "used" and item.text
-            )
+            used = tuple(item for item in extracted if item.status == "used" and item.text)
             if used:
                 context = "\n\n".join(item.prompt_block() for item in used)
                 attachment_context = (
@@ -360,21 +343,15 @@ class ImapGenericProvider(EmailProvider):
                     f"{context}\n"
                     "END_UNTRUSTED_ATTACHMENT_CONTEXT"
                 )
-                body_text = (
-                    f"{body_text}\n\n" if body_text else ""
-                ) + attachment_context
+                body_text = (f"{body_text}\n\n" if body_text else "") + attachment_context
             return body_text, body_html
 
         max_bytes = max(max_chars * 2, max_chars)
-        data = self._client.fetch(
-            [uid], [f"BODY.PEEK[TEXT]<0.{max_bytes}>"]
-        )[uid]
+        data = self._client.fetch([uid], [f"BODY.PEEK[TEXT]<0.{max_bytes}>"])[uid]
         raw = _first_fetch_bytes(data)
         return raw.decode("utf-8", errors="replace")[:max_chars], ""
 
-    def _extract_relevant_attachments(
-        self, uid: int
-    ) -> tuple[ExtractedAttachment, ...]:
+    def _extract_relevant_attachments(self, uid: int) -> tuple[ExtractedAttachment, ...]:
         metadata = self._attachment_metadata_cache.get(uid, ())
         selected = eligible_attachments(metadata, self._attachment_config)
         results: list[ExtractedAttachment] = []
@@ -397,9 +374,7 @@ class ImapGenericProvider(EmailProvider):
     def fetch_attachment_content(self, uid: int, attachment: AttachmentInfo) -> bytes:
         """Fetch one MIME part selected from previously discovered BODYSTRUCTURE metadata."""
         self._client.select_folder(self._source_folder)
-        data = self._client.fetch(
-            [uid], [f"BODY.PEEK[{attachment.part_id}]"]
-        )[uid]
+        data = self._client.fetch([uid], [f"BODY.PEEK[{attachment.part_id}]"])[uid]
         return _first_fetch_bytes(data)
 
     def move_email(self, uid: int, destination_folder: str) -> bool:
@@ -417,9 +392,10 @@ class ImapGenericProvider(EmailProvider):
         """Idempotently add safe IMAP keywords for approved bulk tags."""
         safe: list[str] = []
         for tag in tags:
-            normalized = "MailFlow-" + "".join(
-                ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in str(tag)
-            )[:80]
+            normalized = (
+                "MailFlow-"
+                + "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in str(tag))[:80]
+            )
             if normalized != "MailFlow-" and normalized not in safe:
                 safe.append(normalized)
         if not safe:
@@ -462,9 +438,7 @@ class ImapGenericProvider(EmailProvider):
     def save_draft(self, message_bytes: bytes) -> bool:
         try:
             self.ensure_folder_exists(self._drafts_folder)
-            self._client.append(
-                self._drafts_folder, message_bytes, flags=[r"\Draft"]
-            )
+            self._client.append(self._drafts_folder, message_bytes, flags=[r"\Draft"])
             return True
         except Exception:
             return False

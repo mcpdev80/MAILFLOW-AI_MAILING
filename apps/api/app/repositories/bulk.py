@@ -218,9 +218,7 @@ class BulkRepository:
         )
         return proposal
 
-    async def approve_all_safe(
-        self, job_id: UUID, *, actor_user_id: str
-    ) -> int:
+    async def approve_all_safe(self, job_id: UUID, *, actor_user_id: str) -> int:
         proposals = await self.list_proposals(job_id, status="proposed", limit=100000)
         approved = 0
         for proposal in proposals:

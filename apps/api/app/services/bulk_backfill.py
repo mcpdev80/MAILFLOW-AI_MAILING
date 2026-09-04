@@ -216,7 +216,11 @@ class BulkBackfillService:
                     if batch.scan_cursor > (current.cursor_uid or 0):
                         await repo.checkpoint(job_id, cursor_uid=batch.scan_cursor)
                         current = await repo.get(job_id, for_update=True)
-                    if batch.done and current is not None and current.state == "running":
+                    if (
+                        batch.done
+                        and current is not None
+                        and current.state == "running"
+                    ):
                         await repo.transition(job_id, "completed")
                 await session.commit()
         finally:
