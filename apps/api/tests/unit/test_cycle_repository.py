@@ -104,6 +104,7 @@ async def test_insert_processed_idempotent_and_persists_semantics(session, accou
         folder="INBOX",
         uidvalidity=1000,
         message_id="<msg@test>",
+        thread_id="thread-123",
         from_email="a@b.com",
         subject="Hi",
         destination_folder="Clients/B",
@@ -125,6 +126,7 @@ async def test_insert_processed_idempotent_and_persists_semantics(session, accou
     )
     assert len(rows) == 1
     row = rows[0]
+    assert row.thread_id == "thread-123"
     assert row.destination_folder == "Clients/B"
     assert row.classification_label == "Clients/B"
     assert row.category == "finance"
@@ -134,38 +136,3 @@ async def test_insert_processed_idempotent_and_persists_semantics(session, accou
     assert row.action_required == "yes"
     assert row.system_tags == ["today", "action_required"]
     assert row.user_tags == ["customer-b"]
-
-
-async def test_find_thread_folder_returns_folder(session, account):
-    cycle_id = uuid4()
-    session.add(AuditLog(account_id=account.id, cycle_id=cycle_id))
-    await session.commit()
-
-    repo = CycleRepository(session)
-    await repo.insert_processed(
-        account_id=account.id,
-        uid=10,
-        folder="INBOX",
-        uidvalidity=999,
-        message_id="<original@test>",
-        from_email="x@y.com",
-        subject="Orig",
-        destination_folder="Clients/X",
-        classification=ClassificationResult(
-            label="Clients/X",
-            confidence=0.95,
-            method="domain_client",
-        ),
-        draft_saved=False,
-        cycle_id=cycle_id,
-    )
-    await session.commit()
-
-    result = await repo.find_thread_folder(account.id, "<original@test>")
-    assert result == "Clients/X"
-
-
-async def test_find_thread_folder_returns_none_if_not_found(session, account):
-    repo = CycleRepository(session)
-    result = await repo.find_thread_folder(account.id, "<nonexistent@test>")
-    assert result is None

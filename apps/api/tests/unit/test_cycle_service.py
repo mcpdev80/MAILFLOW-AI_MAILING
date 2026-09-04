@@ -1,4 +1,4 @@
-"""Tests unitarios de CycleService — todo mockeado (sin DB ni IMAP real)."""
+"""CycleService unit tests with mocked external systems."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from uuid import UUID
 
 from mailflow_core.classification.rule_engine import AccountConfig
 from mailflow_core.providers.base import EmailData
+from mailflow_core.types import ClassificationResult, ThreadSummaryUpdate
 
 ACCOUNT_ID = UUID("00000000-0000-0000-0000-000000000001")
 
@@ -53,6 +54,19 @@ def make_account():
     return acc
 
 
+def configure_thread_repo(MockThreadRepo, *, summary: str = "", existing: bool = False):
+    thread = MagicMock()
+    thread.thread_id = "thread-1"
+    thread.summary = summary
+    MockThreadRepo.return_value.find_for_message = AsyncMock(
+        return_value=thread if existing else None
+    )
+    MockThreadRepo.return_value.create_thread = AsyncMock(return_value=thread)
+    MockThreadRepo.return_value.get_thread = AsyncMock(return_value=thread)
+    MockThreadRepo.return_value.apply_message = AsyncMock()
+    return thread
+
+
 @patch("app.services.cycle.AccountRepository")
 @patch("app.services.cycle.CycleRepository")
 async def test_run_aborts_when_claim_cycle_fails(MockCycleRepo, MockAccountRepo):
@@ -94,16 +108,23 @@ async def test_run_imap_connect_failure(
     MockCycleRepo.return_value.finalize_audit_log.assert_awaited_once()
 
 
+@patch("app.services.cycle.ThreadRepository")
 @patch("app.services.cycle.AccountRepository")
 @patch("app.services.cycle.CycleRepository")
 @patch("app.services.cycle.ImapGenericProvider")
 @patch("app.services.cycle.decrypt_secret", return_value={"password": "pw"})
 @patch("app.services.cycle._build_llm_client", return_value=None)
 async def test_run_mark_before_move(
-    mock_build, mock_decrypt, MockProvider, MockCycleRepo, MockAccountRepo
+    mock_build,
+    mock_decrypt,
+    MockProvider,
+    MockCycleRepo,
+    MockAccountRepo,
+    MockThreadRepo,
 ):
     from app.services.cycle import CycleService
 
+    configure_thread_repo(MockThreadRepo)
     MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
     MockAccountRepo.return_value.get_full_config = AsyncMock(
         return_value=(make_account(), AccountConfig(account_id=str(ACCOUNT_ID)), None)
@@ -113,7 +134,6 @@ async def test_run_mark_before_move(
     MockProvider.return_value.fetch_unprocessed_emails.return_value = [
         make_email(uid=42)
     ]
-    MockCycleRepo.return_value.find_thread_folder = AsyncMock(return_value=None)
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     call_order: list[str] = []
@@ -128,53 +148,94 @@ async def test_run_mark_before_move(
 
     assert result.emails_processed == 1
     assert call_order == ["mark:42", "move:42"]
+    assert (
+        MockCycleRepo.return_value.insert_processed.call_args.kwargs["thread_id"]
+        == "thread-1"
+    )
 
 
+@patch("app.services.cycle.ThreadRepository")
 @patch("app.services.cycle.AccountRepository")
 @patch("app.services.cycle.CycleRepository")
 @patch("app.services.cycle.ImapGenericProvider")
 @patch("app.services.cycle.decrypt_secret", return_value={"password": "pw"})
-@patch("app.services.cycle._build_llm_client", return_value=None)
-async def test_run_thread_inheritance(
-    mock_build, mock_decrypt, MockProvider, MockCycleRepo, MockAccountRepo
+@patch("app.services.cycle._build_llm_client")
+async def test_existing_thread_summary_is_context_not_inherited_classification(
+    mock_build,
+    mock_decrypt,
+    MockProvider,
+    MockCycleRepo,
+    MockAccountRepo,
+    MockThreadRepo,
 ):
     from app.services.cycle import CycleService
 
+    configure_thread_repo(
+        MockThreadRepo,
+        summary="Invoice was open and the customer needed to pay.",
+        existing=True,
+    )
+    account = make_account()
     MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
     MockAccountRepo.return_value.get_full_config = AsyncMock(
-        return_value=(make_account(), AccountConfig(account_id=str(ACCOUNT_ID)), None)
+        return_value=(account, AccountConfig(account_id=str(ACCOUNT_ID)), MagicMock())
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
     MockProvider.return_value.fetch_unprocessed_emails.return_value = [
         make_email(uid=99, in_reply_to="<original@test>")
     ]
-    MockCycleRepo.return_value.find_thread_folder = AsyncMock(return_value="Clients/X")
     MockCycleRepo.return_value.insert_processed = AsyncMock()
+
+    classify_client = MagicMock()
+    classify_client.classify.return_value = ClassificationResult(
+        label="finance",
+        category="finance",
+        importance="normal",
+        urgency="none",
+        action_required="no",
+        confidence=0.91,
+        method="llm",
+    )
+    classify_client.update_thread_summary.return_value = ThreadSummaryUpdate(
+        summary="Invoice is now paid; no open action remains.",
+        changed=True,
+        open_action_required=False,
+    )
+    mock_build.side_effect = [classify_client, None]
 
     await CycleService(make_sf()).run(ACCOUNT_ID)
 
-    call_kwargs = MockCycleRepo.return_value.insert_processed.call_args.kwargs
-    classification = call_kwargs["classification"]
-    assert classification.method == "thread"
-    assert classification.confidence == 0.95
-    assert call_kwargs["destination_folder"] == "Clients/X"
+    classification = MockCycleRepo.return_value.insert_processed.call_args.kwargs[
+        "classification"
+    ]
+    assert classification.method == "llm"
+    assert classification.action_required == "no"
+    assert classify_client.classify.call_args.kwargs["thread_summary"] == (
+        "Invoice was open and the customer needed to pay."
+    )
+    classify_client.update_thread_summary.assert_called_once()
 
 
+@patch("app.services.cycle.ThreadRepository")
 @patch("app.services.cycle.AccountRepository")
 @patch("app.services.cycle.CycleRepository")
 @patch("app.services.cycle.ImapGenericProvider")
 @patch("app.services.cycle.decrypt_secret", return_value={"password": "pw"})
 @patch("app.services.cycle._build_llm_client")
 async def test_run_draft_bytes_passed_to_save_draft(
-    mock_build, mock_decrypt, MockProvider, MockCycleRepo, MockAccountRepo
+    mock_build,
+    mock_decrypt,
+    MockProvider,
+    MockCycleRepo,
+    MockAccountRepo,
+    MockThreadRepo,
 ):
     from app.services.cycle import CycleService
-
-    account = make_account()
-    from mailflow_core.classification.rule_engine import AccountConfig
     from mailflow_core.classification.rule_engine import DomainRule as CoreDomainRule
 
+    configure_thread_repo(MockThreadRepo)
+    account = make_account()
     config = AccountConfig(
         account_id=str(ACCOUNT_ID),
         client_domain_rules=[
@@ -191,7 +252,6 @@ async def test_run_draft_bytes_passed_to_save_draft(
     MockProvider.return_value.fetch_unprocessed_emails.return_value = [
         make_email(uid=55)
     ]
-    MockCycleRepo.return_value.find_thread_folder = AsyncMock(return_value=None)
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     mock_generate_client = MagicMock()

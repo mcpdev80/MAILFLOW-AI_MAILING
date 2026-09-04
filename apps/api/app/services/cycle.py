@@ -22,7 +22,7 @@ from mailflow_core.resilience import (
     RetryPolicy,
     retry_with_backoff,
 )
-from mailflow_core.types import ClassificationResult, DraftRequest, ParsedEmail
+from mailflow_core.types import DraftRequest, ParsedEmail, ThreadSummaryUpdate
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app import oauth
@@ -33,6 +33,7 @@ from app.models.organization import Organization
 from app.quota import can_process_more
 from app.repositories.account import AccountRepository
 from app.repositories.cycle import CycleRepository
+from app.repositories.thread import ThreadRepository
 from app.routing import destination_for_classification
 from app.secrets import redact_text
 
@@ -205,6 +206,7 @@ class CycleService:
                         provider,
                         parser,
                         rule_engine,
+                        classify_client,
                         generate_client,
                         generation_breaker,
                         stats,
@@ -244,6 +246,7 @@ async def _process_one(
     provider: ImapGenericProvider,
     parser: EmailParser,
     rule_engine: RuleEngine,
+    classify_client: LLMClient | None,
     generate_client: LLMClient | None,
     generation_breaker: CircuitBreaker,
     stats: dict,
@@ -251,21 +254,38 @@ async def _process_one(
 ) -> None:
     parsed: ParsedEmail = parser.parse(email_data)
 
-    thread_folder: str | None = None
-    if parsed.in_reply_to:
-        async with sf() as session:
-            thread_folder = await CycleRepository(session).find_thread_folder(
-                account.id, parsed.in_reply_to
-            )
+    async with sf() as session:
+        thread_repo = ThreadRepository(session)
+        thread = await thread_repo.find_for_message(account.id, parsed)
+        if thread is None:
+            thread = await thread_repo.create_thread(account.id, parsed)
+        thread_id = thread.thread_id
+        previous_summary = thread.summary
+        await session.commit()
 
-    if thread_folder:
-        result = ClassificationResult(
-            label=thread_folder,
-            confidence=0.95,
-            method="thread",
-        )
-    else:
-        result = await asyncio.to_thread(rule_engine.classify, parsed)
+    # The current message is always classified on its own merits. A compact summary
+    # is context for the LLM fallback only; no previous classification is inherited.
+    result = await asyncio.to_thread(
+        rule_engine.classify,
+        parsed,
+        previous_summary or None,
+    )
+
+    summary_update: ThreadSummaryUpdate | None = None
+    if classify_client is not None:
+        try:
+            summary_update = await asyncio.to_thread(
+                classify_client.update_thread_summary,
+                previous_summary,
+                parsed,
+                result,
+            )
+        except Exception as exc:
+            log.warning(
+                "Thread summary update failed for uid=%s: %s",
+                email_data.uid,
+                redact_text(str(exc)),
+            )
 
     destination = destination_for_classification(account, result)
 
@@ -327,12 +347,17 @@ async def _process_one(
             draft_saved = await asyncio.to_thread(provider.save_draft, draft_bytes)
 
     async with sf() as session:
-        await CycleRepository(session).insert_processed(
+        thread_repo = ThreadRepository(session)
+        current_thread = await thread_repo.get_thread(account.id, thread_id)
+        if current_thread is None:
+            raise RuntimeError("resolved_thread_missing")
+        inserted = await CycleRepository(session).insert_processed(
             account_id=account.id,
             uid=email_data.uid,
             folder=account.inbox_folder,
             uidvalidity=provider._uidvalidity.get(account.inbox_folder, 0),
             message_id=email_data.message_id,
+            thread_id=thread_id,
             from_email=email_data.from_email,
             subject=email_data.subject,
             destination_folder=destination,
@@ -340,6 +365,8 @@ async def _process_one(
             draft_saved=draft_saved,
             cycle_id=cycle_id,
         )
+        if inserted:
+            await thread_repo.apply_message(current_thread, parsed, summary_update)
         await session.commit()
 
     stats["emails"] += 1

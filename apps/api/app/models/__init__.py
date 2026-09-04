@@ -10,6 +10,7 @@ from app.models.organization import Organization
 from app.models.processed_email import ProcessedEmail
 from app.models.rules import DomainRule, InternalDomain, KeywordRule
 from app.models.stripe_event import StripeEvent
+from app.models.thread_summary import ThreadSummary
 
 __all__ = [
     "Base",
@@ -24,4 +25,5 @@ __all__ = [
     "Organization",
     "ProcessedEmail",
     "StripeEvent",
+    "ThreadSummary",
 ]

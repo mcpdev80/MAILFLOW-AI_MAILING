@@ -90,34 +90,35 @@ class TestStep2ClientDomain:
         assert result.method != "domain_client"
 
 
-class TestStep3ThreadInheritance:
-    def test_inherits_from_most_recent_high_confidence(self):
-        engine = RuleEngine(base_config())
-        history = [
-            ClassificationResult(label="acme", confidence=0.95, method="domain_client"),
-        ]
-        result = engine.classify(make_email(from_domain="unknown.net"), thread_history=history)
-        assert result.label == "acme"
-        assert result.confidence == 0.90
-        assert result.method == "thread"
+class TestThreadContext:
+    def test_summary_is_context_for_llm_instead_of_inherited_result(self):
+        mock_llm = MagicMock()
+        mock_llm.classify.return_value = ClassificationResult(
+            label="finance",
+            category="finance",
+            importance="normal",
+            urgency="none",
+            action_required="no",
+            confidence=0.88,
+            method="llm",
+        )
+        engine = RuleEngine(
+            base_config(client_domain_rules=[], keyword_rules=[]),
+            llm_client=mock_llm,
+        )
+        result = engine.classify(
+            make_email(from_domain="unknown.net", body_text="The invoice is already paid."),
+            thread_summary="Earlier messages discussed an unpaid invoice.",
+        )
 
-    def test_does_not_inherit_when_last_is_low_confidence(self):
-        engine = RuleEngine(base_config())
-        history = [ClassificationResult(label="acme", confidence=0.50, method="llm")]
-        result = engine.classify(make_email(from_domain="unknown.net"), thread_history=history)
-        assert result.method != "thread"
-
-    def test_inherits_from_last_entry(self):
-        engine = RuleEngine(base_config())
-        history = [
-            ClassificationResult(label="old", confidence=0.95, method="domain_client"),
-            ClassificationResult(label="new", confidence=0.85, method="llm"),
-        ]
-        result = engine.classify(make_email(from_domain="unknown.net"), thread_history=history)
-        assert result.label == "new"
+        assert result.method == "llm"
+        assert result.action_required == "no"
+        assert mock_llm.classify.call_args.kwargs["thread_summary"] == (
+            "Earlier messages discussed an unpaid invoice."
+        )
 
 
-class TestStep4Keywords:
+class TestStep3Keywords:
     def test_or_match_first_keyword(self):
         engine = RuleEngine(base_config())
         result = engine.classify(
@@ -170,7 +171,7 @@ class TestStep4Keywords:
         assert result.method == "keyword"
 
 
-class TestStep5LLMFallback:
+class TestStep4LLMFallback:
     def test_uses_llm_when_no_rule_matches(self):
         mock_llm = MagicMock()
         mock_llm.classify.return_value = ClassificationResult(
@@ -204,7 +205,7 @@ class TestStep5LLMFallback:
         assert result.method == "fallback"
 
 
-class TestStep6Fallback:
+class TestStep5Fallback:
     def test_fallback_when_no_rules_and_no_llm(self):
         engine = RuleEngine(AccountConfig(account_id="empty"))
         result = engine.classify(make_email(from_domain="totally.unknown"))
