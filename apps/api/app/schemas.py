@@ -17,6 +17,36 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ClassificationResultOut(BaseModel):
+    """API representation of semantic classification, independent from routing."""
+
+    category: Literal[
+        "work",
+        "private",
+        "finance",
+        "orders",
+        "appointments",
+        "newsletters",
+        "notifications",
+        "other",
+    ]
+    subcategory: str | None = None
+    suggested_category: str | None = None
+    suggested_subcategory: str | None = None
+    importance: Literal["critical", "high", "normal", "low", "unknown"]
+    urgency: Literal["immediate", "today", "this_week", "none", "unknown"]
+    action_required: Literal["yes", "no", "unknown"]
+    system_tags: list[str] = Field(default_factory=list)
+    user_tags: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
+    needs_more_context: bool
+    review_required: bool
+    reason: str | None = Field(default=None, max_length=300)
+    # Compatibility only. Routing may still use this during migration, but API
+    # consumers should treat category/subcategory as the classification concept.
+    label: str
+
+
 # ── Email accounts ────────────────────────────────────────────────────────────
 class EmailAccountCreate(BaseModel):
     imap_host: str = Field(min_length=1, max_length=255)
@@ -151,8 +181,8 @@ class KeywordRuleCreate(BaseModel):
     keywords: list[str] = Field(min_length=1)
     label: str = Field(min_length=1, max_length=255)
     rule_id: str = Field(min_length=1, max_length=100)
-    match_all: bool = False
     priority: int = 0
+    match_all: bool = False
 
 
 class KeywordRuleOut(ORMModel):
@@ -161,8 +191,8 @@ class KeywordRuleOut(ORMModel):
     keywords: list[str]
     label: str
     rule_id: str
-    match_all: bool
     priority: int
+    match_all: bool
 
 
 class InternalDomainCreate(BaseModel):
