@@ -3,6 +3,7 @@
 from app.models.audit_log import AuditLog
 from app.models.backfill import BackfillFailure, BackfillJob
 from app.models.base import Base
+from app.models.bulk import BulkApplyJob, BulkProposal
 from app.models.decision_memory import DecisionMemoryEntry
 from app.models.email_account import EmailAccount
 from app.models.lifecycle_event import LifecycleEvent
@@ -19,6 +20,8 @@ __all__ = [
     "AuditLog",
     "BackfillFailure",
     "BackfillJob",
+    "BulkApplyJob",
+    "BulkProposal",
     "DecisionMemoryEntry",
     "DomainRule",
     "EmailAccount",
