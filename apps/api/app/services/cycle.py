@@ -56,6 +56,10 @@ from app.secrets import redact_text
 
 log = logging.getLogger("mailflow.cycle")
 
+# Preserve the existing private test/mocking hook while delegating real
+# construction to the shared runtime factory.
+_build_llm_client = build_llm_client
+
 
 @dataclass
 class CycleResult:
@@ -214,8 +218,8 @@ class CycleService:
             attachment_config=_build_attachment_config(),
         )
         parser = EmailParser()
-        classify_client = build_llm_client(llm_provider, for_generation=False)
-        generate_client = build_llm_client(llm_provider, for_generation=True)
+        classify_client = _build_llm_client(llm_provider, for_generation=False)
+        generate_client = _build_llm_client(llm_provider, for_generation=True)
         rule_engine = RuleEngine(account_config)
 
         emails: list[EmailData] = []
