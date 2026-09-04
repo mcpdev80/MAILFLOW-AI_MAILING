@@ -14,11 +14,13 @@ Weak matches above `DECISION_MEMORY_HINT_THRESHOLD` are passed into the normal a
 
 Entries are scoped to one email account. A sender or domain match never crosses mailbox boundaries.
 
-Matching prefers, in order, thread + sender, sender + exact subject, sender + similar subject, domain + exact subject, then broader sender/domain hints. Broad matches decay with age.
+Matching prefers, in order, thread-specific decisions, sender + exact subject, sender + similar subject, domain + exact subject, then broader sender/domain hints. Broad matches decay with age.
 
 ## Stored data
 
 DecisionMemory stores only compact matching and decision fields such as sender/domain, normalized subject pattern, optional thread identity, semantic classification, optional routing target, source/trust, usage counters, and timestamps. It does not store message bodies.
+
+A stored `routing_target` is decision metadata only in this implementation. DecisionMemory does not execute that target directly. Mailbox actions continue through the normal routing/action path so the safe action policies introduced by issue #10 can remain the single enforcement boundary.
 
 ## Management
 
@@ -28,4 +30,4 @@ New explicit entries created through the API are limited to human-confirmed or h
 
 ## Observability
 
-Processed email rows record the matched DecisionMemory entry, match confidence, and whether the memory was used only as a hint. Direct reuse is recorded with classification method `decision_memory`.
+Processed email rows record the matched DecisionMemory entry identifier, match confidence, and whether the memory was used only as a hint. The identifier remains historical provenance even if the learned entry is later deleted. Direct reuse is recorded with classification method `decision_memory`.
