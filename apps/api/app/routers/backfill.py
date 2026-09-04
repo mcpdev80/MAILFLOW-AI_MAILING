@@ -90,6 +90,7 @@ async def start_backfill(
         job = await repo.create(
             account_id,
             folder=payload.folder,
+            mode=payload.mode,
             batch_size=payload.batch_size or settings.BACKFILL_BATCH_SIZE,
             start_running=True,
             actor_user_id=identity.user_id,

@@ -20,6 +20,8 @@ def test_all_tables_registered():
         "decision_memory_entries",
         "backfill_jobs",
         "backfill_failures",
+        "bulk_proposals",
+        "bulk_apply_jobs",
     }
     assert expected == set(Base.metadata.tables.keys())
 

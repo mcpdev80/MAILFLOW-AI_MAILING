@@ -32,6 +32,10 @@ class BackfillJob(Base):
             "state IN ('running','paused','completed','cancelled','failed')",
             name="ck_backfill_jobs_state",
         ),
+        CheckConstraint(
+            "mode IN ('dry_run','review','apply')",
+            name="ck_backfill_jobs_mode",
+        ),
         Index("ix_backfill_jobs_account", "account_id", "created_at"),
         Index("ix_backfill_jobs_state", "state", "updated_at"),
         Index(
@@ -50,6 +54,9 @@ class BackfillJob(Base):
     folder: Mapped[str] = mapped_column(String(255), default="INBOX")
     state: Mapped[str] = mapped_column(
         String(16), default="paused", server_default="paused"
+    )
+    mode: Mapped[str] = mapped_column(
+        String(16), default="apply", server_default="apply"
     )
     batch_size: Mapped[int] = mapped_column(Integer, default=10, server_default="10")
 
