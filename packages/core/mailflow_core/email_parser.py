@@ -6,6 +6,7 @@ import re
 
 from email_reply_parser import EmailReplyParser
 
+from mailflow_core.content_security import html_to_safe_text, sanitize_text
 from mailflow_core.providers.base import EmailData
 from mailflow_core.types import ParsedEmail
 
@@ -25,7 +26,7 @@ def _normalize_subject(subject: str) -> str:
     while prev != subject:
         prev = subject
         subject = _SUBJECT_PREFIX.sub("", subject)
-    return subject.strip()
+    return sanitize_text(subject)
 
 
 def _strip_signature(body_text: str) -> tuple[str, str]:
@@ -44,7 +45,9 @@ class EmailParser:
 
     def parse(self, email_data: EmailData) -> ParsedEmail:
         subject_normalized = _normalize_subject(email_data.subject)
-        body_text, signature = _strip_signature(email_data.body_text)
+        safe_html_text = html_to_safe_text(email_data.body_html)
+        source_text = sanitize_text(email_data.body_text or safe_html_text)
+        body_text, signature = _strip_signature(source_text)
         parts = email_data.from_email.split("@")
         from_domain = parts[-1].lower() if len(parts) >= 2 else ""
         thread_id: str | None = None
@@ -56,8 +59,8 @@ class EmailParser:
             uid=email_data.uid,
             subject_normalized=subject_normalized,
             body_text=body_text,
-            body_html=email_data.body_html,
-            signature=signature,
+            body_html="",
+            signature=sanitize_text(signature),
             from_email=email_data.from_email,
             from_domain=from_domain,
             to_emails=email_data.to_emails,
