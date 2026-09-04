@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # mode scheduled and already queued mailbox jobs are skipped without mutation.
     WORKER_PAUSED: bool = False
 
+    # Compact lifecycle/security history has one bounded retention class. Cleanup
+    # runs in small worker batches and never purges mailbox operational state.
+    LIFECYCLE_AUDIT_RETENTION_DAYS: int = 180
+    LIFECYCLE_CLEANUP_BATCH_SIZE: int = 500
+
     # Observabilidad.
     #   LOG_FORMAT: "json" (producción, una línea por evento) o "text" (dev).
     #   LOG_LEVEL: nivel raíz (DEBUG/INFO/WARNING/...).
