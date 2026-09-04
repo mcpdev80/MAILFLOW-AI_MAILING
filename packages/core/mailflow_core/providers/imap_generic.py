@@ -1,4 +1,4 @@
-"""IMAP email provider with password authentication."""
+"""IMAP email provider with staged body fetching."""
 
 from __future__ import annotations
 
@@ -19,30 +19,32 @@ def _extract_body(msg: Message) -> tuple[str, str]:
     body_html = ""
     if msg.is_multipart():
         for part in msg.walk():
-            ct = part.get_content_type()
+            content_type = part.get_content_type()
             charset = part.get_content_charset() or "utf-8"
-            if ct == "text/plain" and not body_text:
+            if content_type == "text/plain" and not body_text:
                 body_text = part.get_payload(decode=True).decode(charset, errors="replace")
-            elif ct == "text/html" and not body_html:
+            elif content_type == "text/html" and not body_html:
                 body_html = part.get_payload(decode=True).decode(charset, errors="replace")
     else:
-        ct = msg.get_content_type()
+        content_type = msg.get_content_type()
         charset = msg.get_content_charset() or "utf-8"
         payload = msg.get_payload(decode=True).decode(charset, errors="replace")
-        if ct == "text/plain":
+        if content_type == "text/plain":
             body_text = payload
-        elif ct == "text/html":
+        elif content_type == "text/html":
             body_html = payload
     return body_text, body_html
 
 
-class ImapGenericProvider(EmailProvider):
-    """IMAP provider using password or OAuth2 (XOAUTH2) authentication.
+def _first_fetch_bytes(data: dict) -> bytes:
+    for key, value in data.items():
+        if isinstance(key, bytes) and key != b"SEQ" and isinstance(value, bytes):
+            return value
+    return b""
 
-    Gmail and Microsoft 365 both speak IMAP with XOAUTH2, so the same provider
-    serves all account types: pass `access_token` for OAuth, or `password` for
-    classic IMAP. The rest of the mailbox logic is identical.
-    """
+
+class ImapGenericProvider(EmailProvider):
+    """IMAP provider using password or OAuth2 authentication."""
 
     def __init__(
         self,
@@ -104,7 +106,7 @@ class ImapGenericProvider(EmailProvider):
 
     def _detect_drafts_folder(self) -> None:
         for flags, _, name in self._client.list_folders():
-            str_flags = [f.decode() if isinstance(f, bytes) else f for f in flags]
+            str_flags = [flag.decode() if isinstance(flag, bytes) else flag for flag in flags]
             if "\\Drafts" in str_flags:
                 self._drafts_folder = name
                 return
@@ -118,20 +120,17 @@ class ImapGenericProvider(EmailProvider):
         self._uidvalidity[folder] = current
 
     def fetch_unprocessed_emails(self, max_count: int = 20) -> list[EmailData]:
+        """Fetch only headers for candidate messages."""
         self._client.select_folder("INBOX")
         self._check_uidvalidity("INBOX")
-        uids = self._client.search(["NOT", "KEYWORD", _MAILFLOW_KEYWORD])
-        uids = uids[:max_count]
+        uids = self._client.search(["NOT", "KEYWORD", _MAILFLOW_KEYWORD])[:max_count]
         if not uids:
             return []
-        raw_messages = self._client.fetch(uids, ["RFC822"])
-        result = []
+        raw_messages = self._client.fetch(uids, ["BODY.PEEK[HEADER]"])
+        result: list[EmailData] = []
         for uid, data in raw_messages.items():
-            raw = data[b"RFC822"]
-            msg = email.message_from_bytes(raw)
-            body_text, body_html = _extract_body(msg)
+            msg = email.message_from_bytes(_first_fetch_bytes(data))
             refs_str = msg.get("References", "") or ""
-            refs = [r.strip() for r in refs_str.split() if r.strip()]
             result.append(
                 EmailData(
                     uid=uid,
@@ -139,14 +138,30 @@ class ImapGenericProvider(EmailProvider):
                     subject=msg.get("Subject", ""),
                     from_email=msg.get("From", ""),
                     to_emails=[msg.get("To", "")],
-                    body_text=body_text,
-                    body_html=body_html,
                     in_reply_to=msg.get("In-Reply-To"),
-                    references=refs,
+                    references=[part for part in refs_str.split() if part],
                     date=msg.get("Date"),
+                    reply_to=msg.get("Reply-To"),
+                    list_id=msg.get("List-ID"),
+                    precedence=msg.get("Precedence"),
                 )
             )
         return result
+
+    def fetch_body(self, uid: int, max_chars: int | None = None) -> tuple[str, str]:
+        """Fetch a bounded text fragment, or the full MIME body for the final stage."""
+        self._client.select_folder("INBOX")
+        if max_chars is None:
+            data = self._client.fetch([uid], ["RFC822"])[uid]
+            raw = data.get(b"RFC822", b"")
+            return _extract_body(email.message_from_bytes(raw))
+
+        # Request only a bounded body fragment from the server. Extra bytes leave
+        # room for transfer encoding and MIME framing while still avoiding a full fetch.
+        max_bytes = max(max_chars * 2, max_chars)
+        data = self._client.fetch([uid], [f"BODY.PEEK[TEXT]<0.{max_bytes}>"])[uid]
+        raw = _first_fetch_bytes(data)
+        return raw.decode("utf-8", errors="replace")[:max_chars], ""
 
     def move_email(self, uid: int, destination_folder: str) -> bool:
         self.ensure_folder_exists(destination_folder)
@@ -177,10 +192,9 @@ class ImapGenericProvider(EmailProvider):
         if not uids:
             return []
         raw_messages = self._client.fetch(uids, ["RFC822", "FLAGS"])
-        drafts = []
+        drafts: list[DraftRef] = []
         for uid, data in raw_messages.items():
-            raw = data[b"RFC822"]
-            msg = email.message_from_bytes(raw)
+            msg = email.message_from_bytes(data[b"RFC822"])
             drafts.append(
                 DraftRef(
                     uid=uid,
