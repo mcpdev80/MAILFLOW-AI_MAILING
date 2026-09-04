@@ -293,8 +293,6 @@ class ImapGenericProvider(EmailProvider):
         while cursor < highest_uid and len(selected) < max_count:
             start = cursor + 1
             end = min(start + uid_window - 1, highest_uid)
-            # Limit the server search itself to a bounded UID range. We never ask
-            # IMAP to return all historical UIDs just to slice them client-side.
             candidates = self._client.search(["UID", f"{start}:{end}"])
             for uid in candidates:
                 if uid > cursor:
@@ -390,6 +388,20 @@ class ImapGenericProvider(EmailProvider):
         except Exception:
             return False
 
+    def apply_tags(self, uid: int, tags: list[str] | tuple[str, ...]) -> None:
+        """Idempotently add safe IMAP keywords for approved bulk tags."""
+        safe = []
+        for tag in tags:
+            normalized = "MailFlow-" + "".join(
+                ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in str(tag)
+            )[:80]
+            if normalized != "MailFlow-" and normalized not in safe:
+                safe.append(normalized)
+        if not safe:
+            return
+        self._client.select_folder(self._source_folder)
+        self._client.add_flags([uid], safe)
+
     def mark_as_processed(self, uid: int) -> None:
         self._client.select_folder(self._source_folder)
         self._client.add_flags([uid], [_MAILFLOW_KEYWORD])
@@ -422,19 +434,10 @@ class ImapGenericProvider(EmailProvider):
             )
         return drafts
 
-    def save_draft(self, message_bytes: bytes) -> bool:
+    def save_draft(self, draft_bytes: bytes) -> bool:
         try:
             self.ensure_folder_exists(self._drafts_folder)
-            self._client.append(self._drafts_folder, message_bytes, flags=[r"\Draft"])
-            return True
-        except Exception:
-            return False
-
-    def delete_draft(self, uid: int) -> bool:
-        try:
-            self._client.select_folder(self._drafts_folder)
-            self._client.add_flags([uid], [r"\Deleted"])
-            self._client.expunge()
+            self._client.append(self._drafts_folder, draft_bytes, [r"\Draft"])
             return True
         except Exception:
             return False
