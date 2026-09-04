@@ -1,4 +1,4 @@
-"""Smoke tests: todos los modelos importan y están registrados en Base.metadata."""
+"""Smoke tests: all models import and register with Base.metadata."""
 
 
 def test_all_tables_registered():
@@ -15,6 +15,7 @@ def test_all_tables_registered():
         "processed_emails",
         "audit_log",
         "stripe_events",
+        "lifecycle_events",
     }
     assert expected == set(Base.metadata.tables.keys())
 
