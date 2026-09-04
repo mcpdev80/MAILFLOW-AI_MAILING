@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from mailflow_core.classification.adaptive import (
     AdaptiveClassificationConfig,
     AdaptiveClassifier,
 )
+from mailflow_core.decision_memory import DecisionMemoryCandidate, DecisionMemoryMatch
 from mailflow_core.types import AttachmentInfo, ClassificationResult, ParsedEmail
 
 
@@ -121,8 +123,25 @@ def test_configurable_threshold_controls_escalation():
 
 def test_decision_memory_bypasses_llm_and_body_fetch():
     remembered = replace(result(0.96), method="decision_memory")
+    candidate = DecisionMemoryCandidate(
+        entry_id="memory-1",
+        account_id="account-1",
+        sender_email="customer@example.com",
+        sender_domain="example.com",
+        subject_pattern="Invoice question",
+        thread_id=None,
+        result=remembered,
+        source="human_confirmed",
+        trust_score=1.0,
+        updated_at=datetime.now(tz=UTC),
+    )
     memory = MagicMock()
-    memory.lookup.return_value = remembered
+    memory.lookup.return_value = DecisionMemoryMatch(
+        candidate=candidate,
+        match_confidence=0.97,
+        can_bypass=True,
+        reason="sender_and_subject",
+    )
     llm = MagicMock()
     loader = MagicMock()
 
@@ -135,6 +154,7 @@ def test_decision_memory_bypasses_llm_and_body_fetch():
     assert outcome.decision_memory_hit is True
     assert outcome.stage is None
     assert outcome.result.method == "decision_memory"
+    assert outcome.result.decision_memory_id == "memory-1"
     llm.classify.assert_not_called()
     loader.assert_not_called()
 
