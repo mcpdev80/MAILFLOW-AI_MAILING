@@ -4,6 +4,9 @@ name: CI
 # merge instead of consuming runner time on every development commit.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - issue-10-safe-mailbox-action-policies
 
 jobs:
   lint-python:
