@@ -95,7 +95,7 @@ async def _validate_mailbox_ownership(session: AsyncSession) -> tuple[int, int]:
             text(
                 "SELECT count(*) FROM organizations mf "
                 "WHERE NOT EXISTS ("
-                "  SELECT 1 FROM \"organization\" ba "
+                '  SELECT 1 FROM "organization" ba '
                 "  WHERE (ba.metadata::jsonb ->> 'mf_org_id') = mf.id::text"
                 ")"
             )
@@ -111,13 +111,13 @@ async def _validate_mailbox_ownership(session: AsyncSession) -> tuple[int, int]:
         await session.scalar(
             text(
                 "SELECT count(*) FROM email_accounts ea "
-                "JOIN \"organization\" ba "
+                'JOIN "organization" ba '
                 "  ON (ba.metadata::jsonb ->> 'mf_org_id') = ea.org_id::text "
                 "WHERE ea.ownership_mode = 'private' "
                 "  AND NOT EXISTS ("
-                "    SELECT 1 FROM \"member\" m "
-                "    WHERE m.\"organizationId\" = ba.id "
-                "      AND m.\"userId\" = ea.owner_user_id"
+                '    SELECT 1 FROM "member" m '
+                '    WHERE m."organizationId" = ba.id '
+                '      AND m."userId" = ea.owner_user_id'
                 "  )"
             )
         )
@@ -133,12 +133,12 @@ async def _validate_mailbox_ownership(session: AsyncSession) -> tuple[int, int]:
             text(
                 "SELECT count(*) FROM mailbox_access ma "
                 "JOIN email_accounts ea ON ea.id = ma.account_id "
-                "JOIN \"organization\" ba "
+                'JOIN "organization" ba '
                 "  ON (ba.metadata::jsonb ->> 'mf_org_id') = ea.org_id::text "
                 "WHERE NOT EXISTS ("
-                "  SELECT 1 FROM \"member\" m "
-                "  WHERE m.\"organizationId\" = ba.id "
-                "    AND m.\"userId\" = ma.user_id"
+                '  SELECT 1 FROM "member" m '
+                '  WHERE m."organizationId" = ba.id '
+                '    AND m."userId" = ma.user_id'
                 ")"
             )
         )

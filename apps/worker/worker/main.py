@@ -34,9 +34,7 @@ async def on_startup(ctx: dict) -> None:
         validated,
     )
     if settings.WORKER_PAUSED:
-        log.warning(
-            "Worker processing is paused by WORKER_PAUSED; mailbox mutations are disabled"
-        )
+        log.warning("Worker processing is paused by WORKER_PAUSED; mailbox mutations are disabled")
 
 
 async def process_account_cycle(ctx: dict, account_id: str) -> dict:
