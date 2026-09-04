@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.config import settings
 from app.database import async_session_factory
+from app.inference_health import publish_inference_health
 from app.lifecycle import purge_expired_lifecycle_events
 from app.logging_config import bind_log_context, clear_log_context, setup_logging
 from app.observability import init_sentry
@@ -53,6 +54,28 @@ async def process_account_cycle(ctx: dict, account_id: str) -> dict:
         log.info("cycle start account=%s try=%d", account_id, job_try)
         service = CycleService(ctx["session_factory"])
         result = await service.run(UUID(account_id))
+        if result.inference_health:
+            try:
+                health = await publish_inference_health(
+                    ctx["redis"],
+                    account_id,
+                    result.inference_health,
+                )
+                log.info(
+                    "inference health account=%s status=%s",
+                    account_id,
+                    health["status"],
+                    extra={
+                        "event": "inference_health",
+                        "inference_status": health["status"],
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001 - observability must not fail a cycle
+                log.warning(
+                    "Could not publish inference health for account=%s: %s",
+                    account_id,
+                    type(exc).__name__,
+                )
         log.info(
             "cycle done account=%s emails=%d drafts=%d errors=%d",
             account_id,
