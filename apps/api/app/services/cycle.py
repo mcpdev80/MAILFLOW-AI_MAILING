@@ -5,12 +5,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from uuid import UUID, uuid4
 
+from mailflow_core.classification.adaptive import (
+    AdaptiveClassificationConfig,
+    AdaptiveClassifier,
+)
 from mailflow_core.classification.llm_client import LLMClient, LLMConfig
 from mailflow_core.classification.rule_engine import RuleEngine
 from mailflow_core.email_parser import EmailParser
@@ -22,10 +26,11 @@ from mailflow_core.resilience import (
     RetryPolicy,
     retry_with_backoff,
 )
-from mailflow_core.types import DraftRequest, ParsedEmail, ThreadSummaryUpdate
+from mailflow_core.types import ClassificationResult, DraftRequest, ParsedEmail, ThreadSummaryUpdate
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app import oauth
+from app.config import settings
 from app.crypto import decrypt_secret
 from app.models.email_account import EmailAccount
 from app.models.llm_provider import LLMProvider
@@ -53,7 +58,6 @@ def _build_llm_client(
     *,
     for_generation: bool,
 ) -> LLMClient | None:
-    """Build an LLM client while keeping decrypted API keys local to this call."""
     if llm_provider is None or not llm_provider.is_active:
         return None
 
@@ -124,11 +128,6 @@ class CycleService:
             org = await session.get(Organization, account.org_id)
             plan_key = org.plan if org else None
             if not await can_process_more(session, account.org_id, plan_key):
-                log.info(
-                    "Account %s skipped: daily email quota reached (plan=%s)",
-                    account_id,
-                    plan_key,
-                )
                 await CycleRepository(session).finalize_audit_log(
                     cycle_id,
                     emails=0,
@@ -143,9 +142,7 @@ class CycleService:
         password: str | None = None
         access_token: str | None = None
         if account.provider_type in ("gmail", "microsoft") and account.encrypted_oauth:
-            refresh_token = str(
-                decrypt_secret(account.encrypted_oauth)["refresh_token"]
-            )
+            refresh_token = str(decrypt_secret(account.encrypted_oauth)["refresh_token"])
             access_token = await asyncio.to_thread(
                 oauth.access_token_from_refresh,
                 account.provider_type,
@@ -165,7 +162,7 @@ class CycleService:
         parser = EmailParser()
         classify_client = _build_llm_client(llm_provider, for_generation=False)
         generate_client = _build_llm_client(llm_provider, for_generation=True)
-        rule_engine = RuleEngine(account_config, llm_client=classify_client)
+        rule_engine = RuleEngine(account_config)
         generation_breaker = CircuitBreaker(failure_threshold=3, reset_timeout=60.0)
 
         emails: list[EmailData] = []
@@ -252,24 +249,47 @@ async def _process_one(
     stats: dict,
     sf: async_sessionmaker,
 ) -> None:
-    parsed: ParsedEmail = parser.parse(email_data)
+    headers_only = parser.parse(email_data)
 
     async with sf() as session:
         thread_repo = ThreadRepository(session)
-        thread = await thread_repo.find_for_message(account.id, parsed)
+        thread = await thread_repo.find_for_message(account.id, headers_only)
         if thread is None:
-            thread = await thread_repo.create_thread(account.id, parsed)
+            thread = await thread_repo.create_thread(account.id, headers_only)
         thread_id = thread.thread_id
         previous_summary = thread.summary
         await session.commit()
 
-    # The current message is always classified on its own merits. A compact summary
-    # is context for the LLM fallback only; no previous classification is inherited.
-    result = await asyncio.to_thread(
-        rule_engine.classify,
-        parsed,
-        previous_summary or None,
-    )
+    def load_body(max_chars: int | None) -> ParsedEmail:
+        body_text, body_html = provider.fetch_body(email_data.uid, max_chars)
+        return parser.parse(
+            replace(email_data, body_text=body_text, body_html=body_html)
+        )
+
+    supporting_signal = rule_engine.supporting_signal(headers_only)
+    parsed = headers_only
+    if classify_client is not None:
+        adaptive = AdaptiveClassifier(
+            classify_client,
+            config=AdaptiveClassificationConfig(
+                confidence_threshold=settings.CLASSIFICATION_CONFIDENCE_THRESHOLD
+            ),
+        )
+        outcome = await asyncio.to_thread(
+            adaptive.classify,
+            headers_only,
+            thread_summary=previous_summary or None,
+            body_loader=load_body,
+            supporting_signal=supporting_signal,
+        )
+        result = outcome.result
+        parsed = outcome.email
+    else:
+        result = supporting_signal or ClassificationResult(
+            label="unclassified",
+            confidence=0.0,
+            method="fallback",
+        )
 
     summary_update: ThreadSummaryUpdate | None = None
     if classify_client is not None:
@@ -288,28 +308,26 @@ async def _process_one(
             )
 
     destination = destination_for_classification(account, result)
-
     await asyncio.to_thread(provider.mark_as_processed, email_data.uid)
     await asyncio.to_thread(provider.move_email, email_data.uid, destination)
 
     draft_saved = False
-    if (
-        result.method != "domain_internal"
-        and result.label != "unclassified"
-        and generate_client
-    ):
+    if result.method != "domain_internal" and result.label != "unclassified" and generate_client:
+        draft_email = parsed
+        if not draft_email.body_text:
+            draft_email = await asyncio.to_thread(load_body, None)
         draft_request = DraftRequest(
             in_reply_to_uid=str(email_data.uid),
             folder=provider._drafts_folder,
-            subject=parsed.subject_normalized,
-            body_text=parsed.body_text,
-            body_html=parsed.body_html or None,
+            subject=draft_email.subject_normalized,
+            body_text=draft_email.body_text,
+            body_html=draft_email.body_html or None,
             classification=result,
         )
 
         async def _generate() -> str:
             return await asyncio.to_thread(
-                generate_client.generate_draft, parsed, draft_request
+                generate_client.generate_draft, draft_email, draft_request
             )
 
         async def _generate_with_retry() -> str:
@@ -338,7 +356,7 @@ async def _process_one(
             draft_text = ""
         if draft_text:
             draft_bytes = _build_draft_bytes(
-                subject=parsed.subject_normalized,
+                subject=draft_email.subject_normalized,
                 from_email=account.username,
                 to_email=email_data.from_email,
                 body_text=draft_text,
