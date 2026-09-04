@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, replace
-from uuid import UUID
 
 from mailflow_core.action_policy import evaluate_mailbox_action
 from mailflow_core.classification.adaptive import (
