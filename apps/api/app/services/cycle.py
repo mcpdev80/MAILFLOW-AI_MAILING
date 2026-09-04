@@ -33,6 +33,7 @@ from app.models.organization import Organization
 from app.quota import can_process_more
 from app.repositories.account import AccountRepository
 from app.repositories.cycle import CycleRepository
+from app.routing import destination_for_classification
 from app.secrets import redact_text
 
 log = logging.getLogger("mailflow.cycle")
@@ -211,7 +212,6 @@ class CycleService:
                     log.exception("Error processing uid=%s: %s", email_data.uid, safe_error)
         finally:
             await asyncio.to_thread(provider.disconnect)
-            # Keep plaintext credentials scoped to this cycle only.
             password = None
             access_token = None
 
@@ -253,14 +253,14 @@ async def _process_one(
 
     if thread_folder:
         result = ClassificationResult(
-            label=thread_folder, confidence=0.95, method="thread"
+            label=thread_folder,
+            confidence=0.95,
+            method="thread",
         )
     else:
         result = await asyncio.to_thread(rule_engine.classify, parsed)
 
-    destination = (
-        result.label if result.label != "unclassified" else account.unclassified_folder
-    )
+    destination = destination_for_classification(account, result)
 
     await asyncio.to_thread(provider.mark_as_processed, email_data.uid)
     await asyncio.to_thread(provider.move_email, email_data.uid, destination)
@@ -329,8 +329,7 @@ async def _process_one(
             from_email=email_data.from_email,
             subject=email_data.subject,
             destination_folder=destination,
-            method=result.method,
-            confidence=result.confidence,
+            classification=result,
             draft_saved=draft_saved,
             cycle_id=cycle_id,
         )
