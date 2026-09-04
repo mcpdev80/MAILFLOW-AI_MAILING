@@ -53,6 +53,15 @@ class AccountRepository:
         )
         return list((await self._session.execute(stmt)).scalars())
 
+    async def is_processing_allowed(self, account_id: UUID) -> bool:
+        """Re-check the lifecycle fence before mailbox/provider mutations."""
+        stmt = select(EmailAccount.id).where(
+            EmailAccount.id == account_id,
+            EmailAccount.is_active.is_(True),
+            self._processable_ownership_condition(),
+        )
+        return (await self._session.execute(stmt)).scalar_one_or_none() is not None
+
     async def claim_cycle(self, account_id: UUID, now: datetime) -> bool:
         """Atomically claim a due account while preserving ownership safety."""
         interval_expr = EmailAccount.interval_minutes * text("INTERVAL '1 minute'")
