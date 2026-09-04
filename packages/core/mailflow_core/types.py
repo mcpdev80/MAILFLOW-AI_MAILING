@@ -27,6 +27,10 @@ Category = Literal[
 Importance = Literal["critical", "high", "normal", "low", "unknown"]
 Urgency = Literal["immediate", "today", "this_week", "none", "unknown"]
 ActionRequired = Literal["yes", "no", "unknown"]
+SpfResult = Literal["pass", "fail", "softfail", "neutral", "none", "unknown"]
+AuthResult = Literal["pass", "fail", "none", "unknown"]
+DmarcResult = Literal["pass", "fail", "bestguesspass", "none", "unknown"]
+SpamVerdict = Literal["spam", "suspicious", "clean", "unknown"]
 
 CONFIRMED_CATEGORIES: tuple[Category, ...] = (
     "work",
@@ -51,6 +55,30 @@ SYSTEM_TAGS: frozenset[str] = frozenset(
 
 
 @dataclass(frozen=True)
+class MailAuthSignals:
+    """Normalized authentication and spam metadata derived from message headers."""
+
+    spf: SpfResult = "unknown"
+    dkim: AuthResult = "unknown"
+    dmarc: DmarcResult = "unknown"
+    arc: AuthResult = "unknown"
+    spam_verdict: SpamVerdict = "unknown"
+    spam_score: float | None = None
+
+    def compact(self) -> str:
+        parts = [
+            f"spf={self.spf}",
+            f"dkim={self.dkim}",
+            f"dmarc={self.dmarc}",
+            f"arc={self.arc}",
+            f"spam={self.spam_verdict}",
+        ]
+        if self.spam_score is not None:
+            parts.append(f"score={self.spam_score:g}")
+        return " ".join(parts)
+
+
+@dataclass(frozen=True)
 class ParsedEmail:
     """Refined email data produced by EmailParser."""
 
@@ -70,6 +98,7 @@ class ParsedEmail:
     precedence: str | None = None
     thread_id: str | None = None
     date: str | None = None
+    auth_signals: MailAuthSignals = field(default_factory=MailAuthSignals)
 
 
 @dataclass(frozen=True)
