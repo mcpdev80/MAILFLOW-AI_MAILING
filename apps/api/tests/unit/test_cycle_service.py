@@ -153,8 +153,9 @@ async def test_run_thread_inheritance(
     await CycleService(make_sf()).run(ACCOUNT_ID)
 
     call_kwargs = MockCycleRepo.return_value.insert_processed.call_args.kwargs
-    assert call_kwargs["method"] == "thread"
-    assert call_kwargs["confidence"] == 0.95
+    classification = call_kwargs["classification"]
+    assert classification.method == "thread"
+    assert classification.confidence == 0.95
     assert call_kwargs["destination_folder"] == "Clients/X"
 
 
