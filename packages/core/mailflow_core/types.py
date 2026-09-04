@@ -93,6 +93,10 @@ class ClassificationResult:
     review_required: bool = False
     reason: str | None = None
     classification_stage: int | None = None
+    classification_model: str | None = None
+    # Deep classification can optionally return the compact thread update in the
+    # same response so the worker does not need a second model call.
+    thread_summary_update: ThreadSummaryUpdate | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.confidence <= 1.0:
