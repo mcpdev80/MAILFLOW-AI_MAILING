@@ -179,9 +179,7 @@ class AdaptiveClassifier:
                     )
 
                 status = (
-                    "failed"
-                    if any(item.status == "failed" for item in extracted)
-                    else "skipped"
+                    "failed" if any(item.status == "failed" for item in extracted) else "skipped"
                 )
                 errors = [item.error for item in extracted if item.error]
                 result = replace(
