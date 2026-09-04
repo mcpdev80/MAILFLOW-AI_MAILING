@@ -81,7 +81,9 @@ async def _validate_mailbox_ownership(session: AsyncSession) -> tuple[int, int]:
         return private_count, shared_count
 
     required_tables = ['"user"', '"organization"', '"member"', '"passkey"']
-    missing = [name for name in required_tables if not await _table_exists(session, name)]
+    missing = [
+        name for name in required_tables if not await _table_exists(session, name)
+    ]
     if missing:
         raise RestoreValidationError(
             "Missing Better Auth tables required by multi-user restore: "
@@ -158,7 +160,9 @@ async def validate_restore_state(session: AsyncSession) -> RestoreValidationResu
 
     passkeys = 0
     if await _table_exists(session, '"passkey"'):
-        passkeys = int(await session.scalar(text('SELECT count(*) FROM "passkey"')) or 0)
+        passkeys = int(
+            await session.scalar(text('SELECT count(*) FROM "passkey"')) or 0
+        )
 
     return RestoreValidationResult(
         schema_revision=schema_revision,
