@@ -66,6 +66,35 @@ class TestClassify:
         assert result.confidence == 0.88
         assert result.method == "llm"
 
+    def test_accepts_json_markdown_fence(self):
+        client = LLMClient(cfg())
+        content = "```json\n" + json.dumps({"label": "acme", "confidence": 0.88}) + "\n```"
+        with patch("mailflow_core.classification.llm_client.litellm.completion") as mock_c:
+            mock_c.return_value = fake_completion(content)
+            result = client.classify(make_email(), available_labels=["acme"])
+        assert result.label == "acme"
+        assert result.confidence == 0.88
+
+    @pytest.mark.parametrize(("raw_action", "expected"), [(True, "yes"), (False, "no")])
+    def test_normalizes_boolean_action_required(self, raw_action, expected):
+        client = LLMClient(cfg())
+        response = {
+            "category": "work",
+            "importance": "normal",
+            "urgency": "none",
+            "action_required": raw_action,
+            "system_tags": [],
+            "user_tags": [],
+            "confidence": 0.95,
+            "needs_more_context": False,
+            "review_required": False,
+            "suspicious_content": False,
+        }
+        with patch("mailflow_core.classification.llm_client.litellm.completion") as mock_c:
+            mock_c.return_value = fake_completion(json.dumps(response))
+            result = client.classify(make_email())
+        assert result.action_required == expected
+
     def test_invalid_json_raises_classification_error(self):
         client = LLMClient(cfg())
         with patch("mailflow_core.classification.llm_client.litellm.completion") as mock_c:
