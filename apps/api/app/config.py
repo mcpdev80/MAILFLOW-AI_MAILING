@@ -36,6 +36,18 @@ class Settings(BaseSettings):
     # the model explicitly requests more context/review.
     CLASSIFICATION_CONFIDENCE_THRESHOLD: float = Field(default=0.85, ge=0.0, le=1.0)
 
+    # Attachment extraction is optional escalation context. Keep all limits
+    # centrally configurable so deployments can tune local resource use safely.
+    ATTACHMENT_MAX_BYTES: int = Field(default=5 * 1024 * 1024, gt=0)
+    ATTACHMENT_MAX_EXTRACTED_CHARS: int = Field(default=8_000, gt=0)
+    ATTACHMENT_MAX_COUNT: int = Field(default=2, gt=0)
+    ATTACHMENT_MAX_PDF_PAGES: int = Field(default=50, gt=0)
+    ATTACHMENT_MAX_ARCHIVE_ENTRIES: int = Field(default=64, gt=0)
+    ATTACHMENT_MAX_ARCHIVE_UNCOMPRESSED_BYTES: int = Field(
+        default=2 * 1024 * 1024,
+        gt=0,
+    )
+
     # Global stage-to-model defaults. Account-level role overrides can be added
     # later without changing the adaptive classifier contract.
     CLASSIFICATION_STAGE_0_ROLE: str = "fast"
