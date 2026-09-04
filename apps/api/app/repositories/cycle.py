@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from mailflow_core.types import ClassificationResult
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,6 +53,7 @@ class CycleRepository:
         folder: str,
         uidvalidity: int,
         message_id: str | None,
+        thread_id: str | None,
         from_email: str,
         subject: str,
         destination_folder: str,
@@ -69,6 +70,7 @@ class CycleRepository:
                 folder=folder,
                 uidvalidity=uidvalidity,
                 message_id=message_id,
+                thread_id=thread_id,
                 from_email=from_email,
                 subject=subject,
                 destination_folder=destination_folder,
@@ -93,15 +95,3 @@ class CycleRepository:
             .on_conflict_do_nothing(index_elements=["account_id", "uid", "uidvalidity"])
         )
         await self._session.execute(stmt)
-
-    async def find_thread_folder(self, account_id: UUID, message_id: str) -> str | None:
-        """Return a previous applied folder for the legacy thread-routing path."""
-        stmt = (
-            select(ProcessedEmail.destination_folder)
-            .where(
-                ProcessedEmail.account_id == account_id,
-                ProcessedEmail.message_id == message_id,
-            )
-            .limit(1)
-        )
-        return (await self._session.execute(stmt)).scalar_one_or_none()
