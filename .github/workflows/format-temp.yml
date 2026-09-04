@@ -9,8 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  format:
-    if: github.event.head_commit.message != 'ci: apply ruff format'
+  format-python:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,10 +17,10 @@ jobs:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v4
         with:
-          version: "latest"
-          python-version: "3.13"
+          version: latest
+          python-version: '3.13'
       - run: uv sync --all-packages
-      - name: Format changed Python files
+      - name: Apply Ruff formatting
         shell: bash
         run: |
           base=$(git merge-base HEAD origin/main)
