@@ -154,7 +154,6 @@ def test_circuit_state_survives_new_client_instance() -> None:
         completion.return_value = _response()
         result = second.classify(_email(), classification_stage=0)
 
-    # Fast is skipped while its circuit is open; deep handles the request.
     assert completion.call_count == 1
     assert completion.call_args.kwargs["model"] == "deep-model"
     assert result.classification_model == "deep-model"
@@ -196,13 +195,17 @@ def test_generation_has_independent_circuit() -> None:
         )
     )
     request = DraftRequest(
+        in_reply_to_uid="1",
+        folder="INBOX",
+        subject="Re: Invoice question",
+        body_text="Thanks for the invoice.",
+        body_html=None,
         classification=ClassificationResult(
             label="finance",
             category="finance",
             confidence=0.99,
             method="llm",
         ),
-        subject="Re: Invoice question",
     )
 
     with patch("mailflow_core.classification.llm_client.litellm.completion") as completion:
