@@ -23,6 +23,7 @@ from app.services.backfill import BackfillService
 from app.services.backfill_failure import BackfillFailureService
 from app.services.bulk_apply import BulkApplyService
 from app.services.bulk_backfill import BulkBackfillService
+from app.services.bulk_backfill_failure import BulkBackfillFailureService
 from app.services.cycle import CycleService
 from app.workload import PRIORITY_BACKFILL, PRIORITY_LIVE, PRIORITY_REVIEW
 from app.workload_context import workload_scope
@@ -261,6 +262,7 @@ async def process_backfill_failure(ctx: dict, job_id: str, failure_id: str) -> d
         if job is None or failure is None or failure.job_id != job.id:
             return {"job_id": job_id, "failure_id": failure_id, "skipped": "not_found"}
         account_id = str(job.account_id)
+        mode = job.mode
         if failure.status != "retrying":
             return {
                 "job_id": job_id,
@@ -289,9 +291,14 @@ async def process_backfill_failure(ctx: dict, job_id: str, failure_id: str) -> d
         }
 
     with workload_scope(account_id=account_id, priority=PRIORITY_REVIEW):
-        result = await BackfillFailureService(ctx["session_factory"]).retry(
-            UUID(job_id), UUID(failure_id)
-        )
+        if mode in {"dry_run", "review"}:
+            result = await BulkBackfillFailureService(ctx["session_factory"]).retry(
+                UUID(job_id), UUID(failure_id)
+            )
+        else:
+            result = await BackfillFailureService(ctx["session_factory"]).retry(
+                UUID(job_id), UUID(failure_id)
+            )
     if result.inference_health:
         try:
             await publish_inference_health(ctx["redis"], account_id, result.inference_health)
@@ -301,6 +308,7 @@ async def process_backfill_failure(ctx: dict, job_id: str, failure_id: str) -> d
         "job_id": job_id,
         "failure_id": failure_id,
         "account_id": account_id,
+        "mode": mode,
         "resolved": result.resolved,
         "error": result.error,
     }
