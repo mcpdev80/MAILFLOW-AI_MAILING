@@ -20,7 +20,9 @@ class DecisionMemoryRepository:
     async def list_entries(
         self, account_id: UUID, *, include_disabled: bool = True
     ) -> list[DecisionMemoryEntry]:
-        stmt = select(DecisionMemoryEntry).where(DecisionMemoryEntry.account_id == account_id)
+        stmt = select(DecisionMemoryEntry).where(
+            DecisionMemoryEntry.account_id == account_id
+        )
         if not include_disabled:
             stmt = stmt.where(DecisionMemoryEntry.enabled.is_(True))
         rows = await self._session.execute(
@@ -166,9 +168,15 @@ class DecisionMemoryRepository:
             DecisionMemoryEntry.account_id == new_entry.account_id,
             DecisionMemoryEntry.id != new_entry.id,
             DecisionMemoryEntry.enabled.is_(True),
-            DecisionMemoryEntry.sender_email.is_not_distinct_from(new_entry.sender_email),
-            DecisionMemoryEntry.sender_domain.is_not_distinct_from(new_entry.sender_domain),
-            DecisionMemoryEntry.subject_pattern.is_not_distinct_from(new_entry.subject_pattern),
+            DecisionMemoryEntry.sender_email.is_not_distinct_from(
+                new_entry.sender_email
+            ),
+            DecisionMemoryEntry.sender_domain.is_not_distinct_from(
+                new_entry.sender_domain
+            ),
+            DecisionMemoryEntry.subject_pattern.is_not_distinct_from(
+                new_entry.subject_pattern
+            ),
             DecisionMemoryEntry.thread_id.is_not_distinct_from(new_entry.thread_id),
             DecisionMemoryEntry.source.in_(["human_confirmed", "human_corrected"]),
         )
@@ -178,7 +186,9 @@ class DecisionMemoryRepository:
             DecisionMemoryEntry.importance != new_entry.importance,
             DecisionMemoryEntry.urgency != new_entry.urgency,
             DecisionMemoryEntry.action_required != new_entry.action_required,
-            DecisionMemoryEntry.routing_target.is_distinct_from(new_entry.routing_target),
+            DecisionMemoryEntry.routing_target.is_distinct_from(
+                new_entry.routing_target
+            ),
         )
         await self._session.execute(
             update(DecisionMemoryEntry)
