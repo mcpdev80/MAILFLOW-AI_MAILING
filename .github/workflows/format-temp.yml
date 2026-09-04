@@ -1,0 +1,41 @@
+name: Format Temp
+
+on:
+  push:
+    branches:
+      - issue-15-global-workload-control
+
+permissions:
+  contents: write
+
+jobs:
+  format-python:
+    if: github.event.head_commit.message != 'ci: apply ruff format'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          python-version: '3.13'
+      - run: uv sync --all-packages
+      - name: Apply Ruff formatting
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
+          if (( ${#files[@]} )); then
+            uv run ruff format "${files[@]}"
+          fi
+          git restore uv.lock || true
+          if git diff --quiet; then
+            echo "No formatting changes needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${files[@]}"
+          git commit -m "ci: apply ruff format"
+          git push
