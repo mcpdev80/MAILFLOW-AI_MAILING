@@ -17,6 +17,14 @@ class ThreadRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def get_thread(self, account_id: UUID, thread_id: str) -> ThreadSummary | None:
+        return await self._session.scalar(
+            select(ThreadSummary).where(
+                ThreadSummary.account_id == account_id,
+                ThreadSummary.thread_id == thread_id,
+            )
+        )
+
     async def find_for_message(
         self,
         account_id: UUID,
@@ -59,12 +67,7 @@ class ThreadRepository:
             .limit(1)
         )
         if prior_thread_id:
-            return await self._session.scalar(
-                select(ThreadSummary).where(
-                    ThreadSummary.account_id == account_id,
-                    ThreadSummary.thread_id == prior_thread_id,
-                )
-            )
+            return await self.get_thread(account_id, prior_thread_id)
 
         return await self._session.scalar(
             select(ThreadSummary).where(
