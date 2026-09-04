@@ -1,5 +1,7 @@
 /** MailFlow API DTOs (mirror of backend HTTP contracts). */
 
+export type ActionMode = "off" | "review" | "automatic";
+
 export interface EmailAccount {
   id: string;
   org_id: string;
@@ -17,6 +19,9 @@ export interface EmailAccount {
   is_active: boolean;
   last_cycle_at: string | null;
   llm_provider_id: string | null;
+  move_policy: ActionMode;
+  archive_policy: ActionMode;
+  action_confidence_threshold: number;
   created_at: string;
 }
 
@@ -30,7 +35,29 @@ export interface EmailAccountCreate {
   llm_provider_id?: string | null;
   ownership_mode?: "private" | "shared";
   shared_user_ids?: string[];
+  move_policy?: ActionMode;
+  archive_policy?: ActionMode;
+  action_confidence_threshold?: number;
 }
+
+export type EmailAccountUpdate = Partial<
+  Pick<
+    EmailAccount,
+    | "imap_host"
+    | "imap_port"
+    | "use_ssl"
+    | "username"
+    | "inbox_folder"
+    | "unclassified_folder"
+    | "drafts_folder"
+    | "interval_minutes"
+    | "is_active"
+    | "llm_provider_id"
+    | "move_policy"
+    | "archive_policy"
+    | "action_confidence_threshold"
+  >
+> & { password?: string | null };
 
 export interface SharedMailboxAccess {
   user_id: string;
