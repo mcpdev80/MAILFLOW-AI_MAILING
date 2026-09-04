@@ -29,6 +29,7 @@ from app.routers import (
     metrics_router,
     oauth_router,
     rules_router,
+    workload_router,
 )
 from app.secret_storage import validate_stored_secrets
 from app.secrets import SecretConfigurationError, redact_text
@@ -60,6 +61,7 @@ app.include_router(rules_router)
 app.include_router(decision_memory_router)
 app.include_router(cycles_router)
 app.include_router(inference_health_router)
+app.include_router(workload_router)
 app.include_router(oauth_router)
 app.include_router(billing_router)
 app.include_router(internal_router)
