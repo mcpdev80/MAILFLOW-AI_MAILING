@@ -1,4 +1,4 @@
-"""Unit tests for _build_llm_client and _build_draft_bytes."""
+"""Unit tests for LLM runtime construction and draft-byte helpers."""
 
 from __future__ import annotations
 
@@ -56,71 +56,86 @@ def test_build_draft_bytes_no_in_reply_to():
 
 
 def test_build_llm_client_returns_none_for_none_provider():
-    from app.services.cycle import _build_llm_client
+    from app.llm_runtime import build_llm_client
 
-    assert _build_llm_client(None, for_generation=True) is None
+    assert build_llm_client(None, for_generation=True) is None
 
 
 def test_build_llm_client_returns_none_for_inactive_provider():
-    from app.services.cycle import _build_llm_client
+    from app.llm_runtime import build_llm_client
 
     mock_provider = MagicMock()
     mock_provider.is_active = False
-    assert _build_llm_client(mock_provider, for_generation=True) is None
+    assert build_llm_client(mock_provider, for_generation=True) is None
 
 
 def test_build_llm_client_generation_uses_generation_model():
-    from app.services.cycle import _build_llm_client
+    from app.llm_runtime import build_llm_client
     from mailflow_core.classification.llm_client import LLMClient
 
     provider = MagicMock()
     provider.is_active = True
     provider.encrypted_api_key = None
+    provider.encrypted_generation_api_key = None
     provider.base_url = "http://localhost:11434"
     provider.default_generation_model = "ollama/llama3"
     provider.default_classification_model = "ollama/llama3:8b"
+    provider.generation_model = None
+    provider.generation_base_url = None
 
-    client = _build_llm_client(provider, for_generation=True)
+    client = build_llm_client(provider, for_generation=True)
 
     assert isinstance(client, LLMClient)
     assert client._config.model_id == "ollama/llama3"
     assert client._config.api_base == "http://localhost:11434"
     assert client._config.api_key is None
+    assert client._config.generation_timeout > 0
 
 
 def test_build_llm_client_classify_uses_classification_model():
-    from app.services.cycle import _build_llm_client
+    from app.llm_runtime import build_llm_client
     from mailflow_core.classification.llm_client import LLMClient
 
     provider = MagicMock()
     provider.is_active = True
     provider.encrypted_api_key = None
+    provider.encrypted_fast_api_key = None
+    provider.encrypted_deep_api_key = None
     provider.base_url = "http://localhost:11434"
     provider.default_generation_model = "ollama/llama3"
     provider.default_classification_model = "ollama/llama3:8b"
+    provider.fast_classification_model = None
+    provider.fast_classification_base_url = None
+    provider.deep_classification_model = None
+    provider.deep_classification_base_url = None
 
-    client = _build_llm_client(provider, for_generation=False)
+    client = build_llm_client(provider, for_generation=False)
 
     assert isinstance(client, LLMClient)
     assert client._config.model_id == "ollama/llama3:8b"
+    assert client._config.fast_timeout > 0
+    assert client._config.deep_timeout > 0
 
 
 def test_build_llm_client_decrypts_api_key():
     from app.crypto import encrypt
-    from app.services.cycle import _build_llm_client
+    from app.llm_runtime import build_llm_client
     from cryptography.fernet import Fernet
 
     key = Fernet.generate_key().decode()
     provider = MagicMock()
     provider.is_active = True
     provider.encrypted_api_key = encrypt({"api_key": "sk-test-123"}, key)
+    provider.encrypted_generation_api_key = None
     provider.base_url = "https://api.openai.com"
     provider.default_generation_model = "gpt-4o"
     provider.default_classification_model = "gpt-4o-mini"
+    provider.generation_model = None
+    provider.generation_base_url = None
 
     with patch("app.crypto.settings") as mock_settings:
         mock_settings.SECRET_ENCRYPTION_KEYS = ""
         mock_settings.SECRET_KEY = key
-        client = _build_llm_client(provider, for_generation=True)
+        client = build_llm_client(provider, for_generation=True)
 
     assert client._config.api_key == "sk-test-123"
