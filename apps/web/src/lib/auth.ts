@@ -16,6 +16,12 @@ import { provisionOrg } from "./provision";
 export const authEnabled = process.env.WEB_AUTH === "on";
 
 const RECENT_AUTH_MAX_AGE_MS = 10 * 60 * 1000;
+const SENSITIVE_ORG_PATHS = new Set([
+  "/organization/invite-member",
+  "/organization/remove-member",
+  "/organization/update-member-role",
+  "/organization/delete",
+]);
 const authDb = new Pool({ connectionString: process.env.DATABASE_URL });
 
 function resolvePasskeyConfig() {
@@ -85,7 +91,7 @@ function buildAuth() {
           ctx.path === "/passkey/generate-register-options" ||
           ctx.path === "/passkey/verify-registration" ||
           ctx.path === "/passkey/delete-passkey";
-        if (passkeyMethodChange) {
+        if (passkeyMethodChange || SENSITIVE_ORG_PATHS.has(ctx.path)) {
           await requireRecentSession(ctx);
         }
       }),
