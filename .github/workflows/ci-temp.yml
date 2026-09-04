@@ -5,6 +5,7 @@ on:
     branches:
       - issue-5-dry-run-review-apply
 
+# Final validation trigger after Ruff formatting.
 jobs:
   lint-python:
     name: Lint Python (ruff)
