@@ -40,7 +40,7 @@ def _strip_signature(body_text: str) -> tuple[str, str]:
 
 
 class EmailParser:
-    """Refines EmailData: normalizes subject, strips signature, resolves thread ID."""
+    """Refine provider data while preserving headers needed for thread matching."""
 
     def parse(self, email_data: EmailData) -> ParsedEmail:
         subject_normalized = _normalize_subject(email_data.subject)
@@ -61,7 +61,9 @@ class EmailParser:
             from_email=email_data.from_email,
             from_domain=from_domain,
             to_emails=email_data.to_emails,
+            message_id=email_data.message_id or None,
             in_reply_to=email_data.in_reply_to,
+            references=tuple(email_data.references),
             thread_id=thread_id,
             date=email_data.date,
         )
