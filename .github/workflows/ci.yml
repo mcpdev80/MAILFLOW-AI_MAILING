@@ -1,9 +1,12 @@
 name: CI
 
-# CI is intentionally manual. Run it once a pull request is considered ready to
-# merge instead of consuming runner time on every development commit.
+# CI is normally manual. The branch-specific push trigger below is temporary so
+# PR #37 can run the full suite from this environment without workflow dispatch.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - issue-12-attachment-aware-classification
 
 jobs:
   lint-python:
