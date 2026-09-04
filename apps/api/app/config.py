@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -106,13 +106,11 @@ class Settings(BaseSettings):
             return role
         return value
 
-    @field_validator("DECISION_MEMORY_REUSE_THRESHOLD")
-    @classmethod
-    def _validate_memory_thresholds(cls, value: float, info) -> float:
-        hint = info.data.get("DECISION_MEMORY_HINT_THRESHOLD")
-        if hint is not None and hint > value:
+    @model_validator(mode="after")
+    def _validate_memory_thresholds(self) -> "Settings":
+        if self.DECISION_MEMORY_HINT_THRESHOLD > self.DECISION_MEMORY_REUSE_THRESHOLD:
             raise ValueError("DecisionMemory hint threshold must not exceed reuse threshold")
-        return value
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
