@@ -3,6 +3,7 @@
 from app.models.audit_log import AuditLog
 from app.models.base import Base
 from app.models.email_account import EmailAccount
+from app.models.lifecycle_event import LifecycleEvent
 from app.models.llm_provider import LLMProvider
 from app.models.mailbox_access import MailboxAccess
 from app.models.organization import Organization
@@ -17,6 +18,7 @@ __all__ = [
     "EmailAccount",
     "InternalDomain",
     "KeywordRule",
+    "LifecycleEvent",
     "LLMProvider",
     "MailboxAccess",
     "Organization",
