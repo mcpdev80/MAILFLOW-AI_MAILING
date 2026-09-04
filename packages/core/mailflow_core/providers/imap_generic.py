@@ -1,4 +1,4 @@
-"""IMAP email provider with staged body fetching."""
+"""IMAP email provider with staged body and attachment fetching."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import imapclient
 from mailflow_core.exceptions import IMAPConnectionError, UIDValidityChanged
 from mailflow_core.mail_auth import normalize_mail_auth_signals
 from mailflow_core.providers.base import DraftRef, EmailData, EmailProvider
+from mailflow_core.types import AttachmentInfo
 
 _MAILFLOW_KEYWORD = "MailFlowProcessed"
 _MAILFLOW_DRAFT_HEADER = "X-MailFlow-Draft"
@@ -39,9 +40,77 @@ def _extract_body(msg: Message) -> tuple[str, str]:
 
 def _first_fetch_bytes(data: dict) -> bytes:
     for key, value in data.items():
-        if isinstance(key, bytes) and key != b"SEQ" and isinstance(value, bytes):
+        if isinstance(key, bytes) and key not in {b"SEQ", b"BODYSTRUCTURE"} and isinstance(value, bytes):
             return value
     return b""
+
+
+def _decode_atom(value: object) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value or "")
+
+
+def _parameter_dict(value: object) -> dict[str, str]:
+    if not isinstance(value, tuple):
+        return {}
+    result: dict[str, str] = {}
+    items = list(value)
+    for index in range(0, len(items) - 1, 2):
+        result[_decode_atom(items[index]).lower()] = _decode_atom(items[index + 1])
+    return result
+
+
+def _find_disposition(structure: tuple) -> tuple[str | None, dict[str, str]]:
+    for value in structure[7:]:
+        if not isinstance(value, tuple) or not value:
+            continue
+        disposition = _decode_atom(value[0]).lower()
+        if disposition in {"attachment", "inline"}:
+            params = _parameter_dict(value[1] if len(value) > 1 else None)
+            return disposition, params
+    return None, {}
+
+
+def _attachment_metadata(structure: object, prefix: str = "") -> tuple[AttachmentInfo, ...]:
+    """Convert an IMAP BODYSTRUCTURE tuple into lightweight attachment metadata."""
+    if not isinstance(structure, tuple) or not structure:
+        return ()
+
+    if isinstance(structure[0], tuple):
+        attachments: list[AttachmentInfo] = []
+        part_index = 1
+        for child in structure:
+            if not isinstance(child, tuple):
+                break
+            part_id = f"{prefix}.{part_index}" if prefix else str(part_index)
+            attachments.extend(_attachment_metadata(child, part_id))
+            part_index += 1
+        return tuple(attachments)
+
+    if len(structure) < 7:
+        return ()
+    media_type = _decode_atom(structure[0]).lower()
+    subtype = _decode_atom(structure[1]).lower()
+    mime_type = f"{media_type}/{subtype}"
+    params = _parameter_dict(structure[2])
+    disposition, disposition_params = _find_disposition(structure)
+    filename = disposition_params.get("filename") or params.get("name") or ""
+    if disposition != "attachment" and not filename:
+        return ()
+    try:
+        size = int(structure[6]) if structure[6] is not None else None
+    except (TypeError, ValueError):
+        size = None
+    return (
+        AttachmentInfo(
+            part_id=prefix or "1",
+            filename=filename or f"attachment-{prefix or '1'}",
+            mime_type=mime_type,
+            size=size,
+            disposition=disposition,
+        ),
+    )
 
 
 class ImapGenericProvider(EmailProvider):
@@ -101,9 +170,7 @@ class ImapGenericProvider(EmailProvider):
         folders = self._client.list_folders()
         if folders:
             _, delimiter, _ = folders[0]
-            self._separator = (
-                delimiter.decode() if isinstance(delimiter, bytes) else (delimiter or "/")
-            )
+            self._separator = delimiter.decode() if isinstance(delimiter, bytes) else (delimiter or "/")
 
     def _detect_drafts_folder(self) -> None:
         for flags, _, name in self._client.list_folders():
@@ -121,13 +188,13 @@ class ImapGenericProvider(EmailProvider):
         self._uidvalidity[folder] = current
 
     def fetch_unprocessed_emails(self, max_count: int = 20) -> list[EmailData]:
-        """Fetch candidate headers and compact normalized transport metadata."""
+        """Fetch candidate headers, transport signals and BODYSTRUCTURE metadata only."""
         self._client.select_folder("INBOX")
         self._check_uidvalidity("INBOX")
         uids = self._client.search(["NOT", "KEYWORD", _MAILFLOW_KEYWORD])[:max_count]
         if not uids:
             return []
-        raw_messages = self._client.fetch(uids, ["BODY.PEEK[HEADER]"])
+        raw_messages = self._client.fetch(uids, ["BODY.PEEK[HEADER]", "BODYSTRUCTURE"])
         result: list[EmailData] = []
         for uid, data in raw_messages.items():
             msg = email.message_from_bytes(_first_fetch_bytes(data))
@@ -146,6 +213,7 @@ class ImapGenericProvider(EmailProvider):
                     list_id=msg.get("List-ID"),
                     precedence=msg.get("Precedence"),
                     auth_signals=normalize_mail_auth_signals(msg),
+                    attachments=_attachment_metadata(data.get(b"BODYSTRUCTURE")),
                 )
             )
         return result
@@ -158,12 +226,16 @@ class ImapGenericProvider(EmailProvider):
             raw = data.get(b"RFC822", b"")
             return _extract_body(email.message_from_bytes(raw))
 
-        # Request only a bounded body fragment from the server. Extra bytes leave
-        # room for transfer encoding and MIME framing while still avoiding a full fetch.
         max_bytes = max(max_chars * 2, max_chars)
         data = self._client.fetch([uid], [f"BODY.PEEK[TEXT]<0.{max_bytes}>"])[uid]
         raw = _first_fetch_bytes(data)
         return raw.decode("utf-8", errors="replace")[:max_chars], ""
+
+    def fetch_attachment_content(self, uid: int, attachment: AttachmentInfo) -> bytes:
+        """Fetch exactly one MIME part selected from previously discovered BODYSTRUCTURE metadata."""
+        self._client.select_folder("INBOX")
+        data = self._client.fetch([uid], [f"BODY.PEEK[{attachment.part_id}]"])[uid]
+        return _first_fetch_bytes(data)
 
     def move_email(self, uid: int, destination_folder: str) -> bool:
         self.ensure_folder_exists(destination_folder)
