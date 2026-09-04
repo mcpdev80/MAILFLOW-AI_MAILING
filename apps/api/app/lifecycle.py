@@ -1,8 +1,9 @@
-"""Mailbox and membership lifecycle operations with fail-closed cleanup."""
+"""Mailbox lifecycle operations and compact meaningful audit events."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -12,6 +13,42 @@ from app.models.email_account import EmailAccount
 from app.models.lifecycle_event import LifecycleEvent
 from app.models.mailbox_access import MailboxAccess
 
+_SENSITIVE_DETAIL_KEYS = {
+    "body",
+    "body_html",
+    "body_text",
+    "content",
+    "credential",
+    "credentials",
+    "password",
+    "prompt",
+    "raw",
+    "secret",
+    "token",
+}
+
+
+def _compact_details(details: dict[str, Any] | None) -> dict[str, Any]:
+    """Keep event details bounded and reject obviously sensitive payload fields."""
+    if not details:
+        return {}
+    compact: dict[str, Any] = {}
+    for index, (key, value) in enumerate(details.items()):
+        if index >= 20:
+            break
+        normalized = str(key).strip().lower()
+        if normalized in _SENSITIVE_DETAIL_KEYS:
+            continue
+        if isinstance(value, str):
+            compact[str(key)[:64]] = value[:500]
+        elif value is None or isinstance(value, (bool, int, float)):
+            compact[str(key)[:64]] = value
+        elif isinstance(value, (list, tuple)):
+            compact[str(key)[:64]] = [str(item)[:100] for item in value[:20]]
+        else:
+            compact[str(key)[:64]] = str(value)[:500]
+    return compact
+
 
 async def record_lifecycle_event(
     session: AsyncSession,
@@ -20,16 +57,29 @@ async def record_lifecycle_event(
     event: str,
     account_id: UUID | None = None,
     actor_user_id: str | None = None,
-) -> None:
-    """Persist one compact lifecycle event without copying mailbox content."""
-    session.add(
-        LifecycleEvent(
-            org_id=org_id,
-            account_id=account_id,
-            actor_user_id=actor_user_id,
-            event=event,
-        )
+    actor_type: str | None = None,
+    status: str = "success",
+    message_ref: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> LifecycleEvent:
+    """Persist one compact audit event without copying mailbox content."""
+    resolved_actor_type = actor_type or ("user" if actor_user_id else "system")
+    if resolved_actor_type not in {"system", "user", "admin"}:
+        raise ValueError("unsupported_audit_actor_type")
+    if status not in {"success", "blocked", "failed", "cancelled", "info"}:
+        raise ValueError("unsupported_audit_status")
+    row = LifecycleEvent(
+        org_id=org_id,
+        account_id=account_id,
+        actor_user_id=actor_user_id,
+        message_ref=message_ref[:255] if message_ref else None,
+        event=event[:64],
+        actor_type=resolved_actor_type,
+        status=status,
+        details=_compact_details(details),
     )
+    session.add(row)
+    return row
 
 
 async def disable_mailbox(
@@ -137,7 +187,6 @@ async def prepare_user_removal(
     else:
         raise ValueError("unsupported_user_removal_action")
 
-    # Shared mailbox grants are user-specific and can be removed immediately.
     await session.execute(
         delete(MailboxAccess).where(
             MailboxAccess.user_id == user_id,
@@ -150,7 +199,9 @@ async def prepare_user_removal(
         session,
         org_id=org_id,
         actor_user_id=actor_user_id,
+        actor_type="admin",
         event="user_removal_prepared",
+        details={"action": action, "resolved_mailboxes": len(accounts)},
     )
     return len(accounts)
 
@@ -178,6 +229,7 @@ async def finalize_removed_member(
         session,
         org_id=org_id,
         actor_user_id=user_id,
+        actor_type="admin",
         event="user_removed",
     )
 
