@@ -22,16 +22,38 @@ _ACTIVE_TAGS = {
 }
 
 _SUSPICIOUS_PATTERNS = (
-    re.compile(r"\b(ignore|disregard|forget)\b.{0,80}\b(previous|prior|system|developer)\b.{0,40}\b(instruction|prompt|message)s?\b", re.IGNORECASE | re.DOTALL),
-    re.compile(r"\b(system|developer)\s+(prompt|message|instruction)s?\b", re.IGNORECASE),
-    re.compile(r"\b(reveal|show|print|expose|return)\b.{0,80}\b(api[_ -]?key|secret|credential|password|token|configuration)\b", re.IGNORECASE | re.DOTALL),
-    re.compile(r"\bdo\s+not\s+follow\b.{0,80}\b(instruction|policy|rule)s?\b", re.IGNORECASE | re.DOTALL),
-    re.compile(r"\bact\s+as\b.{0,80}\b(system|developer|assistant|administrator)\b", re.IGNORECASE | re.DOTALL),
-    re.compile(r"\bexecute\b.{0,80}\b(tool|command|shell|script|action)\b", re.IGNORECASE | re.DOTALL),
+    re.compile(
+        r"\b(ignore|disregard|forget)\b.{0,80}"
+        r"\b(previous|prior|system|developer)\b.{0,40}"
+        r"\b(instruction|prompt|message)s?\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\b(system|developer)\s+(prompt|message|instruction)s?\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(reveal|show|print|expose|return)\b.{0,80}"
+        r"\b(api[_ -]?key|secret|credential|password|token|configuration)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\bdo\s+not\s+follow\b.{0,80}\b(instruction|policy|rule)s?\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\bact\s+as\b.{0,80}\b(system|developer|assistant|administrator)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\bexecute\b.{0,80}\b(tool|command|shell|script|action)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
 )
 
 _DISCUSSION_MARKERS = re.compile(
-    r"\b(example|quoted|quote|discussion|discuss|training|awareness|security test|prompt injection)\b",
+    r"\b(example|quoted|quote|discussion|discuss|training|awareness|security test|"
+    r"prompt injection)\b",
     re.IGNORECASE,
 )
 
