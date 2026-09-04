@@ -62,6 +62,19 @@ class Settings(BaseSettings):
     CLASSIFICATION_STAGE_3_ROLE: str = "deep"
     THREAD_SUMMARY_MODEL_ROLE: str = "fast"
 
+    # LLM resilience. Fast classification should fail quickly; deep/generation
+    # get a little more time. LiteLLM retries remain bounded and are independent
+    # of ARQ job retries.
+    LLM_FAST_TIMEOUT_SECONDS: float = Field(default=12.0, gt=0)
+    LLM_FAST_MAX_RETRIES: int = Field(default=1, ge=0, le=10)
+    LLM_DEEP_TIMEOUT_SECONDS: float = Field(default=45.0, gt=0)
+    LLM_DEEP_MAX_RETRIES: int = Field(default=1, ge=0, le=10)
+    LLM_GENERATION_TIMEOUT_SECONDS: float = Field(default=60.0, gt=0)
+    LLM_GENERATION_MAX_RETRIES: int = Field(default=1, ge=0, le=10)
+    LLM_CIRCUIT_FAILURE_THRESHOLD: int = Field(default=3, gt=0)
+    LLM_CIRCUIT_RESET_SECONDS: float = Field(default=60.0, gt=0)
+    LLM_HEALTH_TTL_SECONDS: int = Field(default=180, gt=0)
+
     LOG_FORMAT: str = "json"
     LOG_LEVEL: str = "INFO"
     ENVIRONMENT: str = "development"
