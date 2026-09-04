@@ -7,9 +7,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mailflow_core.classification.llm_client import LLMClient, LLMConfig
+from mailflow_core.classification.llm_client import (
+    LLMClient,
+    LLMConfig,
+    reset_model_path_health,
+)
 from mailflow_core.exceptions import ClassificationError
 from mailflow_core.types import ParsedEmail
+
+
+@pytest.fixture(autouse=True)
+def _reset_model_health() -> None:
+    reset_model_path_health()
 
 
 def _email() -> ParsedEmail:
@@ -93,7 +102,7 @@ def test_unconfirmed_category_is_rejected() -> None:
                 "confidence": 0.9,
             }
         )
-        with pytest.raises(ClassificationError, match="confirmed categories"):
+        with pytest.raises(ClassificationError, match="Invalid LLM response"):
             client.classify(_email())
 
 

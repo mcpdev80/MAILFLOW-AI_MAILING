@@ -37,6 +37,14 @@ class TestRetryPolicy:
         pol = RetryPolicy(base_delay=10, factor=10, jitter=0.0, max_delay=15)
         assert pol.delay_for(3) == 15
 
+    def test_rejects_invalid_policy_values(self):
+        with pytest.raises(ValueError):
+            RetryPolicy(max_attempts=0)
+        with pytest.raises(ValueError):
+            RetryPolicy(base_delay=-1)
+        with pytest.raises(ValueError):
+            RetryPolicy(factor=0.5)
+
 
 class TestRetryWithBackoff:
     def test_returns_immediately_on_success(self):
@@ -99,7 +107,6 @@ class TestRetryWithBackoff:
                     sleep=_noop_sleep,
                 )
             )
-        # Se llama tras los fallos 1 y 2, no tras el último.
         assert seen == [1, 2]
 
 
@@ -115,6 +122,11 @@ class TestCircuitBreaker:
             with pytest.raises(ValueError):
                 run(cb.call(failing))
         assert cb.state == "open"
+        health = cb.health()
+        assert health.state == "open"
+        assert health.failure_count == 2
+        assert health.last_error_type == "ValueError"
+        assert health.degraded is True
 
         async def should_not_run():
             raise AssertionError("must not be called")
@@ -135,12 +147,18 @@ class TestCircuitBreaker:
 
         clock["t"] = 6.0
         assert cb.state == "half-open"
+        assert cb.health().degraded is True
 
         async def ok():
             return "ok"
 
         assert run(cb.call(ok)) == "ok"
         assert cb.state == "closed"
+        health = cb.health()
+        assert health.failure_count == 0
+        assert health.last_success_at == 6.0
+        assert health.last_error_type is None
+        assert health.degraded is False
 
     def test_success_resets_failure_count(self):
         cb = CircuitBreaker(failure_threshold=3)
@@ -153,7 +171,22 @@ class TestCircuitBreaker:
 
         with pytest.raises(ValueError):
             run(cb.call(failing))
-        run(cb.call(ok))  # reset
+        run(cb.call(ok))
         with pytest.raises(ValueError):
             run(cb.call(failing))
         assert cb.state == "closed"
+        assert cb.failure_count == 1
+
+    def test_manual_recording_tracks_semantic_failures(self):
+        clock = {"t": 10.0}
+        cb = CircuitBreaker(failure_threshold=1, reset_timeout=30, _time=lambda: clock["t"])
+        cb.record_failure(ValueError("invalid schema"))
+        health = cb.health()
+        assert health.state == "open"
+        assert health.last_failure_at == 10.0
+        assert health.last_error_type == "ValueError"
+
+        clock["t"] = 41.0
+        assert cb.state == "half-open"
+        cb.record_success()
+        assert cb.health().state == "closed"

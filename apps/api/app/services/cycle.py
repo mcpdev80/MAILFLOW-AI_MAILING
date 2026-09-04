@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -22,7 +22,7 @@ from mailflow_core.classification.adaptive import (
     AdaptiveClassificationConfig,
     AdaptiveClassifier,
 )
-from mailflow_core.classification.llm_client import LLMClient, LLMConfig, ModelRole
+from mailflow_core.classification.llm_client import LLMClient
 from mailflow_core.classification.rule_engine import RuleEngine
 from mailflow_core.decision_memory import (
     DecisionMemoryConfig,
@@ -31,12 +31,7 @@ from mailflow_core.decision_memory import (
 from mailflow_core.email_parser import EmailParser
 from mailflow_core.providers.base import EmailData
 from mailflow_core.providers.imap_generic import ImapGenericProvider
-from mailflow_core.resilience import (
-    CircuitBreaker,
-    CircuitOpenError,
-    RetryPolicy,
-    retry_with_backoff,
-)
+from mailflow_core.resilience import CircuitOpenError, RetryPolicy, retry_with_backoff
 from mailflow_core.types import (
     ClassificationResult,
     DraftRequest,
@@ -48,8 +43,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from app import oauth
 from app.config import settings
 from app.crypto import decrypt_secret
+from app.llm_runtime import build_llm_client
 from app.models.email_account import EmailAccount
-from app.models.llm_provider import LLMProvider
 from app.models.organization import Organization
 from app.quota import can_process_more
 from app.repositories.account import AccountRepository
@@ -61,6 +56,10 @@ from app.secrets import redact_text
 
 log = logging.getLogger("mailflow.cycle")
 
+# Preserve the existing private test/mocking hook while delegating real
+# construction to the shared runtime factory.
+_build_llm_client = build_llm_client
+
 
 @dataclass
 class CycleResult:
@@ -68,89 +67,42 @@ class CycleResult:
     emails_processed: int
     drafts_saved: int
     errors: int
+    inference_health: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
-def _optional_string(value: object) -> str | None:
-    if not isinstance(value, str):
-        return None
-    stripped = value.strip()
-    return stripped or None
-
-
-def _provider_string(provider: object, field: str) -> str | None:
-    return _optional_string(getattr(provider, field, None))
-
-
-def _decrypt_llm_key(value: object) -> str | None:
-    encrypted = _optional_string(value)
-    if not encrypted:
-        return None
-    return str(decrypt_secret(encrypted)["api_key"])
-
-
-def _model_role(value: str) -> ModelRole:
-    return cast(ModelRole, value)
-
-
-def _build_llm_client(
-    llm_provider: LLMProvider | None,
-    *,
-    for_generation: bool,
-) -> LLMClient | None:
-    if llm_provider is None or not llm_provider.is_active:
-        return None
-
-    shared_api_key = _decrypt_llm_key(llm_provider.encrypted_api_key)
-    if for_generation:
-        return LLMClient(
-            LLMConfig(
-                model_id=(
-                    _provider_string(llm_provider, "generation_model")
-                    or llm_provider.default_generation_model
-                ),
-                api_base=(
-                    _provider_string(llm_provider, "generation_base_url")
-                    or llm_provider.base_url
-                ),
-                api_key=(
-                    _decrypt_llm_key(
-                        getattr(llm_provider, "encrypted_generation_api_key", None)
-                    )
-                    or shared_api_key
-                ),
-            )
-        )
-
-    return LLMClient(
-        LLMConfig(
-            model_id=llm_provider.default_classification_model,
-            api_base=llm_provider.base_url,
-            api_key=shared_api_key,
-            fast_model_id=_provider_string(llm_provider, "fast_classification_model"),
-            fast_api_base=_provider_string(
-                llm_provider, "fast_classification_base_url"
-            ),
-            fast_api_key=(
-                _decrypt_llm_key(getattr(llm_provider, "encrypted_fast_api_key", None))
-                or shared_api_key
-            ),
-            deep_model_id=_provider_string(llm_provider, "deep_classification_model"),
-            deep_api_base=_provider_string(
-                llm_provider, "deep_classification_base_url"
-            ),
-            deep_api_key=(
-                _decrypt_llm_key(getattr(llm_provider, "encrypted_deep_api_key", None))
-                or shared_api_key
-            ),
-            stage_roles=(
-                _model_role(settings.CLASSIFICATION_STAGE_0_ROLE),
-                _model_role(settings.CLASSIFICATION_STAGE_1_ROLE),
-                _model_role(settings.CLASSIFICATION_STAGE_2_ROLE),
-                _model_role(settings.CLASSIFICATION_STAGE_3_ROLE),
-            ),
-            thread_summary_role=_model_role(settings.THREAD_SUMMARY_MODEL_ROLE),
-        )
-    )
+def _collect_inference_health(
+    classify_client: LLMClient | None,
+    generate_client: LLMClient | None,
+) -> dict[str, dict[str, object]]:
+    """Return content-free model health suitable for Redis/API exposure."""
+    result: dict[str, dict[str, object]] = {}
+    if classify_client is not None:
+        snapshot = classify_client.health_snapshot()
+        for role in ("fast", "deep"):
+            item = snapshot[role]
+            result[role] = {
+                "role": role,
+                "model_id": item.model_id,
+                "api_base": item.api_base,
+                "state": item.circuit.state,
+                "failure_count": item.circuit.failure_count,
+                "last_error_type": item.circuit.last_error_type,
+                "fallback_count": item.fallback_count,
+                "degraded": item.degraded,
+            }
+    if generate_client is not None:
+        item = generate_client.health_snapshot()["generation"]
+        result["generation"] = {
+            "role": "generation",
+            "model_id": item.model_id,
+            "api_base": item.api_base,
+            "state": item.circuit.state,
+            "failure_count": item.circuit.failure_count,
+            "last_error_type": item.circuit.last_error_type,
+            "fallback_count": 0,
+            "degraded": item.degraded,
+        }
+    return result
 
 
 def _build_attachment_config() -> AttachmentExtractionConfig:
@@ -269,7 +221,6 @@ class CycleService:
         classify_client = _build_llm_client(llm_provider, for_generation=False)
         generate_client = _build_llm_client(llm_provider, for_generation=True)
         rule_engine = RuleEngine(account_config)
-        generation_breaker = CircuitBreaker(failure_threshold=3, reset_timeout=60.0)
 
         emails: list[EmailData] = []
         try:
@@ -311,7 +262,6 @@ class CycleService:
                         rule_engine,
                         classify_client,
                         generate_client,
-                        generation_breaker,
                         stats,
                         self._sf,
                     )
@@ -339,7 +289,16 @@ class CycleService:
             )
             await session.commit()
 
-        return CycleResult(cycle_id, stats["emails"], stats["drafts"], stats["errors"])
+        return CycleResult(
+            cycle_id,
+            stats["emails"],
+            stats["drafts"],
+            stats["errors"],
+            inference_health=_collect_inference_health(
+                classify_client,
+                generate_client,
+            ),
+        )
 
 
 async def _process_one(
@@ -351,7 +310,6 @@ async def _process_one(
     rule_engine: RuleEngine,
     classify_client: LLMClient | None,
     generate_client: LLMClient | None,
-    generation_breaker: CircuitBreaker,
     stats: dict,
     sf: async_sessionmaker,
 ) -> None:
@@ -364,8 +322,6 @@ async def _process_one(
             thread = await thread_repo.create_thread(account.id, headers_only)
         thread_id = thread.thread_id
         previous_summary = thread.summary
-        # Thread resolution belongs to MailFlow rather than the raw provider, so
-        # attach it before memory lookup and keep it on every later body parse.
         headers_only = replace(headers_only, thread_id=thread_id)
         memory_candidates = await DecisionMemoryRepository(
             session
@@ -439,9 +395,6 @@ async def _process_one(
         else account.inbox_folder
     )
 
-    # Mark before an optional move because the source UID is no longer valid
-    # after a successful move. Review/off decisions stay in the inbox but are
-    # marked processed so repeated cycles remain idempotent.
     await asyncio.to_thread(provider.mark_as_processed, email_data.uid)
     if action_decision.execute:
         moved = await asyncio.to_thread(
@@ -468,27 +421,16 @@ async def _process_one(
             classification=result,
         )
 
-        async def _generate() -> str:
-            return await asyncio.to_thread(
-                generate_client.generate_draft, draft_email, draft_request
-            )
-
-        async def _generate_with_retry() -> str:
-            return await retry_with_backoff(
-                _generate,
-                policy=RetryPolicy(max_attempts=2, base_delay=0.5),
-                on_retry=lambda attempt, exc: log.warning(
-                    "LLM draft retry %d for uid=%s: %s",
-                    attempt,
-                    email_data.uid,
-                    redact_text(str(exc)),
-                ),
-            )
-
         try:
-            draft_text = await generation_breaker.call(_generate_with_retry)
+            draft_text = await asyncio.to_thread(
+                generate_client.generate_draft,
+                draft_email,
+                draft_request,
+            )
         except CircuitOpenError:
-            log.warning("LLM circuit open; skipping draft for uid=%s", email_data.uid)
+            log.warning(
+                "LLM generation circuit open; skipping draft for uid=%s", email_data.uid
+            )
             draft_text = ""
         except Exception as exc:
             log.warning(

@@ -7,9 +7,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mailflow_core.classification.llm_client import LLMClient, LLMConfig
+from mailflow_core.classification.llm_client import (
+    LLMClient,
+    LLMConfig,
+    reset_model_path_health,
+)
 from mailflow_core.exceptions import ClassificationError, LLMError
 from mailflow_core.types import ClassificationResult, DraftRequest, ParsedEmail
+
+
+@pytest.fixture(autouse=True)
+def _reset_model_health() -> None:
+    reset_model_path_health()
 
 
 def cfg(**kwargs) -> LLMConfig:

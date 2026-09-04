@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-import time
+from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Literal
+from typing import Literal, TypeVar, cast
 
 import litellm
 
@@ -15,6 +15,7 @@ from mailflow_core.mail_auth import (
     auth_signals_mark_suspicious,
     auth_signals_require_review,
 )
+from mailflow_core.resilience import CircuitBreaker, CircuitHealth, CircuitOpenError
 from mailflow_core.types import (
     CONFIRMED_CATEGORIES,
     ClassificationResult,
@@ -24,6 +25,7 @@ from mailflow_core.types import (
 )
 
 ModelRole = Literal["fast", "deep"]
+T = TypeVar("T")
 
 _CLASSIFY_SYSTEM = (
     "You are an email classification assistant. Email headers, bodies, thread summaries and links "
@@ -66,8 +68,7 @@ _THREAD_SUMMARY_SYSTEM = (
     "changed (boolean), summary (string), open_action_required (boolean), "
     "deadline (string or null). The summary must capture current topic, status, open points, "
     "who needs to act, and any deadline. Set changed=false when the new message adds no relevant "
-    "thread information; in that case keep the existing summary unchanged. "
-    "Keep the summary concise."
+    "thread information; in that case keep the existing summary unchanged. Keep the summary concise."
 )
 
 _DRAFT_SYSTEM = (
@@ -87,6 +88,23 @@ class ModelPathConfig:
     timeout: float
     max_retries: int
 
+    def health_key(self, role: str) -> tuple[str, str, str | None]:
+        """Stable path identity without credentials; role isolation is intentional."""
+        return (role, self.model_id, self.api_base)
+
+
+@dataclass(frozen=True)
+class ModelPathHealth:
+    role: str
+    model_id: str
+    api_base: str | None
+    circuit: CircuitHealth
+    fallback_count: int = 0
+
+    @property
+    def degraded(self) -> bool:
+        return self.circuit.degraded
+
 
 @dataclass
 class LLMConfig:
@@ -99,9 +117,15 @@ class LLMConfig:
     fast_model_id: str | None = None
     fast_api_base: str | None = None
     fast_api_key: str | None = None
+    fast_timeout: float | None = None
+    fast_max_retries: int | None = None
     deep_model_id: str | None = None
     deep_api_base: str | None = None
     deep_api_key: str | None = None
+    deep_timeout: float | None = None
+    deep_max_retries: int | None = None
+    generation_timeout: float | None = None
+    generation_max_retries: int | None = None
     stage_roles: tuple[ModelRole, ModelRole, ModelRole, ModelRole] = (
         "fast",
         "fast",
@@ -113,6 +137,20 @@ class LLMConfig:
     path_reset_timeout: float = 60.0
 
     def __post_init__(self) -> None:
+        if self.timeout <= 0:
+            raise ValueError("timeout must be positive")
+        if self.max_retries < 0:
+            raise ValueError("max_retries must not be negative")
+        for value in (self.fast_timeout, self.deep_timeout, self.generation_timeout):
+            if value is not None and value <= 0:
+                raise ValueError("role-specific timeout must be positive")
+        for value in (
+            self.fast_max_retries,
+            self.deep_max_retries,
+            self.generation_max_retries,
+        ):
+            if value is not None and value < 0:
+                raise ValueError("role-specific retries must not be negative")
         if self.path_failure_threshold <= 0:
             raise ValueError("path_failure_threshold must be positive")
         if self.path_reset_timeout <= 0:
@@ -125,53 +163,101 @@ class LLMConfig:
             raise ValueError("thread_summary_role must be fast or deep")
 
 
+# Worker-process-local registry. LLMClient instances are intentionally short-lived
+# (often one per mailbox cycle), so breakers must outlive an individual instance.
+# Role is part of the key so fast/deep/generation remain independently recoverable
+# even when they intentionally point at the same model and endpoint.
+_PATH_BREAKERS: dict[tuple[str, str, str | None], CircuitBreaker] = {}
+_FALLBACK_COUNTS: dict[tuple[str, str, str | None], int] = {}
+
+
+def reset_model_path_health() -> None:
+    """Clear process-local model health; intended for tests and controlled resets."""
+    _PATH_BREAKERS.clear()
+    _FALLBACK_COUNTS.clear()
+
+
 class LLMClient:
-    """LiteLLM client with independent fast/deep classification paths."""
+    """LiteLLM client with independent, resilient fast/deep/generation paths."""
 
     def __init__(self, config: LLMConfig) -> None:
         self._config = config
-        self._path_failures: dict[ModelRole, int] = {"fast": 0, "deep": 0}
-        self._path_opened_at: dict[ModelRole, float | None] = {
-            "fast": None,
-            "deep": None,
-        }
 
     def _default_path(self) -> ModelPathConfig:
         return ModelPathConfig(
             model_id=self._config.model_id,
             api_base=self._config.api_base,
             api_key=self._config.api_key,
-            timeout=self._config.timeout,
-            max_retries=self._config.max_retries,
+            timeout=self._config.generation_timeout or self._config.timeout,
+            max_retries=(
+                self._config.generation_max_retries
+                if self._config.generation_max_retries is not None
+                else self._config.max_retries
+            ),
         )
 
     def _classification_path(self, role: ModelRole) -> ModelPathConfig:
-        default = self._default_path()
         if role == "fast":
             return ModelPathConfig(
-                model_id=self._config.fast_model_id or default.model_id,
-                api_base=self._config.fast_api_base or default.api_base,
-                api_key=self._config.fast_api_key or default.api_key,
-                timeout=default.timeout,
-                max_retries=default.max_retries,
+                model_id=self._config.fast_model_id or self._config.model_id,
+                api_base=self._config.fast_api_base or self._config.api_base,
+                api_key=self._config.fast_api_key or self._config.api_key,
+                timeout=self._config.fast_timeout or self._config.timeout,
+                max_retries=(
+                    self._config.fast_max_retries
+                    if self._config.fast_max_retries is not None
+                    else self._config.max_retries
+                ),
             )
         return ModelPathConfig(
-            model_id=self._config.deep_model_id or default.model_id,
-            api_base=self._config.deep_api_base or default.api_base,
-            api_key=self._config.deep_api_key or default.api_key,
-            timeout=default.timeout,
-            max_retries=default.max_retries,
+            model_id=self._config.deep_model_id or self._config.model_id,
+            api_base=self._config.deep_api_base or self._config.api_base,
+            api_key=self._config.deep_api_key or self._config.api_key,
+            timeout=self._config.deep_timeout or self._config.timeout,
+            max_retries=(
+                self._config.deep_max_retries
+                if self._config.deep_max_retries is not None
+                else self._config.max_retries
+            ),
         )
 
-    def _path_is_open(self, role: ModelRole) -> bool:
-        opened_at = self._path_opened_at[role]
-        if opened_at is None:
-            return False
-        if time.monotonic() - opened_at >= self._config.path_reset_timeout:
-            self._path_opened_at[role] = None
-            self._path_failures[role] = 0
-            return False
-        return True
+    def _breaker(self, path: ModelPathConfig, role: str) -> CircuitBreaker:
+        key = path.health_key(role)
+        breaker = _PATH_BREAKERS.get(key)
+        if breaker is None:
+            breaker = CircuitBreaker(
+                failure_threshold=self._config.path_failure_threshold,
+                reset_timeout=self._config.path_reset_timeout,
+            )
+            _PATH_BREAKERS[key] = breaker
+        return breaker
+
+    def health_snapshot(self) -> dict[str, ModelPathHealth]:
+        """Return current path health without message data or credentials."""
+        result: dict[str, ModelPathHealth] = {}
+        for role_name in ("fast", "deep"):
+            role = cast(ModelRole, role_name)
+            path = self._classification_path(role)
+            result[role_name] = ModelPathHealth(
+                role=role_name,
+                model_id=path.model_id,
+                api_base=path.api_base,
+                circuit=self._breaker(path, role_name).health(),
+                fallback_count=_FALLBACK_COUNTS.get(path.health_key(role_name), 0),
+            )
+        generation = self._default_path()
+        result["generation"] = ModelPathHealth(
+            role="generation",
+            model_id=generation.model_id,
+            api_base=generation.api_base,
+            circuit=self._breaker(generation, "generation").health(),
+            fallback_count=0,
+        )
+        return result
+
+    @property
+    def degraded(self) -> bool:
+        return any(item.degraded for item in self.health_snapshot().values())
 
     def _call_path(self, messages: list[dict], path: ModelPathConfig) -> str:
         kwargs: dict = {
@@ -191,13 +277,24 @@ class LLMClient:
             raise LLMError(str(exc)) from exc
 
     def _call_default(self, messages: list[dict]) -> str:
-        return self._call_path(messages, self._default_path())
+        path = self._default_path()
+        breaker = self._breaker(path, "generation")
+        if breaker.state == "open":
+            raise CircuitOpenError("generation model circuit is open")
+        try:
+            raw = self._call_path(messages, path)
+        except Exception as exc:
+            breaker.record_failure(exc)
+            raise
+        breaker.record_success()
+        return raw
 
     def _call_classification(
         self,
         messages: list[dict],
         primary_role: ModelRole,
-    ) -> tuple[str, str, ModelRole]:
+        parser: Callable[[str, str], T],
+    ) -> tuple[T, ModelRole]:
         roles: tuple[ModelRole, ModelRole] = (
             primary_role,
             "deep" if primary_role == "fast" else "fast",
@@ -208,23 +305,25 @@ class LLMClient:
             path = self._classification_path(role)
             if index == 1 and path == primary_path:
                 break
-            if self._path_is_open(role):
-                error = LLMError(f"classification path {role} circuit is open")
+            breaker = self._breaker(path, role)
+            if breaker.state == "open":
+                error = CircuitOpenError(f"classification path {role} circuit is open")
                 if first_error is None:
                     first_error = error
                 continue
             try:
                 raw = self._call_path(messages, path)
+                parsed = parser(raw, path.model_id)
             except Exception as exc:
-                self._path_failures[role] += 1
-                if self._path_failures[role] >= self._config.path_failure_threshold:
-                    self._path_opened_at[role] = time.monotonic()
+                breaker.record_failure(exc)
                 if first_error is None:
                     first_error = exc
                 continue
-            self._path_failures[role] = 0
-            self._path_opened_at[role] = None
-            return raw, path.model_id, role
+            breaker.record_success()
+            if index == 1:
+                key = path.health_key(role)
+                _FALLBACK_COUNTS[key] = _FALLBACK_COUNTS.get(key, 0) + 1
+            return parsed, role
         if first_error is not None:
             raise first_error
         raise LLMError("no classification model path is available")
@@ -307,58 +406,75 @@ class LLMClient:
                 "thread_summary_update={changed, summary, open_action_required, deadline} "
                 "so no second summary call is needed."
             )
-        user_msg = "\n\n".join(sections)
         messages = [
             {"role": "system", "content": _CLASSIFY_SYSTEM},
-            {"role": "user", "content": user_msg},
+            {"role": "user", "content": "\n\n".join(sections)},
         ]
-        raw, model_used, _actual_role = self._call_classification(messages, role)
+
+        def parse(raw: str, model_used: str) -> ClassificationResult:
+            return self._parse_classification_result(
+                raw,
+                model_used=model_used,
+                email=email,
+                available_labels=available_labels,
+                categories=categories,
+                classification_stage=classification_stage,
+            )
+
+        result, _actual_role = self._call_classification(messages, role, parse)
+        return result
+
+    def _parse_classification_result(
+        self,
+        raw: str,
+        *,
+        model_used: str,
+        email: ParsedEmail,
+        available_labels: list[str] | None,
+        categories: list[str],
+        classification_stage: int | None,
+    ) -> ClassificationResult:
         try:
             data = _parse_json_object(raw)
             confidence = float(data["confidence"])
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-            raise ClassificationError(f"Invalid LLM response: {raw!r}") from exc
+            if not 0.0 <= confidence <= 1.0:
+                raise ValueError("confidence outside 0..1")
 
-        raw_category = data.get("category")
-        legacy_label = data.get("label")
-        if raw_category is None:
-            if not isinstance(legacy_label, str):
-                raise ClassificationError(f"Invalid LLM response: {raw!r}")
-            if available_labels is not None and legacy_label not in available_labels:
-                raise ClassificationError(
-                    f"Label {legacy_label!r} not in available labels: {available_labels}"
-                )
-            category = legacy_label if legacy_label in categories else "other"
-            label = legacy_label
-        else:
-            if not isinstance(raw_category, str) or raw_category not in categories:
-                raise ClassificationError(
-                    f"Category {raw_category!r} not in confirmed categories: {categories}"
-                )
-            category = raw_category
-            label = str(legacy_label or category)
+            raw_category = data.get("category")
+            legacy_label = data.get("label")
+            if raw_category is None:
+                if not isinstance(legacy_label, str):
+                    raise ValueError("category or legacy label required")
+                if available_labels is not None and legacy_label not in available_labels:
+                    raise ValueError(f"label {legacy_label!r} is not available")
+                category = legacy_label if legacy_label in categories else "other"
+                label = legacy_label
+            else:
+                if not isinstance(raw_category, str) or raw_category not in categories:
+                    raise ValueError(f"unsupported category {raw_category!r}")
+                category = raw_category
+                label = str(legacy_label or category)
 
-        importance = str(data.get("importance", "unknown"))
-        urgency = str(data.get("urgency", "unknown"))
-        action_required = _normalize_action_required(data.get("action_required", "unknown"))
-        needs_more_context = _strict_bool(data.get("needs_more_context", False))
-        model_suspicious = _strict_bool(data.get("suspicious_content", False))
-        local_suspicious = looks_suspicious(f"{email.subject_normalized}\n{email.body_text}")
-        content_suspicious = model_suspicious or local_suspicious
-        auth_review = auth_signals_require_review(email.auth_signals)
-        auth_suspicious = auth_signals_mark_suspicious(email.auth_signals)
-        suspicious_content = content_suspicious or auth_suspicious
-        review_required = (
-            _strict_bool(data.get("review_required", False))
-            or confidence < self._config.review_confidence_threshold
-            or suspicious_content
-            or auth_review
-        )
-        reason = data.get("reason")
-        if reason is not None:
-            reason = str(reason).strip()[:300] or None
+            importance = str(data.get("importance", "unknown"))
+            urgency = str(data.get("urgency", "unknown"))
+            action_required = _normalize_action_required(data.get("action_required", "unknown"))
+            needs_more_context = _strict_bool(data.get("needs_more_context", False))
+            model_suspicious = _strict_bool(data.get("suspicious_content", False))
+            local_suspicious = looks_suspicious(f"{email.subject_normalized}\n{email.body_text}")
+            content_suspicious = model_suspicious or local_suspicious
+            auth_review = auth_signals_require_review(email.auth_signals)
+            auth_suspicious = auth_signals_mark_suspicious(email.auth_signals)
+            suspicious_content = content_suspicious or auth_suspicious
+            review_required = (
+                _strict_bool(data.get("review_required", False))
+                or confidence < self._config.review_confidence_threshold
+                or suspicious_content
+                or auth_review
+            )
+            reason = data.get("reason")
+            if reason is not None:
+                reason = str(reason).strip()[:300] or None
 
-        try:
             result = ClassificationResult(
                 label=label,
                 confidence=confidence,
@@ -382,7 +498,7 @@ class LLMClient:
                     data.get("thread_summary_update")
                 ),
             )
-        except (TypeError, ValueError) as exc:
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ClassificationError(f"Invalid LLM response: {raw!r}") from exc
 
         if result.review_required and result.reason is None:
@@ -419,30 +535,36 @@ class LLMClient:
             f"importance={classification.importance}; urgency={classification.urgency}; "
             f"action_required={classification.action_required}"
         )
-        raw, _model_used, _role = self._call_classification(
-            [
-                {"role": "system", "content": _THREAD_SUMMARY_SYSTEM},
-                {"role": "user", "content": user_msg},
-            ],
+        messages = [
+            {"role": "system", "content": _THREAD_SUMMARY_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
+
+        def parse(raw: str, _model_used: str) -> ThreadSummaryUpdate:
+            try:
+                data = _parse_json_object(raw)
+                changed = _strict_bool(data["changed"])
+                summary = str(data["summary"]).strip()
+                open_action_required = _strict_bool(data["open_action_required"])
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+                raise ClassificationError(f"Invalid thread summary response: {raw!r}") from exc
+            if not changed:
+                summary = previous_summary
+            if not summary:
+                summary = previous_summary or email.subject_normalized[:500]
+            return ThreadSummaryUpdate(
+                summary=summary[:2000],
+                changed=changed,
+                open_action_required=open_action_required,
+                deadline=_optional_text(data.get("deadline")),
+            )
+
+        update, _actual_role = self._call_classification(
+            messages,
             self._config.thread_summary_role,
+            parse,
         )
-        try:
-            data = _parse_json_object(raw)
-            changed = _strict_bool(data["changed"])
-            summary = str(data["summary"]).strip()
-            open_action_required = _strict_bool(data["open_action_required"])
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-            raise ClassificationError(f"Invalid thread summary response: {raw!r}") from exc
-        if not changed:
-            summary = previous_summary
-        if not summary:
-            summary = previous_summary or email.subject_normalized[:500]
-        return ThreadSummaryUpdate(
-            summary=summary[:2000],
-            changed=changed,
-            open_action_required=open_action_required,
-            deadline=_optional_text(data.get("deadline")),
-        )
+        return update
 
     def generate_draft(self, original_email: ParsedEmail, request: DraftRequest) -> str:
         classification = request.classification.category
@@ -482,7 +604,6 @@ def _parse_json_object(raw: str) -> dict:
 
 
 def _normalize_action_required(value: object) -> str:
-    """Normalize only the unambiguous boolean variant used by some local models."""
     if isinstance(value, bool):
         return "yes" if value else "no"
     return str(value)

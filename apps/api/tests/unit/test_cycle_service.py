@@ -373,3 +373,54 @@ async def test_run_draft_bytes_passed_to_save_draft(
 
     msg = email_module.message_from_bytes(saved_bytes[0])
     assert "Re:" in msg["Subject"]
+
+
+@patch("app.services.cycle.DecisionMemoryRepository")
+@patch("app.services.cycle.ThreadRepository")
+@patch("app.services.cycle.AccountRepository")
+@patch("app.services.cycle.CycleRepository")
+@patch("app.services.cycle.ImapGenericProvider")
+@patch("app.services.cycle.decrypt_secret", return_value={"password": "pw"})
+@patch("app.services.cycle._build_llm_client")
+async def test_model_outage_keeps_message_pending(
+    mock_build,
+    mock_decrypt,
+    MockProvider,
+    MockCycleRepo,
+    MockAccountRepo,
+    MockThreadRepo,
+    MockDecisionMemoryRepo,
+):
+    from app.services.cycle import CycleService
+    from mailflow_core.exceptions import LLMError
+
+    configure_thread_repo(MockThreadRepo)
+    configure_memory_repo(MockDecisionMemoryRepo)
+    MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
+    MockAccountRepo.return_value.get_full_config = AsyncMock(
+        return_value=(
+            make_account(),
+            AccountConfig(account_id=str(ACCOUNT_ID)),
+            MagicMock(),
+        )
+    )
+    MockCycleRepo.return_value.create_audit_log = AsyncMock()
+    MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=77)
+    ]
+    MockCycleRepo.return_value.insert_processed = AsyncMock()
+
+    classify_client = MagicMock()
+    classify_client.classify.side_effect = LLMError(
+        "all classification paths unavailable"
+    )
+    mock_build.side_effect = [classify_client, None]
+
+    result = await CycleService(make_sf()).run(ACCOUNT_ID)
+
+    assert result.emails_processed == 0
+    assert result.errors == 1
+    MockProvider.return_value.mark_as_processed.assert_not_called()
+    MockProvider.return_value.move_email.assert_not_called()
+    MockCycleRepo.return_value.insert_processed.assert_not_awaited()

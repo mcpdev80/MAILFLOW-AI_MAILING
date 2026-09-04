@@ -1,12 +1,25 @@
-"""Tests for separate fast/deep classification model paths."""
+"""Tests for separate fast/deep classification model paths and resilience."""
 
 from __future__ import annotations
 
 import json
 from unittest.mock import MagicMock, patch
 
-from mailflow_core.classification.llm_client import LLMClient, LLMConfig
-from mailflow_core.types import ClassificationResult, ParsedEmail
+import pytest
+
+from mailflow_core.classification.llm_client import (
+    LLMClient,
+    LLMConfig,
+    reset_model_path_health,
+)
+from mailflow_core.exceptions import LLMError
+from mailflow_core.resilience import CircuitOpenError
+from mailflow_core.types import ClassificationResult, DraftRequest, ParsedEmail
+
+
+@pytest.fixture(autouse=True)
+def _reset_health() -> None:
+    reset_model_path_health()
 
 
 def _email() -> ParsedEmail:
@@ -30,6 +43,7 @@ def _response(*, include_summary: bool = False) -> MagicMock:
         "confidence": 0.94,
         "needs_more_context": False,
         "review_required": False,
+        "suspicious_content": False,
     }
     if include_summary:
         payload["thread_summary_update"] = {
@@ -40,6 +54,12 @@ def _response(*, include_summary: bool = False) -> MagicMock:
         }
     response = MagicMock()
     response.choices[0].message.content = json.dumps(payload)
+    return response
+
+
+def _raw_response(content: str) -> MagicMock:
+    response = MagicMock()
+    response.choices[0].message.content = content
     return response
 
 
@@ -82,6 +102,123 @@ def test_deep_failure_falls_back_to_fast_without_generation_path() -> None:
         "fast-model",
     ]
     assert result.classification_model == "fast-model"
+    health = client.health_snapshot()
+    assert health["deep"].circuit.failure_count == 1
+    assert health["fast"].fallback_count == 1
+
+
+def test_invalid_primary_output_is_failure_and_falls_back() -> None:
+    client = LLMClient(
+        LLMConfig(
+            model_id="legacy",
+            fast_model_id="fast-model",
+            deep_model_id="deep-model",
+            max_retries=0,
+        )
+    )
+
+    with patch("mailflow_core.classification.llm_client.litellm.completion") as completion:
+        completion.side_effect = [_raw_response("not-json"), _response()]
+        result = client.classify(_email(), classification_stage=0)
+
+    assert [call.kwargs["model"] for call in completion.call_args_list] == [
+        "fast-model",
+        "deep-model",
+    ]
+    assert result.classification_model == "deep-model"
+    health = client.health_snapshot()
+    assert health["fast"].circuit.failure_count == 1
+    assert health["fast"].circuit.last_error_type == "ClassificationError"
+    assert health["deep"].fallback_count == 1
+
+
+def test_circuit_state_survives_new_client_instance() -> None:
+    config = LLMConfig(
+        model_id="legacy",
+        fast_model_id="fast-model",
+        deep_model_id="deep-model",
+        max_retries=0,
+        path_failure_threshold=1,
+        path_reset_timeout=300,
+    )
+    first = LLMClient(config)
+
+    with patch("mailflow_core.classification.llm_client.litellm.completion") as completion:
+        completion.side_effect = [RuntimeError("fast down"), _response()]
+        first.classify(_email(), classification_stage=0)
+
+    second = LLMClient(config)
+    assert second.health_snapshot()["fast"].circuit.state == "open"
+
+    with patch("mailflow_core.classification.llm_client.litellm.completion") as completion:
+        completion.return_value = _response()
+        result = second.classify(_email(), classification_stage=0)
+
+    assert completion.call_count == 1
+    assert completion.call_args.kwargs["model"] == "deep-model"
+    assert result.classification_model == "deep-model"
+
+
+def test_role_specific_timeout_and_retry_settings_are_applied() -> None:
+    client = LLMClient(
+        LLMConfig(
+            model_id="legacy",
+            fast_model_id="fast-model",
+            deep_model_id="deep-model",
+            timeout=30,
+            max_retries=2,
+            fast_timeout=5,
+            fast_max_retries=0,
+            deep_timeout=45,
+            deep_max_retries=1,
+        )
+    )
+
+    with patch("mailflow_core.classification.llm_client.litellm.completion") as completion:
+        completion.return_value = _response()
+        client.classify(_email(), classification_stage=0)
+        client.classify(_email(), classification_stage=2)
+
+    assert completion.call_args_list[0].kwargs["timeout"] == 5
+    assert completion.call_args_list[0].kwargs["num_retries"] == 0
+    assert completion.call_args_list[1].kwargs["timeout"] == 45
+    assert completion.call_args_list[1].kwargs["num_retries"] == 1
+
+
+def test_generation_has_independent_circuit() -> None:
+    client = LLMClient(
+        LLMConfig(
+            model_id="generation-model",
+            max_retries=0,
+            path_failure_threshold=1,
+            path_reset_timeout=300,
+        )
+    )
+    request = DraftRequest(
+        in_reply_to_uid="1",
+        folder="INBOX",
+        subject="Re: Invoice question",
+        body_text="Thanks for the invoice.",
+        body_html=None,
+        classification=ClassificationResult(
+            label="finance",
+            category="finance",
+            confidence=0.99,
+            method="llm",
+        ),
+    )
+
+    with patch("mailflow_core.classification.llm_client.litellm.completion") as completion:
+        completion.side_effect = RuntimeError("generation down")
+        with pytest.raises(LLMError):
+            client.generate_draft(_email(), request)
+
+    assert client.health_snapshot()["generation"].circuit.state == "open"
+
+    with patch("mailflow_core.classification.llm_client.litellm.completion") as completion:
+        with pytest.raises(CircuitOpenError):
+            client.generate_draft(_email(), request)
+        completion.assert_not_called()
 
 
 def test_single_classification_model_remains_compatible() -> None:
