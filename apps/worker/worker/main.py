@@ -21,6 +21,8 @@ from app.secret_storage import validate_stored_secrets
 from app.services.backfill import BackfillService
 from app.services.backfill_failure import BackfillFailureService
 from app.services.cycle import CycleService
+from app.workload import PRIORITY_BACKFILL, PRIORITY_LIVE, PRIORITY_REVIEW
+from app.workload_context import workload_scope
 from arq import cron
 from arq.connections import RedisSettings
 
@@ -50,7 +52,8 @@ async def process_account_cycle(ctx: dict, account_id: str) -> dict:
     job_try = ctx.get("job_try", 1)
     bind_log_context(account_id=account_id, job_id=ctx.get("job_id"), job_try=job_try)
     try:
-        result = await CycleService(ctx["session_factory"]).run(UUID(account_id))
+        with workload_scope(account_id=account_id, priority=PRIORITY_LIVE):
+            result = await CycleService(ctx["session_factory"]).run(UUID(account_id))
         if result.inference_health:
             try:
                 await publish_inference_health(ctx["redis"], account_id, result.inference_health)
@@ -174,7 +177,8 @@ async def process_backfill_batch(ctx: dict, job_id: str) -> dict:
     bind_log_context(account_id=account_id, job_id=job_id, job_try=job_try)
     try:
         try:
-            result = await BackfillService(ctx["session_factory"]).run_batch(UUID(job_id))
+            with workload_scope(account_id=account_id, priority=PRIORITY_BACKFILL):
+                result = await BackfillService(ctx["session_factory"]).run_batch(UUID(job_id))
         except Exception as exc:
             if job_try >= WORKER_MAX_TRIES:
                 await _fail_running_backfill(
@@ -269,9 +273,10 @@ async def process_backfill_failure(ctx: dict, job_id: str, failure_id: str) -> d
             "requeued": requeued,
         }
 
-    result = await BackfillFailureService(ctx["session_factory"]).retry(
-        UUID(job_id), UUID(failure_id)
-    )
+    with workload_scope(account_id=account_id, priority=PRIORITY_REVIEW):
+        result = await BackfillFailureService(ctx["session_factory"]).retry(
+            UUID(job_id), UUID(failure_id)
+        )
     if result.inference_health:
         try:
             await publish_inference_health(ctx["redis"], account_id, result.inference_health)
