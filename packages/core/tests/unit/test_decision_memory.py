@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
+
 from mailflow_core.decision_memory import (
     DecisionMemoryCandidate,
     DecisionMemoryMatcher,
