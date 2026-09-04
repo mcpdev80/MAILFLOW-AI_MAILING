@@ -92,8 +92,10 @@ async def multitenant(session, monkeypatch):
         method: str,
         path: str,
         timestamp: int | None = None,
+        auth_time: int | None = None,
     ) -> dict[str, str]:
         ts = timestamp if timestamp is not None else int(time.time())
+        authenticated_at = auth_time if auth_time is not None else int(time.time())
         signature = sign_actor_identity(
             ACTOR_SECRET,
             method=method,
@@ -103,6 +105,7 @@ async def multitenant(session, monkeypatch):
             auth_org_id=auth_org_id,
             role=role,
             timestamp=ts,
+            auth_time=authenticated_at,
         )
         return {
             "X-API-Key": raw_key,
@@ -110,6 +113,7 @@ async def multitenant(session, monkeypatch):
             "X-MailFlow-Actor-Org-Id": str(org_id),
             "X-MailFlow-Actor-Auth-Org-Id": auth_org_id,
             "X-MailFlow-Actor-Role": role,
+            "X-MailFlow-Actor-Auth-Time": str(authenticated_at),
             "X-MailFlow-Actor-Timestamp": str(ts),
             "X-MailFlow-Actor-Signature": signature,
         }
@@ -238,7 +242,6 @@ async def test_shared_mailbox_is_visible_only_to_selected_members(multitenant):
     assert resp.status_code == 201, resp.text
     account = resp.json()
 
-    # Selected user can see it.
     resp = await client.get(
         "/accounts",
         headers=headers(
@@ -253,7 +256,6 @@ async def test_shared_mailbox_is_visible_only_to_selected_members(multitenant):
     )
     assert account["id"] in {row["id"] for row in resp.json()}
 
-    # Another organization member cannot see it.
     resp = await client.get(
         "/accounts",
         headers=headers(
@@ -268,7 +270,6 @@ async def test_shared_mailbox_is_visible_only_to_selected_members(multitenant):
     )
     assert account["id"] not in {row["id"] for row in resp.json()}
 
-    # The admin creator manages sharing but was not selected for content access.
     resp = await client.get(
         "/accounts",
         headers=headers(
