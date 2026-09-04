@@ -12,6 +12,7 @@ from mailflow_core.classification.llm_client import (
     LLMConfig,
     reset_model_path_health,
 )
+from mailflow_core.exceptions import LLMError
 from mailflow_core.types import ParsedEmail
 
 
@@ -66,7 +67,7 @@ def test_same_backend_has_separate_fast_and_deep_circuits() -> None:
         # Fast fails. Because the physical path is identical, classification does
         # not make a duplicate fallback call to the same backend in this request.
         completion.side_effect = RuntimeError("fast failure")
-        with pytest.raises(Exception):
+        with pytest.raises(LLMError):
             client.classify(_email(), classification_stage=0)
 
     health = client.health_snapshot()
