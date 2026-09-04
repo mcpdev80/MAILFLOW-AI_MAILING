@@ -88,6 +88,15 @@ class MailboxOwnershipUpdate(BaseModel):
     shared_user_ids: list[str] = Field(default_factory=list)
 
 
+class UserRemovalPrepare(BaseModel):
+    action: Literal["transfer", "disable", "delete_local"]
+    target_user_id: str | None = None
+
+
+class UserRemovalPrepareOut(BaseModel):
+    owned_mailboxes_resolved: int
+
+
 # ── LLM providers ─────────────────────────────────────────────────────────────
 class LLMProviderCreate(BaseModel):
     label: str = Field(min_length=1, max_length=100)

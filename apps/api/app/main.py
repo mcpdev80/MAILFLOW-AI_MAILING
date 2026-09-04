@@ -21,6 +21,7 @@ from app.routers import (
     billing_router,
     cycles_router,
     internal_router,
+    lifecycle_router,
     llm_providers_router,
     metrics_router,
     oauth_router,
@@ -49,6 +50,7 @@ app.add_middleware(
 )
 
 app.include_router(accounts_router)
+app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
 app.include_router(rules_router)
 app.include_router(cycles_router)

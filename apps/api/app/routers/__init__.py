@@ -6,6 +6,7 @@ from app.routers.accounts import router as accounts_router
 from app.routers.billing import router as billing_router
 from app.routers.cycles import router as cycles_router
 from app.routers.internal import router as internal_router
+from app.routers.lifecycle import router as lifecycle_router
 from app.routers.llm_providers import router as llm_providers_router
 from app.routers.metrics import router as metrics_router
 from app.routers.oauth import router as oauth_router
@@ -16,6 +17,7 @@ __all__ = [
     "billing_router",
     "cycles_router",
     "internal_router",
+    "lifecycle_router",
     "llm_providers_router",
     "metrics_router",
     "oauth_router",
