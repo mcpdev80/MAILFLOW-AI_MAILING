@@ -7,6 +7,7 @@ import type {
   EmailAccountCreate,
   LLMProvider,
   LLMProviderCreate,
+  LLMProviderUpdate,
   MailboxOwnershipUpdate,
   PlanStatus,
   SharedMailboxAccess,
@@ -80,9 +81,15 @@ export const api = {
 
   // LLM providers
   listProviders: () => request<LLMProvider[]>("/llm-providers"),
+  getProvider: (id: string) => request<LLMProvider>(`/llm-providers/${id}`),
   createProvider: (payload: LLMProviderCreate) =>
     request<LLMProvider>("/llm-providers", {
       method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateProvider: (id: string, payload: LLMProviderUpdate) =>
+    request<LLMProvider>(`/llm-providers/${id}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
 
