@@ -91,7 +91,9 @@ class _RuleEngine:
 
 def _patch_preview_dependencies(monkeypatch) -> None:
     monkeypatch.setattr("app.services.bulk_preview.ThreadRepository", _ThreadRepo)
-    monkeypatch.setattr("app.services.bulk_preview.DecisionMemoryRepository", _MemoryRepo)
+    monkeypatch.setattr(
+        "app.services.bulk_preview.DecisionMemoryRepository", _MemoryRepo
+    )
     monkeypatch.setattr(
         "app.services.bulk_preview.destination_for_classification",
         lambda account, result: "Invoices",
@@ -173,7 +175,9 @@ def test_preview_snapshot_marks_low_confidence_for_review(monkeypatch) -> None:
     assert value["message_id"] is None
 
 
-async def test_classify_preview_uses_rule_signal_without_mailbox_mutation(monkeypatch) -> None:
+async def test_classify_preview_uses_rule_signal_without_mailbox_mutation(
+    monkeypatch,
+) -> None:
     _patch_preview_dependencies(monkeypatch)
     result = _classification(method="fallback")
     email_data = SimpleNamespace(uid=42, message_id="<rule@example>")
