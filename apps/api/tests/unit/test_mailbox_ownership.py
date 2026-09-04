@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from uuid import uuid4
 
 import pytest
@@ -52,6 +53,7 @@ async def ownership_context(session):
             user_id=user_id,
             auth_org_id=auth_org_id,
             role=role,
+            auth_time=int(time.time()),
         )
 
     return org, identity
