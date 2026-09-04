@@ -136,8 +136,7 @@ def auth_signals_require_review(signals: MailAuthSignals) -> bool:
     if signals.spam_verdict in {"spam", "suspicious"}:
         return True
     failures = sum(
-        value == "fail"
-        for value in (signals.spf, signals.dkim, signals.dmarc, signals.arc)
+        value == "fail" for value in (signals.spf, signals.dkim, signals.dmarc, signals.arc)
     )
     return signals.dmarc == "fail" or failures >= 2
 

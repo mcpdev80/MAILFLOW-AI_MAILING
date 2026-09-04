@@ -34,9 +34,7 @@ def test_received_spf_is_used_when_authentication_results_lacks_spf() -> None:
 
 def test_missing_headers_are_safe_unknowns() -> None:
     signals = _signals("Subject: hello")
-    assert signals.compact() == (
-        "spf=unknown dkim=unknown dmarc=unknown arc=unknown spam=unknown"
-    )
+    assert signals.compact() == ("spf=unknown dkim=unknown dmarc=unknown arc=unknown spam=unknown")
     assert not auth_signals_require_review(signals)
 
 
@@ -76,9 +74,7 @@ def test_forwarding_style_single_spf_failure_is_not_absolute_spam() -> None:
 
 
 def test_dmarc_failure_requires_review_but_not_spam_flag() -> None:
-    signals = _signals(
-        "Authentication-Results: mx.example; spf=fail; dkim=fail; dmarc=fail"
-    )
+    signals = _signals("Authentication-Results: mx.example; spf=fail; dkim=fail; dmarc=fail")
     assert auth_signals_require_review(signals)
     assert auth_signals_block_memory_reuse(signals)
     assert not auth_signals_mark_suspicious(signals)
