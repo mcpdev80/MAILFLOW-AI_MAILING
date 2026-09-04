@@ -158,9 +158,7 @@ class CircuitBreaker:
     async def call[T](self, operation: Callable[[], Awaitable[T]]) -> T:
         """Execute ``operation`` while respecting the circuit state."""
         if self.state == "open":
-            raise CircuitOpenError(
-                f"Circuit open ({self._failures} failures); rejecting call"
-            )
+            raise CircuitOpenError(f"Circuit open ({self._failures} failures); rejecting call")
         try:
             result = await operation()
         except Exception as exc:

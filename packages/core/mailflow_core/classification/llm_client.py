@@ -395,9 +395,7 @@ class LLMClient:
             f"In-Reply-To: {email.in_reply_to or ''}\n"
             f"References: {' '.join(email.references)}"
         )
-        sections.append(
-            f"BEGIN_UNTRUSTED_EMAIL_HEADERS\n{headers}\nEND_UNTRUSTED_EMAIL_HEADERS"
-        )
+        sections.append(f"BEGIN_UNTRUSTED_EMAIL_HEADERS\n{headers}\nEND_UNTRUSTED_EMAIL_HEADERS")
         if email.body_text:
             sections.append(
                 f"BEGIN_UNTRUSTED_EMAIL_BODY\n{email.body_text}\nEND_UNTRUSTED_EMAIL_BODY"
@@ -459,14 +457,10 @@ class LLMClient:
 
             importance = str(data.get("importance", "unknown"))
             urgency = str(data.get("urgency", "unknown"))
-            action_required = _normalize_action_required(
-                data.get("action_required", "unknown")
-            )
+            action_required = _normalize_action_required(data.get("action_required", "unknown"))
             needs_more_context = _strict_bool(data.get("needs_more_context", False))
             model_suspicious = _strict_bool(data.get("suspicious_content", False))
-            local_suspicious = looks_suspicious(
-                f"{email.subject_normalized}\n{email.body_text}"
-            )
+            local_suspicious = looks_suspicious(f"{email.subject_normalized}\n{email.body_text}")
             content_suspicious = model_suspicious or local_suspicious
             auth_review = auth_signals_require_review(email.auth_signals)
             auth_suspicious = auth_signals_mark_suspicious(email.auth_signals)
@@ -553,9 +547,7 @@ class LLMClient:
                 summary = str(data["summary"]).strip()
                 open_action_required = _strict_bool(data["open_action_required"])
             except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-                raise ClassificationError(
-                    f"Invalid thread summary response: {raw!r}"
-                ) from exc
+                raise ClassificationError(f"Invalid thread summary response: {raw!r}") from exc
             if not changed:
                 summary = previous_summary
             if not summary:

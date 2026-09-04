@@ -406,11 +406,15 @@ async def test_model_outage_keeps_message_pending(
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
-    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=77)]
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=77)
+    ]
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     classify_client = MagicMock()
-    classify_client.classify.side_effect = LLMError("all classification paths unavailable")
+    classify_client.classify.side_effect = LLMError(
+        "all classification paths unavailable"
+    )
     mock_build.side_effect = [classify_client, None]
 
     result = await CycleService(make_sf()).run(ACCOUNT_ID)

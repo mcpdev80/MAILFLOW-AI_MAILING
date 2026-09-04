@@ -428,7 +428,9 @@ async def _process_one(
                 draft_request,
             )
         except CircuitOpenError:
-            log.warning("LLM generation circuit open; skipping draft for uid=%s", email_data.uid)
+            log.warning(
+                "LLM generation circuit open; skipping draft for uid=%s", email_data.uid
+            )
             draft_text = ""
         except Exception as exc:
             log.warning(
