@@ -13,8 +13,10 @@ from dataclasses import dataclass, replace
 from typing import Protocol
 
 from mailflow_core.attachments import (
+    AttachmentExtractionConfig,
     ExtractedAttachment,
     is_high_signal_attachment,
+    is_supported_attachment,
     should_inspect_attachments,
 )
 from mailflow_core.mail_auth import auth_signals_block_memory_reuse
@@ -22,6 +24,7 @@ from mailflow_core.types import ClassificationResult, ParsedEmail
 
 BodyLoader = Callable[[int | None], ParsedEmail]
 AttachmentLoader = Callable[[ParsedEmail], tuple[ExtractedAttachment, ...]]
+_ATTACHMENT_MARKER = "BEGIN_UNTRUSTED_ATTACHMENT_CONTEXT"
 
 
 class DecisionMemoryLookup(Protocol):
@@ -111,6 +114,23 @@ class AdaptiveClassifier:
             )
             result = replace(result, classification_stage=stage)
 
+            if _ATTACHMENT_MARKER in current.body_text:
+                default_attachment_config = AttachmentExtractionConfig()
+                used_types = tuple(
+                    dict.fromkeys(
+                        item.mime_type
+                        for item in current.attachments
+                        if is_supported_attachment(item, default_attachment_config)
+                    )
+                )
+                result = replace(
+                    result,
+                    attachment_context_used=True,
+                    attachment_types_used=used_types,
+                    attachment_extraction_status="used",
+                )
+                return AdaptiveClassificationOutcome(result=result, email=current, stage=stage)
+
             reliable = self._is_reliable(result)
             strong_attachment_signal = any(
                 is_high_signal_attachment(item) for item in current.attachments
@@ -131,9 +151,7 @@ class AdaptiveClassifier:
                     attachment_text = "\n\n".join(item.prompt_block() for item in used)
                     attachment_email = replace(
                         current,
-                        body_text=(
-                            f"{current.body_text}\n\n" if current.body_text else ""
-                        )
+                        body_text=(f"{current.body_text}\n\n" if current.body_text else "")
                         + "BEGIN_UNTRUSTED_ATTACHMENT_CONTEXT\n"
                         + attachment_text
                         + "\nEND_UNTRUSTED_ATTACHMENT_CONTEXT",
