@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Protocol
 
+from mailflow_core.mail_auth import auth_signals_block_memory_reuse
 from mailflow_core.types import ClassificationResult, ParsedEmail
 
 BodyLoader = Callable[[int | None], ParsedEmail]
@@ -68,7 +69,9 @@ class AdaptiveClassifier:
         body_loader: BodyLoader,
         supporting_signal: ClassificationResult | None = None,
     ) -> AdaptiveClassificationOutcome:
-        if self._memory is not None:
+        if self._memory is not None and not auth_signals_block_memory_reuse(
+            headers_only.auth_signals
+        ):
             remembered = self._memory.lookup(headers_only, thread_summary)
             if remembered is not None and self._is_reliable(remembered):
                 return AdaptiveClassificationOutcome(
