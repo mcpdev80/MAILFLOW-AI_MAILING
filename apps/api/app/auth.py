@@ -80,22 +80,19 @@ def actor_signature_payload(
     org_id: UUID | str,
     auth_org_id: str,
     role: str,
-    auth_time: int | str,
     timestamp: int | str,
+    auth_time: int | str | None = None,
 ) -> bytes:
-    """Build the canonical payload signed by the trusted web BFF."""
-    return "\n".join(
-        [
-            method.upper(),
-            path,
-            user_id,
-            str(org_id),
-            auth_org_id,
-            role,
-            str(auth_time),
-            str(timestamp),
-        ]
-    ).encode("utf-8")
+    """Build the canonical payload signed by the trusted web BFF.
+
+    ``auth_time`` is optional only for rolling compatibility with pre-passkey BFF
+    requests. Sensitive endpoints reject identities that do not carry it.
+    """
+    fields = [method.upper(), path, user_id, str(org_id), auth_org_id, role]
+    if auth_time is not None:
+        fields.append(str(auth_time))
+    fields.append(str(timestamp))
+    return "\n".join(fields).encode("utf-8")
 
 
 def sign_actor_identity(
@@ -107,8 +104,8 @@ def sign_actor_identity(
     org_id: UUID | str,
     auth_org_id: str,
     role: str,
-    auth_time: int,
     timestamp: int,
+    auth_time: int | None = None,
 ) -> str:
     """Return the HMAC signature used for BFF-to-API actor propagation."""
     return hmac.new(
@@ -120,8 +117,8 @@ def sign_actor_identity(
             org_id,
             auth_org_id,
             role,
-            auth_time,
             timestamp,
+            auth_time,
         ),
         hashlib.sha256,
     ).hexdigest()
@@ -238,7 +235,6 @@ async def require_identity(
             actor_org_id,
             actor_auth_org_id,
             actor_role,
-            actor_auth_time,
             actor_timestamp,
             actor_signature,
         ]
@@ -249,7 +245,7 @@ async def require_identity(
         )
 
     try:
-        auth_time = int(actor_auth_time)
+        auth_time = int(actor_auth_time) if actor_auth_time is not None else None
         timestamp = int(actor_timestamp)
         signed_org_id = UUID(actor_org_id)
     except (TypeError, ValueError) as exc:
@@ -279,8 +275,8 @@ async def require_identity(
         org_id=org.id,
         auth_org_id=actor_auth_org_id,
         role=actor_role,
-        auth_time=auth_time,
         timestamp=timestamp,
+        auth_time=auth_time,
     )
     if not hmac.compare_digest(actor_signature, expected):
         raise HTTPException(
