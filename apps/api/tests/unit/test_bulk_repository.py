@@ -86,6 +86,26 @@ async def test_approved_snapshot_is_immutable_copy(session) -> None:
         )
 
 
+async def test_edit_rejects_unknown_fields(session) -> None:
+    account = await _account(session, "unknown")
+    job = await BackfillRepository(session).create(account.id)
+    repo = BulkRepository(session)
+    proposal = await repo.create_proposal(
+        job_id=job.id,
+        account_id=account.id,
+        source_folder="INBOX",
+        uidvalidity=1,
+        uid=1,
+        snapshot=_snapshot(),
+    )
+    with pytest.raises(ValueError, match="unsupported proposal fields"):
+        await repo.edit_proposal(
+            proposal.id,
+            actor_user_id="user-1",
+            changes={"body": "must-not-be-stored"},
+        )
+
+
 async def test_unsafe_proposal_cannot_be_approved(session) -> None:
     account = await _account(session, "unsafe")
     job = await BackfillRepository(session).create(account.id, mode="dry_run")
@@ -101,6 +121,89 @@ async def test_unsafe_proposal_cannot_be_approved(session) -> None:
 
     with pytest.raises(BulkStateError, match="requires_resolution"):
         await repo.approve_proposal(proposal.id, actor_user_id="user-1")
+
+
+async def test_filters_counts_and_exclusion(session) -> None:
+    account = await _account(session, "filters")
+    job = await BackfillRepository(session).create(account.id)
+    repo = BulkRepository(session)
+    first = await repo.create_proposal(
+        job_id=job.id,
+        account_id=account.id,
+        source_folder="INBOX",
+        uidvalidity=2,
+        uid=1,
+        snapshot=_snapshot(),
+    )
+    second = await repo.create_proposal(
+        job_id=job.id,
+        account_id=account.id,
+        source_folder="INBOX",
+        uidvalidity=2,
+        uid=2,
+        snapshot=_snapshot(
+            category="work",
+            proposed_folder="Work",
+            review_required=True,
+        ),
+    )
+    await repo.exclude_proposal(first.id, actor_user_id="user-1")
+    await session.commit()
+
+    assert [p.id for p in await repo.list_proposals(job.id, status="excluded")] == [
+        first.id
+    ]
+    assert [p.id for p in await repo.list_proposals(job.id, category="work")] == [
+        second.id
+    ]
+    assert [
+        p.id for p in await repo.list_proposals(job.id, destination="Work")
+    ] == [second.id]
+    assert [
+        p.id for p in await repo.list_proposals(job.id, review_required=True)
+    ] == [second.id]
+    assert await repo.counts(job.id) == {"excluded": 1, "proposed": 1}
+
+
+async def test_approve_all_safe_skips_review_items(session) -> None:
+    account = await _account(session, "approveall")
+    job = await BackfillRepository(session).create(account.id)
+    repo = BulkRepository(session)
+    safe = await repo.create_proposal(
+        job_id=job.id,
+        account_id=account.id,
+        source_folder="INBOX",
+        uidvalidity=3,
+        uid=1,
+        snapshot=_snapshot(),
+    )
+    unsafe = await repo.create_proposal(
+        job_id=job.id,
+        account_id=account.id,
+        source_folder="INBOX",
+        uidvalidity=3,
+        uid=2,
+        snapshot=_snapshot(review_required=True),
+    )
+    approved = await repo.approve_all_safe(job.id, actor_user_id="user-1")
+    await session.commit()
+
+    assert approved == 1
+    assert (await repo.get_proposal(safe.id)).status == "approved"
+    assert (await repo.get_proposal(unsafe.id)).status == "proposed"
+
+
+async def test_apply_job_requires_approved_proposals(session) -> None:
+    account = await _account(session, "none")
+    job = await BackfillRepository(session).create(account.id)
+    repo = BulkRepository(session)
+    with pytest.raises(BulkStateError, match="no_approved_proposals"):
+        await repo.create_apply_job(
+            source_job_id=job.id,
+            account_id=account.id,
+            batch_size=10,
+            actor_user_id="user-1",
+        )
 
 
 async def test_apply_job_uses_only_approved_proposals(session) -> None:
@@ -133,6 +236,7 @@ async def test_apply_job_uses_only_approved_proposals(session) -> None:
     await session.commit()
 
     assert apply_job.approved == 1
+    assert (await repo.apply_job_for_source(job.id)).id == apply_job.id
     batch = await repo.next_apply_batch(apply_job)
     assert [item.uid for item in batch] == [10]
 
@@ -142,3 +246,63 @@ async def test_apply_job_uses_only_approved_proposals(session) -> None:
     assert final.state == "completed"
     assert final.applied == 1
     assert final.processed == 1
+
+
+@pytest.mark.parametrize(
+    ("result", "counter"),
+    [("skipped", "skipped"), ("failed", "failed"), ("review", "review_required")],
+)
+async def test_apply_result_counters(session, result: str, counter: str) -> None:
+    account = await _account(session, f"counter-{result}")
+    job = await BackfillRepository(session).create(account.id)
+    repo = BulkRepository(session)
+    proposal = await repo.create_proposal(
+        job_id=job.id,
+        account_id=account.id,
+        source_folder="INBOX",
+        uidvalidity=10,
+        uid=1,
+        snapshot=_snapshot(),
+    )
+    await repo.approve_proposal(proposal.id, actor_user_id="user-1")
+    apply_job = await repo.create_apply_job(
+        source_job_id=job.id,
+        account_id=account.id,
+        batch_size=10,
+        actor_user_id="user-1",
+    )
+    await repo.mark_apply_result(
+        apply_job.id,
+        proposal.id,
+        result=result,
+        error="problem" if result in {"failed", "review"} else None,
+    )
+    await session.commit()
+
+    assert apply_job.processed == 1
+    assert getattr(apply_job, counter) == 1
+    if result in {"failed", "review"}:
+        assert apply_job.last_error == "problem"
+
+
+async def test_invalid_apply_result_is_rejected(session) -> None:
+    account = await _account(session, "invalid-result")
+    job = await BackfillRepository(session).create(account.id)
+    repo = BulkRepository(session)
+    proposal = await repo.create_proposal(
+        job_id=job.id,
+        account_id=account.id,
+        source_folder="INBOX",
+        uidvalidity=11,
+        uid=1,
+        snapshot=_snapshot(),
+    )
+    await repo.approve_proposal(proposal.id, actor_user_id="user-1")
+    apply_job = await repo.create_apply_job(
+        source_job_id=job.id,
+        account_id=account.id,
+        batch_size=10,
+        actor_user_id="user-1",
+    )
+    with pytest.raises(ValueError, match="invalid apply result"):
+        await repo.mark_apply_result(apply_job.id, proposal.id, result="sent")
