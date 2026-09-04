@@ -21,6 +21,7 @@ from app.routers import (
     audit_router,
     backfill_router,
     billing_router,
+    bulk_router,
     cycles_router,
     decision_memory_router,
     inference_health_router,
@@ -57,6 +58,7 @@ app.add_middleware(
 app.include_router(accounts_router)
 app.include_router(audit_router)
 app.include_router(backfill_router)
+app.include_router(bulk_router)
 app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
 app.include_router(rules_router)
