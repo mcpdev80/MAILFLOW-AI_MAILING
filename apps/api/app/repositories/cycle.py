@@ -1,10 +1,11 @@
-"""CycleRepository — audit_log y processed_emails."""
+"""CycleRepository — audit_log and processed email persistence."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import UUID
 
+from mailflow_core.types import ClassificationResult
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,6 @@ class CycleRepository:
         self._session = session
 
     async def create_audit_log(self, account_id: UUID, cycle_id: UUID) -> AuditLog:
-        """Inserta fila audit_log con finalized_at=NULL (ciclo en curso)."""
         log = AuditLog(account_id=account_id, cycle_id=cycle_id)
         self._session.add(log)
         await self._session.flush()
@@ -33,7 +33,6 @@ class CycleRepository:
         error_detail: str | None,
         duration_ms: int,
     ) -> None:
-        """Actualiza audit_log con resultados finales."""
         await self._session.execute(
             update(AuditLog)
             .where(AuditLog.cycle_id == cycle_id)
@@ -57,15 +56,11 @@ class CycleRepository:
         from_email: str,
         subject: str,
         destination_folder: str,
-        method: str,
-        confidence: float,
+        classification: ClassificationResult,
         draft_saved: bool,
         cycle_id: UUID,
     ) -> None:
-        """INSERT con ON CONFLICT (account_id, uid, uidvalidity) DO NOTHING.
-
-        Garantiza idempotencia si el worker reprocesa un email ya visto.
-        """
+        """Persist one idempotent processed-message row and semantic result."""
         stmt = (
             pg_insert(ProcessedEmail)
             .values(
@@ -77,8 +72,21 @@ class CycleRepository:
                 from_email=from_email,
                 subject=subject,
                 destination_folder=destination_folder,
-                method=method,
-                confidence=confidence,
+                classification_label=classification.label,
+                category=classification.category,
+                subcategory=classification.subcategory,
+                suggested_category=classification.suggested_category,
+                suggested_subcategory=classification.suggested_subcategory,
+                importance=classification.importance,
+                urgency=classification.urgency,
+                action_required=classification.action_required,
+                system_tags=list(classification.system_tags),
+                user_tags=list(classification.user_tags),
+                confidence=classification.confidence,
+                needs_more_context=classification.needs_more_context,
+                review_required=classification.review_required,
+                reason=classification.reason,
+                method=classification.method,
                 draft_saved=draft_saved,
                 cycle_id=cycle_id,
             )
@@ -87,7 +95,7 @@ class CycleRepository:
         await self._session.execute(stmt)
 
     async def find_thread_folder(self, account_id: UUID, message_id: str) -> str | None:
-        """Busca si message_id fue clasificado antes. Usa INDEX (account_id, message_id)."""
+        """Return a previous applied folder for the legacy thread-routing path."""
         stmt = (
             select(ProcessedEmail.destination_folder)
             .where(
