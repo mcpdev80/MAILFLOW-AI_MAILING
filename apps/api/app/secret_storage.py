@@ -34,14 +34,19 @@ def _provider_query(org_id: UUID | None):
     return stmt.where(LLMProvider.org_id == org_id) if org_id else stmt
 
 
+def _provider_secret_fields(provider: LLMProvider) -> tuple[tuple[str, str | None], ...]:
+    return (
+        ("encrypted_api_key", provider.encrypted_api_key),
+        ("encrypted_fast_api_key", provider.encrypted_fast_api_key),
+        ("encrypted_deep_api_key", provider.encrypted_deep_api_key),
+        ("encrypted_generation_api_key", provider.encrypted_generation_api_key),
+    )
+
+
 async def validate_stored_secrets(
     session: AsyncSession, *, org_id: UUID | None = None
 ) -> int:
-    """Decrypt stored application secrets and return the number validated.
-
-    Production startup validates every organization. ``org_id`` exists only to
-    support targeted maintenance/tests without weakening the default behavior.
-    """
+    """Decrypt stored application secrets and return the number validated."""
     validated = 0
 
     accounts = list((await session.execute(_account_query(org_id))).scalars())
@@ -55,9 +60,10 @@ async def validate_stored_secrets(
 
     providers = list((await session.execute(_provider_query(org_id))).scalars())
     for provider in providers:
-        if provider.encrypted_api_key:
-            decrypt_secret(provider.encrypted_api_key)
-            validated += 1
+        for _field_name, encrypted_value in _provider_secret_fields(provider):
+            if encrypted_value:
+                decrypt_secret(encrypted_value)
+                validated += 1
 
     return validated
 
@@ -81,9 +87,10 @@ async def rotate_stored_secrets(
 
     providers = list((await session.execute(_provider_query(org_id))).scalars())
     for provider in providers:
-        if provider.encrypted_api_key:
-            provider.encrypted_api_key = rotate_secret(provider.encrypted_api_key)
-            llm_api_keys += 1
+        for field_name, encrypted_value in _provider_secret_fields(provider):
+            if encrypted_value:
+                setattr(provider, field_name, rotate_secret(encrypted_value))
+                llm_api_keys += 1
 
     await session.commit()
     return SecretRotationResult(
