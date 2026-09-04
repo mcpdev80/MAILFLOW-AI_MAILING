@@ -69,9 +69,9 @@ class EmailProvider(ABC):
     def fetch_body(self, uid: int, max_chars: int | None = None) -> tuple[str, str]:
         """Fetch only the body content needed by the current classification stage."""
 
-    @abstractmethod
     def fetch_attachment_content(self, uid: int, attachment: AttachmentInfo) -> bytes:
-        """Fetch one attachment payload by provider identity without executing it."""
+        """Fetch one attachment payload when the provider supports staged attachment access."""
+        raise NotImplementedError("attachment content fetching is not supported by this provider")
 
     @abstractmethod
     def move_email(self, uid: int, destination_folder: str) -> bool: ...
