@@ -45,10 +45,16 @@ def upgrade() -> None:
         sa.Column("last_used", sa.DateTime(timezone=True), nullable=True),
         sa.Column("superseded_by_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
         ),
         sa.ForeignKeyConstraint(
             ["superseded_by_id"], ["decision_memory_entries.id"], ondelete="SET NULL"
@@ -87,10 +93,15 @@ def upgrade() -> None:
     op.add_column(
         "processed_emails",
         sa.Column(
-            "decision_memory_hint_used", sa.Boolean(), nullable=False, server_default="false"
+            "decision_memory_hint_used",
+            sa.Boolean(),
+            nullable=False,
+            server_default="false",
         ),
     )
-    op.alter_column("processed_emails", "decision_memory_hint_used", server_default=None)
+    op.alter_column(
+        "processed_emails", "decision_memory_hint_used", server_default=None
+    )
 
 
 def downgrade() -> None:
@@ -100,5 +111,7 @@ def downgrade() -> None:
     op.drop_index("ix_decision_memory_thread", table_name="decision_memory_entries")
     op.drop_index("ix_decision_memory_domain", table_name="decision_memory_entries")
     op.drop_index("ix_decision_memory_sender", table_name="decision_memory_entries")
-    op.drop_index("ix_decision_memory_account_enabled", table_name="decision_memory_entries")
+    op.drop_index(
+        "ix_decision_memory_account_enabled", table_name="decision_memory_entries"
+    )
     op.drop_table("decision_memory_entries")
