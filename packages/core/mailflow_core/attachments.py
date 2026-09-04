@@ -227,8 +227,7 @@ def _extract_openxml(
             for info in archive.infolist()
             if info.filename.endswith(".xml")
             and any(
-                info.filename == prefix or info.filename.startswith(prefix)
-                for prefix in prefixes
+                info.filename == prefix or info.filename.startswith(prefix) for prefix in prefixes
             )
         ]
         selected.sort(key=lambda item: item.filename)
