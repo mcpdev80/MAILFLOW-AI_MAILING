@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
-from arq.connections import ArqRedis, RedisSettings, create_pool
+from arq.connections import RedisSettings, create_pool
 
 from app.config import settings
+from app.secrets import redact_value
 
 _KEY_PREFIX = "mailflow:inference-health:account:"
 
@@ -21,18 +23,21 @@ def build_inference_health_payload(
     account_id: UUID | str,
     paths: dict[str, dict[str, object]],
 ) -> dict[str, object]:
-    degraded = any(bool(item.get("degraded")) for item in paths.values())
+    """Build a safe diagnostic payload without message content or credentials."""
+    safe_paths = redact_value(paths)
+    assert isinstance(safe_paths, dict)  # noqa: S101 - structural invariant
+    degraded = any(bool(item.get("degraded")) for item in safe_paths.values())
     return {
         "account_id": str(account_id),
         "status": "degraded" if degraded else "ok",
         "degraded": degraded,
         "updated_at": datetime.now(tz=UTC).isoformat(),
-        "paths": paths,
+        "paths": safe_paths,
     }
 
 
 async def publish_inference_health(
-    redis: ArqRedis,
+    redis: Any,
     account_id: UUID | str,
     paths: dict[str, dict[str, object]],
 ) -> dict[str, object]:
