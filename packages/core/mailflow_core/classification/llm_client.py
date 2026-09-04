@@ -13,17 +13,29 @@ from mailflow_core.types import (
     ClassificationResult,
     DraftRequest,
     ParsedEmail,
+    ThreadSummaryUpdate,
 )
 
 _CLASSIFY_SYSTEM = (
-    "You are an email classification assistant. Classify the message semantically; "
+    "You are an email classification assistant. Classify the current message semantically; "
     "do not choose an IMAP folder. Use only one confirmed category provided by the caller. "
-    "If nothing fits, use category 'other' and optionally suggest a category for human review. "
-    "Return ONLY a JSON object with category, optional subcategory, optional suggested_category, "
-    "optional suggested_subcategory, importance, urgency, action_required, system_tags, user_tags, "
-    "confidence, needs_more_context, review_required and a short optional reason. "
-    "importance must be critical/high/normal/low/unknown; urgency must be "
-    "immediate/today/this_week/none/unknown; action_required must be yes/no/unknown."
+    "If thread context is provided, treat it as context only: the current message is authoritative "
+    "and previous classifications must not be copied blindly. If nothing fits, use category 'other' "
+    "and optionally suggest a category for human review. Return ONLY a JSON object with category, "
+    "optional subcategory, optional suggested_category, optional suggested_subcategory, importance, "
+    "urgency, action_required, system_tags, user_tags, confidence, needs_more_context, "
+    "review_required and a short optional reason. importance must be "
+    "critical/high/normal/low/unknown; urgency must be immediate/today/this_week/none/unknown; "
+    "action_required must be yes/no/unknown."
+)
+
+_THREAD_SUMMARY_SYSTEM = (
+    "Maintain one compact email-thread summary. Use ONLY the existing summary and the new current "
+    "message. Never reconstruct or request full thread history. Return ONLY JSON with: changed "
+    "(boolean), summary (string), open_action_required (boolean), deadline (string or null). "
+    "The summary must capture current topic, status, open points, who needs to act, and any deadline. "
+    "Set changed=false when the new message adds no relevant thread information; in that case keep "
+    "the existing summary unchanged. Keep the summary concise."
 )
 
 _DRAFT_SYSTEM = (
@@ -71,8 +83,9 @@ class LLMClient:
         email: ParsedEmail,
         available_labels: list[str] | None = None,
         available_categories: list[str] | None = None,
+        thread_summary: str | None = None,
     ) -> ClassificationResult:
-        """Classify semantically while accepting legacy label-only callers/responses."""
+        """Classify the current message with optional compact thread context."""
         categories = available_categories or list(CONFIRMED_CATEGORIES)
         invalid_categories = set(categories) - set(CONFIRMED_CATEGORIES)
         if invalid_categories:
@@ -80,11 +93,16 @@ class LLMClient:
                 f"Unsupported confirmed categories: {sorted(invalid_categories)}"
             )
 
+        context = ""
+        if thread_summary:
+            context = f"Thread context (context only):\n{thread_summary[:1500]}\n\n"
         user_msg = (
             f"Confirmed categories: {', '.join(categories)}\n\n"
+            f"{context}"
+            f"Current message:\n"
             f"Subject: {email.subject_normalized}\n"
             f"From: {email.from_email}\n\n"
-            f"{email.body_text[:500]}"
+            f"{email.body_text[:1000]}"
         )
         raw = self._call(
             [
@@ -98,8 +116,6 @@ class LLMClient:
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ClassificationError(f"Invalid LLM response: {raw!r}") from exc
 
-        # Compatibility: older models returned only label + confidence. Keep that
-        # contract usable while new models return category as the primary concept.
         raw_category = data.get("category")
         legacy_label = data.get("label")
         if raw_category is None:
@@ -159,6 +175,50 @@ class LLMClient:
             )
             result = replace(result, reason=reason)
         return result
+
+    def update_thread_summary(
+        self,
+        previous_summary: str,
+        email: ParsedEmail,
+        classification: ClassificationResult,
+    ) -> ThreadSummaryUpdate:
+        """Update compact thread context using only prior summary plus the new message."""
+        user_msg = (
+            f"Existing summary:\n{previous_summary[:1500] or '(none)'}\n\n"
+            f"New message:\n"
+            f"Subject: {email.subject_normalized}\n"
+            f"From: {email.from_email}\n"
+            f"To: {', '.join(email.to_emails)}\n\n"
+            f"{email.body_text[:1200]}\n\n"
+            f"Current classification:\n"
+            f"category={classification.category}; importance={classification.importance}; "
+            f"urgency={classification.urgency}; action_required={classification.action_required}"
+        )
+        raw = self._call(
+            [
+                {"role": "system", "content": _THREAD_SUMMARY_SYSTEM},
+                {"role": "user", "content": user_msg},
+            ]
+        )
+        try:
+            data = json.loads(raw)
+            changed = bool(data["changed"])
+            summary = str(data["summary"]).strip()
+            open_action_required = bool(data["open_action_required"])
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise ClassificationError(f"Invalid thread summary response: {raw!r}") from exc
+
+        if not changed:
+            summary = previous_summary
+        if not summary:
+            summary = previous_summary or email.subject_normalized[:500]
+        deadline = _optional_text(data.get("deadline"))
+        return ThreadSummaryUpdate(
+            summary=summary[:2000],
+            changed=changed,
+            open_action_required=open_action_required,
+            deadline=deadline,
+        )
 
     def generate_draft(self, original_email: ParsedEmail, request: DraftRequest) -> str:
         classification = request.classification.category
