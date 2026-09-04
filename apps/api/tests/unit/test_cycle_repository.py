@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
+from mailflow_core.action_policy import ActionDecision
 from mailflow_core.types import ClassificationResult, MailAuthSignals
 from sqlalchemy import select
 
@@ -109,6 +110,11 @@ async def test_insert_processed_idempotent_and_persists_semantics(session, accou
         subject="Hi",
         destination_folder="Clients/B",
         classification=semantic_result(),
+        action_decision=ActionDecision(
+            action="move",
+            disposition="execute",
+            reason="safe_automatic_action",
+        ),
         auth_signals=MailAuthSignals(
             spf="pass",
             dkim="pass",
@@ -136,6 +142,10 @@ async def test_insert_processed_idempotent_and_persists_semantics(session, accou
     row = rows[0]
     assert row.thread_id == "thread-123"
     assert row.destination_folder == "Clients/B"
+    assert row.mailbox_action == "move"
+    assert row.mailbox_action_status == "execute"
+    assert row.mailbox_action_reason == "safe_automatic_action"
+    assert row.action_review_required is False
     assert row.classification_label == "Clients/B"
     assert row.category == "finance"
     assert row.subcategory == "invoice"
