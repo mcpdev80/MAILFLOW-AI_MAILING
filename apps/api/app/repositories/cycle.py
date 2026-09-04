@@ -60,8 +60,8 @@ class CycleRepository:
         classification: ClassificationResult,
         draft_saved: bool,
         cycle_id: UUID,
-    ) -> None:
-        """Persist one idempotent processed-message row and semantic result."""
+    ) -> bool:
+        """Persist one processed-message row and report whether it was newly inserted."""
         stmt = (
             pg_insert(ProcessedEmail)
             .values(
@@ -93,5 +93,7 @@ class CycleRepository:
                 cycle_id=cycle_id,
             )
             .on_conflict_do_nothing(index_elements=["account_id", "uid", "uidvalidity"])
+            .returning(ProcessedEmail.id)
         )
-        await self._session.execute(stmt)
+        inserted_id = (await self._session.execute(stmt)).scalar_one_or_none()
+        return inserted_id is not None
