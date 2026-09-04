@@ -46,6 +46,19 @@ class ProcessedEmail(Base):
     subject: Mapped[str] = mapped_column(String, default="")
 
     destination_folder: Mapped[str] = mapped_column(String(255))
+    mailbox_action: Mapped[str] = mapped_column(
+        String(16), default="move", server_default="move"
+    )
+    mailbox_action_status: Mapped[str] = mapped_column(
+        String(16), default="execute", server_default="execute"
+    )
+    mailbox_action_reason: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
+    action_review_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+
     classification_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     category: Mapped[str] = mapped_column(
         String(64), default="other", server_default="other"

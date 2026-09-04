@@ -7,6 +7,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ActionPolicyCard } from "./ActionPolicyCard";
+
 type Member = {
   id: string;
   userId?: string;
@@ -484,6 +486,12 @@ export default function AccountDetailPage() {
               )}
             </div>
           )}
+
+          <ActionPolicyCard
+            account={account}
+            canManage={canManageOwnership}
+            onSaved={setAccount}
+          />
 
           {contentAccessible && (
             <>

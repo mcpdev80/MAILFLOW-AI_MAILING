@@ -5,6 +5,7 @@ import type {
   CycleEnqueued,
   EmailAccount,
   EmailAccountCreate,
+  EmailAccountUpdate,
   LLMProvider,
   LLMProviderCreate,
   LLMProviderUpdate,
@@ -60,6 +61,11 @@ export const api = {
   createAccount: (payload: EmailAccountCreate) =>
     request<EmailAccount>("/accounts", {
       method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateAccount: (id: string, payload: EmailAccountUpdate) =>
+    request<EmailAccount>(`/accounts/${id}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
   deleteAccount: (id: string) =>

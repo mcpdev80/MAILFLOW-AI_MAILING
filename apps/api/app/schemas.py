@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+ActionMode = Literal["off", "review", "automatic"]
+
 
 class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -60,6 +62,9 @@ class EmailAccountCreate(BaseModel):
     llm_provider_id: UUID | None = None
     ownership_mode: Literal["private", "shared"] | None = None
     shared_user_ids: list[str] = Field(default_factory=list)
+    move_policy: ActionMode = "automatic"
+    archive_policy: ActionMode = "off"
+    action_confidence_threshold: float = Field(default=0.85, ge=0.0, le=1.0)
 
 
 class EmailAccountUpdate(BaseModel):
@@ -74,6 +79,9 @@ class EmailAccountUpdate(BaseModel):
     interval_minutes: int | None = Field(default=None, ge=1, le=1440)
     is_active: bool | None = None
     llm_provider_id: UUID | None = None
+    move_policy: ActionMode | None = None
+    archive_policy: ActionMode | None = None
+    action_confidence_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class EmailAccountOut(ORMModel):
@@ -93,6 +101,9 @@ class EmailAccountOut(ORMModel):
     is_active: bool
     last_cycle_at: datetime | None
     llm_provider_id: UUID | None
+    move_policy: ActionMode
+    archive_policy: ActionMode
+    action_confidence_threshold: float
     created_at: datetime
 
 
