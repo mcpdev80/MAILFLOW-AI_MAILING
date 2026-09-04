@@ -19,23 +19,23 @@ from mailflow_core.types import (
 _CLASSIFY_SYSTEM = (
     "You are an email classification assistant. Classify the current message semantically; "
     "do not choose an IMAP folder. Use only one confirmed category provided by the caller. "
-    "If thread context is provided, treat it as context only: the current message is authoritative "
-    "and previous classifications must not be copied blindly. If nothing fits, use category 'other' "
-    "and optionally suggest a category for human review. Return ONLY a JSON object with category, "
-    "optional subcategory, optional suggested_category, optional suggested_subcategory, importance, "
-    "urgency, action_required, system_tags, user_tags, confidence, needs_more_context, "
-    "review_required and a short optional reason. importance must be "
-    "critical/high/normal/low/unknown; urgency must be immediate/today/this_week/none/unknown; "
-    "action_required must be yes/no/unknown."
+    "If thread context is provided, treat it as context only: the current message is "
+    "authoritative and previous classifications must not be copied blindly. If nothing fits, "
+    "use category 'other' and optionally suggest a category for human review. Return ONLY a "
+    "JSON object with category, optional subcategory, optional suggested_category, optional "
+    "suggested_subcategory, importance, urgency, action_required, system_tags, user_tags, "
+    "confidence, needs_more_context, review_required and a short optional reason. importance "
+    "must be critical/high/normal/low/unknown; urgency must be "
+    "immediate/today/this_week/none/unknown; action_required must be yes/no/unknown."
 )
 
 _THREAD_SUMMARY_SYSTEM = (
     "Maintain one compact email-thread summary. Use ONLY the existing summary and the new current "
     "message. Never reconstruct or request full thread history. Return ONLY JSON with: changed "
     "(boolean), summary (string), open_action_required (boolean), deadline (string or null). "
-    "The summary must capture current topic, status, open points, who needs to act, and any deadline. "
-    "Set changed=false when the new message adds no relevant thread information; in that case keep "
-    "the existing summary unchanged. Keep the summary concise."
+    "The summary must capture current topic, status, open points, who needs to act, and any "
+    "deadline. Set changed=false when the new message adds no relevant thread information; in "
+    "that case keep the existing summary unchanged. Keep the summary concise."
 )
 
 _DRAFT_SYSTEM = (
