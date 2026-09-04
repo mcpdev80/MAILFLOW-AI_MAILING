@@ -68,7 +68,9 @@ def configure_thread_repo(MockThreadRepo, *, summary: str = "", existing: bool =
 
 
 def configure_memory_repo(MockDecisionMemoryRepo):
-    MockDecisionMemoryRepo.return_value.candidates_for_email = AsyncMock(return_value=())
+    MockDecisionMemoryRepo.return_value.candidates_for_email = AsyncMock(
+        return_value=()
+    )
     MockDecisionMemoryRepo.return_value.mark_used = AsyncMock()
 
 
@@ -139,7 +141,9 @@ async def test_run_mark_before_move(
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
-    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=42)]
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=42)
+    ]
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     call_order: list[str] = []
@@ -261,7 +265,9 @@ async def test_run_draft_bytes_passed_to_save_draft(
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
-    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=55)]
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=55)
+    ]
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     mock_generate_client = MagicMock()
