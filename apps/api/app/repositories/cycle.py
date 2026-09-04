@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit_policy import message_audit_decision
 from app.lifecycle import record_lifecycle_event
 from app.models.audit_log import AuditLog
 from app.models.email_account import EmailAccount
@@ -127,37 +128,27 @@ class CycleRepository:
         if inserted_id is None:
             return False
 
+        audit = message_audit_decision(
+            folder=folder,
+            destination_folder=destination_folder,
+            classification=classification,
+            action_decision=action_decision,
+        )
+        if audit is None:
+            return True
+
         org_id = await self._session.scalar(
             select(EmailAccount.org_id).where(EmailAccount.id == account_id)
         )
         if org_id is None:
             raise RuntimeError("processed_email_account_missing")
-
-        message_ref = f"{uidvalidity}:{uid}"
-        if action_decision.execute:
-            await record_lifecycle_event(
-                self._session,
-                org_id=org_id,
-                account_id=account_id,
-                event="message_moved",
-                message_ref=message_ref,
-                details={
-                    "from_folder": folder,
-                    "to_folder": destination_folder,
-                    "mode": "automatic",
-                },
-            )
-        elif classification.suspicious_content and action_decision.requires_review:
-            await record_lifecycle_event(
-                self._session,
-                org_id=org_id,
-                account_id=account_id,
-                event="mailbox_action_blocked",
-                status="blocked",
-                message_ref=message_ref,
-                details={
-                    "action": action_decision.action,
-                    "reason": action_decision.reason,
-                },
-            )
+        await record_lifecycle_event(
+            self._session,
+            org_id=org_id,
+            account_id=account_id,
+            event=audit.event,
+            status=audit.status,
+            message_ref=f"{uidvalidity}:{uid}",
+            details=audit.details,
+        )
         return True
