@@ -44,7 +44,9 @@ export function ActionPolicyCard({ account, canManage, onSaved }: Props) {
       setNotice("Mailbox action policy updated.");
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Could not update action policy",
+        err instanceof ApiError
+          ? err.message
+          : "Could not update action policy",
       );
     } finally {
       setBusy(false);
@@ -81,7 +83,9 @@ export function ActionPolicyCard({ account, canManage, onSaved }: Props) {
         <select
           id="archive-policy"
           value={archivePolicy}
-          onChange={(event) => setArchivePolicy(event.target.value as ActionMode)}
+          onChange={(event) =>
+            setArchivePolicy(event.target.value as ActionMode)
+          }
         >
           <option value="off">Off</option>
           <option value="review">Always review first</option>
@@ -90,7 +94,9 @@ export function ActionPolicyCard({ account, canManage, onSaved }: Props) {
       </div>
 
       <div className="field">
-        <label htmlFor="action-confidence">Minimum confidence for automatic actions</label>
+        <label htmlFor="action-confidence">
+          Minimum confidence for automatic actions
+        </label>
         <input
           id="action-confidence"
           type="number"
