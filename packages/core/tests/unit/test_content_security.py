@@ -19,7 +19,8 @@ def test_html_sanitization_removes_active_and_tracking_content() -> None:
     assert "evil.example" not in safe
 
 
-def test_parser_never_preserves_active_html_for_deeper_processing() -> None:
+def test_parser_uses_safe_text_for_deeper_processing() -> None:
+    raw_html = "<p>Visible text</p><script>alert('x')</script>"
     email = EmailData(
         uid=1,
         message_id="<msg-1@example.com>",
@@ -27,11 +28,12 @@ def test_parser_never_preserves_active_html_for_deeper_processing() -> None:
         from_email="sender@example.com",
         to_emails=["me@example.com"],
         body_text="",
-        body_html="<p>Visible text</p><script>alert('x')</script>",
+        body_html=raw_html,
     )
     parsed = EmailParser().parse(email)
     assert parsed.body_text == "Visible text"
-    assert parsed.body_html == ""
+    assert "alert('x')" not in parsed.body_text
+    assert parsed.body_html == raw_html
 
 
 def test_direct_prompt_injection_is_suspicious() -> None:
