@@ -14,18 +14,27 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("lifecycle_events", sa.Column("message_ref", sa.String(length=255), nullable=True))
     op.add_column(
         "lifecycle_events",
-        sa.Column("actor_type", sa.String(length=16), nullable=False, server_default="system"),
+        sa.Column("message_ref", sa.String(length=255), nullable=True),
     )
     op.add_column(
         "lifecycle_events",
-        sa.Column("status", sa.String(length=16), nullable=False, server_default="success"),
+        sa.Column(
+            "actor_type", sa.String(length=16), nullable=False, server_default="system"
+        ),
     )
     op.add_column(
         "lifecycle_events",
-        sa.Column("details", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
+        sa.Column(
+            "status", sa.String(length=16), nullable=False, server_default="success"
+        ),
+    )
+    op.add_column(
+        "lifecycle_events",
+        sa.Column(
+            "details", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")
+        ),
     )
     op.create_index(
         "ix_lifecycle_events_type_created",

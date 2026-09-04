@@ -201,9 +201,7 @@ async def pause_backfill(
     await _load_owned_job(account_id, job_id, identity, session)
     repo = BackfillRepository(session)
     try:
-        job = await repo.transition(
-            job_id, "paused", actor_user_id=identity.user_id
-        )
+        job = await repo.transition(job_id, "paused", actor_user_id=identity.user_id)
         await session.commit()
     except BackfillStateError as exc:
         await session.rollback()
@@ -226,9 +224,7 @@ async def resume_backfill(
     previous_state = current.state
     repo = BackfillRepository(session)
     try:
-        job = await repo.transition(
-            job_id, "running", actor_user_id=identity.user_id
-        )
+        job = await repo.transition(job_id, "running", actor_user_id=identity.user_id)
         await session.commit()
     except BackfillStateError as exc:
         await session.rollback()
@@ -254,9 +250,7 @@ async def cancel_backfill(
     await _load_owned_job(account_id, job_id, identity, session)
     repo = BackfillRepository(session)
     try:
-        job = await repo.transition(
-            job_id, "cancelled", actor_user_id=identity.user_id
-        )
+        job = await repo.transition(job_id, "cancelled", actor_user_id=identity.user_id)
         await session.commit()
     except BackfillStateError as exc:
         await session.rollback()
