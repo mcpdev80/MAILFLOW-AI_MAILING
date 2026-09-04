@@ -8,7 +8,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.lifecycle import record_lifecycle_event
 from app.models.backfill import BackfillFailure, BackfillJob
+from app.models.email_account import EmailAccount
 from app.models.processed_email import ProcessedEmail
 
 
@@ -28,10 +30,53 @@ _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "failed": {"running", "cancelled"},
 }
 
+_STATE_EVENTS = {
+    "running": "backfill_resumed",
+    "paused": "backfill_paused",
+    "completed": "backfill_completed",
+    "cancelled": "backfill_cancelled",
+    "failed": "backfill_failed",
+}
+
 
 class BackfillRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def _org_id(self, account_id: UUID) -> UUID:
+        org_id = await self._session.scalar(
+            select(EmailAccount.org_id).where(EmailAccount.id == account_id)
+        )
+        if org_id is None:
+            raise RuntimeError("backfill_account_missing")
+        return org_id
+
+    async def _audit_job(
+        self,
+        job: BackfillJob,
+        event: str,
+        *,
+        actor_user_id: str | None = None,
+        actor_type: str | None = None,
+        status: str = "success",
+    ) -> None:
+        await record_lifecycle_event(
+            self._session,
+            org_id=await self._org_id(job.account_id),
+            account_id=job.account_id,
+            actor_user_id=actor_user_id,
+            actor_type=actor_type,
+            event=event,
+            status=status,
+            details={
+                "job_id": str(job.id),
+                "folder": job.folder,
+                "processed": job.processed,
+                "successful": job.successful,
+                "review_required": job.review_required,
+                "failed": job.failed,
+            },
+        )
 
     async def get(
         self, job_id: UUID, *, for_update: bool = False
@@ -77,6 +122,7 @@ class BackfillRepository:
         folder: str = "INBOX",
         batch_size: int = 10,
         start_running: bool = True,
+        actor_user_id: str | None = None,
     ) -> BackfillJob:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
@@ -92,9 +138,21 @@ class BackfillRepository:
         )
         self._session.add(job)
         await self._session.flush()
+        await self._audit_job(
+            job,
+            "backfill_started" if start_running else "backfill_created_paused",
+            actor_user_id=actor_user_id,
+        )
         return job
 
-    async def transition(self, job_id: UUID, target: str) -> BackfillJob:
+    async def transition(
+        self,
+        job_id: UUID,
+        target: str,
+        *,
+        actor_user_id: str | None = None,
+        actor_type: str | None = None,
+    ) -> BackfillJob:
         job = await self.get(job_id, for_update=True)
         if job is None:
             raise KeyError(str(job_id))
@@ -106,6 +164,19 @@ class BackfillRepository:
         job.state = target
         job.updated_at = datetime.now(tz=UTC)
         await self._session.flush()
+        await self._audit_job(
+            job,
+            _STATE_EVENTS[target],
+            actor_user_id=actor_user_id,
+            actor_type=actor_type,
+            status=(
+                "failed"
+                if target == "failed"
+                else "cancelled"
+                if target == "cancelled"
+                else "success"
+            ),
+        )
         return job
 
     async def initialize_discovery(
@@ -123,6 +194,7 @@ class BackfillRepository:
             job.last_error = "uidvalidity_changed"
             job.updated_at = datetime.now(tz=UTC)
             await self._session.flush()
+            await self._audit_job(job, "backfill_failed", status="failed")
             raise BackfillStateError("uidvalidity_changed")
         job.uidvalidity = uidvalidity
         job.total_discovered = max(job.total_discovered, total_discovered)
