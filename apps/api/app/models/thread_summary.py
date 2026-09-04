@@ -5,7 +5,18 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, uuid_pk
@@ -14,7 +25,9 @@ from app.models.base import Base, uuid_pk
 class ThreadSummary(Base):
     __tablename__ = "thread_summaries"
     __table_args__ = (
-        UniqueConstraint("account_id", "thread_id", name="uq_thread_summary_account_thread"),
+        UniqueConstraint(
+            "account_id", "thread_id", name="uq_thread_summary_account_thread"
+        ),
         Index("ix_thread_summary_subject", "account_id", "subject_key"),
         Index("ix_thread_summary_last_message", "account_id", "last_message_id"),
     )
@@ -32,7 +45,9 @@ class ThreadSummary(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     message_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    participants: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    participants: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
     open_action_required: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )

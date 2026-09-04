@@ -22,7 +22,7 @@ from mailflow_core.resilience import (
     RetryPolicy,
     retry_with_backoff,
 )
-from mailflow_core.types import ClassificationResult, DraftRequest, ParsedEmail, ThreadSummaryUpdate
+from mailflow_core.types import DraftRequest, ParsedEmail, ThreadSummaryUpdate
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app import oauth

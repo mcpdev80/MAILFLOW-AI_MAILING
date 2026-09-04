@@ -32,7 +32,9 @@ def upgrade() -> None:
         sa.Column("account_id", sa.UUID(), nullable=False),
         sa.Column("thread_id", sa.String(length=500), nullable=False),
         sa.Column("summary", sa.Text(), nullable=False, server_default=""),
-        sa.Column("subject_key", sa.String(length=500), nullable=False, server_default=""),
+        sa.Column(
+            "subject_key", sa.String(length=500), nullable=False, server_default=""
+        ),
         sa.Column("last_message_id", sa.String(length=500), nullable=True),
         sa.Column(
             "last_updated",

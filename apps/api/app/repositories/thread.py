@@ -17,7 +17,9 @@ class ThreadRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_thread(self, account_id: UUID, thread_id: str) -> ThreadSummary | None:
+    async def get_thread(
+        self, account_id: UUID, thread_id: str
+    ) -> ThreadSummary | None:
         return await self._session.scalar(
             select(ThreadSummary).where(
                 ThreadSummary.account_id == account_id,

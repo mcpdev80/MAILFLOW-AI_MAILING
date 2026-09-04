@@ -131,22 +131,27 @@ async def test_run_mark_before_move(
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
-    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=42)]
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=42)
+    ]
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     call_order: list[str] = []
-    MockProvider.return_value.mark_as_processed.side_effect = lambda uid: call_order.append(
-        f"mark:{uid}"
+    MockProvider.return_value.mark_as_processed.side_effect = lambda uid: (
+        call_order.append(f"mark:{uid}")
     )
-    MockProvider.return_value.move_email.side_effect = lambda uid, dest: call_order.append(
-        f"move:{uid}"
+    MockProvider.return_value.move_email.side_effect = lambda uid, dest: (
+        call_order.append(f"move:{uid}")
     )
 
     result = await CycleService(make_sf()).run(ACCOUNT_ID)
 
     assert result.emails_processed == 1
     assert call_order == ["mark:42", "move:42"]
-    assert MockCycleRepo.return_value.insert_processed.call_args.kwargs["thread_id"] == "thread-1"
+    assert (
+        MockCycleRepo.return_value.insert_processed.call_args.kwargs["thread_id"]
+        == "thread-1"
+    )
 
 
 @patch("app.services.cycle.ThreadRepository")
@@ -244,7 +249,9 @@ async def test_run_draft_bytes_passed_to_save_draft(
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
-    MockProvider.return_value.fetch_unprocessed_emails.return_value = [make_email(uid=55)]
+    MockProvider.return_value.fetch_unprocessed_emails.return_value = [
+        make_email(uid=55)
+    ]
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
     mock_generate_client = MagicMock()
