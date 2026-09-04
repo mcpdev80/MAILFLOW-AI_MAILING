@@ -11,6 +11,7 @@ from mailflow_core.email_parser import EmailParser
 from mailflow_core.providers.imap_generic import ImapGenericProvider
 
 from app import oauth
+from app.config import settings
 from app.crypto import decrypt_secret
 from app.repositories.account import AccountRepository
 from app.repositories.backfill import BackfillRepository, BackfillStateError
@@ -166,7 +167,7 @@ class BulkBackfillService:
                             classification_stage=None,
                             error=safe_error,
                         )
-                        if failure.attempts < 3:
+                        if failure.attempts < settings.BACKFILL_MAX_ATTEMPTS:
                             await session.commit()
                             yielded_for_retry = True
                             break
