@@ -1,4 +1,4 @@
-"""Smoke test del worker ARQ — verifica configuración sin arrancar Redis."""
+"""ARQ worker smoke tests without starting Redis."""
 
 
 def test_worker_settings_queue_name():
@@ -13,12 +13,11 @@ def test_worker_settings_has_process_function():
     assert process_account_cycle in WorkerSettings.functions
 
 
-def test_worker_settings_has_cron():
-    from worker.main import WorkerSettings, schedule_cycles
+def test_worker_settings_has_expected_cron_jobs():
+    from worker.main import WorkerSettings, cleanup_lifecycle_history, schedule_cycles
 
-    assert len(WorkerSettings.cron_jobs) == 1
-    cron_job = WorkerSettings.cron_jobs[0]
-    assert cron_job.coroutine is schedule_cycles
+    coroutines = {job.coroutine for job in WorkerSettings.cron_jobs}
+    assert coroutines == {schedule_cycles, cleanup_lifecycle_history}
 
 
 def test_worker_settings_has_retry_and_timeout():
