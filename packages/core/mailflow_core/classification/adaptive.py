@@ -1,7 +1,9 @@
 """Adaptive multi-stage classification orchestration.
 
 The classifier starts with headers only and requests progressively more cleaned body
-content only when the previous result is not reliable enough.
+content only when the previous result is not reliable enough. Attachment content is an
+optional final escalation and is never loaded on the normal fast path unless a strong
+attachment signal is present.
 """
 
 from __future__ import annotations
@@ -10,10 +12,16 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Protocol
 
+from mailflow_core.attachments import (
+    ExtractedAttachment,
+    is_high_signal_attachment,
+    should_inspect_attachments,
+)
 from mailflow_core.mail_auth import auth_signals_block_memory_reuse
 from mailflow_core.types import ClassificationResult, ParsedEmail
 
 BodyLoader = Callable[[int | None], ParsedEmail]
+AttachmentLoader = Callable[[ParsedEmail], tuple[ExtractedAttachment, ...]]
 
 
 class DecisionMemoryLookup(Protocol):
@@ -68,6 +76,7 @@ class AdaptiveClassifier:
         thread_summary: str | None,
         body_loader: BodyLoader,
         supporting_signal: ClassificationResult | None = None,
+        attachment_loader: AttachmentLoader | None = None,
     ) -> AdaptiveClassificationOutcome:
         if self._memory is not None and not auth_signals_block_memory_reuse(
             headers_only.auth_signals
@@ -101,7 +110,65 @@ class AdaptiveClassifier:
                 classification_stage=stage,
             )
             result = replace(result, classification_stage=stage)
-            if self._is_reliable(result) or stage == 3:
+
+            reliable = self._is_reliable(result)
+            strong_attachment_signal = any(
+                is_high_signal_attachment(item) for item in current.attachments
+            )
+            if reliable and not strong_attachment_signal:
+                return AdaptiveClassificationOutcome(result=result, email=current, stage=stage)
+
+            if attachment_loader is not None and should_inspect_attachments(
+                confidence=result.confidence,
+                confidence_threshold=self._config.confidence_threshold,
+                needs_more_context=result.needs_more_context,
+                body_text=current.body_text,
+                attachments=current.attachments,
+            ):
+                extracted = attachment_loader(current)
+                used = tuple(item for item in extracted if item.status == "used" and item.text)
+                if used:
+                    attachment_text = "\n\n".join(item.prompt_block() for item in used)
+                    attachment_email = replace(
+                        current,
+                        body_text=(
+                            f"{current.body_text}\n\n" if current.body_text else ""
+                        )
+                        + "BEGIN_UNTRUSTED_ATTACHMENT_CONTEXT\n"
+                        + attachment_text
+                        + "\nEND_UNTRUSTED_ATTACHMENT_CONTEXT",
+                    )
+                    attachment_result = self._llm.classify(
+                        attachment_email,
+                        thread_summary=thread_summary,
+                        supporting_signal=supporting_signal,
+                        previous_result=result,
+                        classification_stage=3,
+                    )
+                    attachment_result = replace(
+                        attachment_result,
+                        classification_stage=3,
+                        attachment_context_used=True,
+                        attachment_types_used=tuple(
+                            dict.fromkeys(item.metadata.mime_type for item in used)
+                        ),
+                        attachment_extraction_status="used",
+                    )
+                    return AdaptiveClassificationOutcome(
+                        result=attachment_result,
+                        email=current,
+                        stage=3,
+                    )
+
+                status = "failed" if any(item.status == "failed" for item in extracted) else "skipped"
+                errors = [item.error for item in extracted if item.error]
+                result = replace(
+                    result,
+                    attachment_extraction_status=status,
+                    attachment_extraction_error="; ".join(errors)[:300] or None,
+                )
+
+            if reliable or stage == 3:
                 return AdaptiveClassificationOutcome(result=result, email=current, stage=stage)
             previous_result = result
 
