@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from mailflow_core.types import ClassificationResult
+from mailflow_core.types import ClassificationResult, MailAuthSignals
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,6 +58,7 @@ class CycleRepository:
         subject: str,
         destination_folder: str,
         classification: ClassificationResult,
+        auth_signals: MailAuthSignals,
         draft_saved: bool,
         cycle_id: UUID,
     ) -> bool:
@@ -91,6 +92,12 @@ class CycleRepository:
                 reason=classification.reason,
                 classification_stage=classification.classification_stage,
                 classification_model=classification.classification_model,
+                auth_spf=auth_signals.spf,
+                auth_dkim=auth_signals.dkim,
+                auth_dmarc=auth_signals.dmarc,
+                auth_arc=auth_signals.arc,
+                spam_verdict=auth_signals.spam_verdict,
+                spam_score=auth_signals.spam_score,
                 method=classification.method,
                 draft_saved=draft_saved,
                 cycle_id=cycle_id,
