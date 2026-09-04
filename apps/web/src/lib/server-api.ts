@@ -19,6 +19,7 @@ interface ActorIdentity {
   orgId: string;
   authOrgId: string;
   role: string;
+  authTime: number;
 }
 
 export type KeyResolution =
@@ -108,6 +109,11 @@ export async function resolveApiKey(
     };
   }
 
+  const authTime = Math.floor(new Date(session.session.createdAt).getTime() / 1000);
+  if (!Number.isFinite(authTime)) {
+    return { ok: false, status: 401, error: "invalid_session_timestamp" };
+  }
+
   return {
     ok: true,
     apiKey: decryptSecret(meta.mf_api_key_enc),
@@ -116,6 +122,7 @@ export async function resolveApiKey(
       orgId: meta.mf_org_id,
       authOrgId,
       role,
+      authTime,
     },
   };
 }
@@ -134,6 +141,7 @@ export function actorHeaders(
   }
 
   const timestamp = Math.floor(Date.now() / 1000).toString();
+  const authTime = actor.authTime.toString();
   const payload = [
     method.toUpperCase(),
     path,
@@ -141,6 +149,7 @@ export function actorHeaders(
     actor.orgId,
     actor.authOrgId,
     actor.role,
+    authTime,
     timestamp,
   ].join("\n");
   const signature = createHmac("sha256", secret).update(payload).digest("hex");
@@ -150,6 +159,7 @@ export function actorHeaders(
     "X-MailFlow-Actor-Org-Id": actor.orgId,
     "X-MailFlow-Actor-Auth-Org-Id": actor.authOrgId,
     "X-MailFlow-Actor-Role": actor.role,
+    "X-MailFlow-Actor-Auth-Time": authTime,
     "X-MailFlow-Actor-Timestamp": timestamp,
     "X-MailFlow-Actor-Signature": signature,
   };

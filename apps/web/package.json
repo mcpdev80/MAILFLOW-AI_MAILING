@@ -12,6 +12,7 @@
     "auth:migrate": "WEB_AUTH=on better-auth migrate --config src/lib/auth.ts -y"
   },
   "dependencies": {
+    "@better-auth/passkey": "1.6.18",
     "better-auth": "1.6.18",
     "next": "15.1.3",
     "pg": "^8.21.0",

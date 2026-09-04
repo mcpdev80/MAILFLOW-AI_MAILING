@@ -29,6 +29,14 @@ create table if not exists "member" ("id" text not null primary key, "organizati
 
 create table if not exists "invitation" ("id" text not null primary key, "organizationId" text not null references "organization" ("id") on delete cascade, "email" text not null, "role" text, "status" text not null, "expiresAt" timestamptz not null, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "inviterId" text not null references "user" ("id") on delete cascade);
 
+-- Better Auth passkey plugin. Only public WebAuthn credential data is stored;
+-- the private key remains on the authenticator/device.
+create table if not exists "passkey" ("id" text not null primary key, "name" text, "publicKey" text not null, "userId" text not null references "user" ("id") on delete cascade, "credentialID" text not null, "counter" integer not null, "deviceType" text not null, "backedUp" boolean not null, "transports" text, "createdAt" timestamptz, "aaguid" text);
+
+-- Compact audit of meaningful authentication-method changes. Login events and
+-- WebAuthn challenges/credential payloads are intentionally not persisted here.
+create table if not exists "auth_security_event" ("id" text not null primary key, "userId" text not null references "user" ("id") on delete cascade, "event" text not null, "createdAt" timestamptz default CURRENT_TIMESTAMP not null);
+
 create index if not exists "session_userId_idx" on "session" ("userId");
 
 create index if not exists "account_userId_idx" on "account" ("userId");
@@ -44,3 +52,9 @@ create index if not exists "member_userId_idx" on "member" ("userId");
 create index if not exists "invitation_organizationId_idx" on "invitation" ("organizationId");
 
 create index if not exists "invitation_email_idx" on "invitation" ("email");
+
+create index if not exists "passkey_userId_idx" on "passkey" ("userId");
+
+create index if not exists "passkey_credentialID_idx" on "passkey" ("credentialID");
+
+create index if not exists "auth_security_event_userId_idx" on "auth_security_event" ("userId");

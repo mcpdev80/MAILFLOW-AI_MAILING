@@ -31,21 +31,23 @@ from app.models.organization import Organization
 DEFAULT_ORG_SLUG = "default"
 API_KEY_PREFIX = "mf_"
 ACTOR_HEADER_TTL_SECONDS = 60
+RECENT_AUTH_MAX_AGE_SECONDS = 10 * 60
 
 
 @dataclass(frozen=True)
 class RequestIdentity:
     """Authenticated tenant plus optional human actor.
 
-    ``user_id`` is the stable Better Auth user id. ``auth_org_id`` and ``role``
-    describe the membership that produced the active organization session. They
-    are signed by the trusted web BFF together with the MailFlow organization id.
+    ``auth_time`` is the Better Auth session creation timestamp signed by the web
+    BFF. It is used only for explicit step-up checks on sensitive operations and
+    never broadens the actor's normal authorization.
     """
 
     org: Organization
     user_id: str | None
     auth_org_id: str | None = None
     role: str | None = None
+    auth_time: int | None = None
 
 
 def hash_api_key(raw_key: str) -> str:
@@ -79,19 +81,18 @@ def actor_signature_payload(
     auth_org_id: str,
     role: str,
     timestamp: int | str,
+    auth_time: int | str | None = None,
 ) -> bytes:
-    """Build the canonical payload signed by the trusted web BFF."""
-    return "\n".join(
-        [
-            method.upper(),
-            path,
-            user_id,
-            str(org_id),
-            auth_org_id,
-            role,
-            str(timestamp),
-        ]
-    ).encode("utf-8")
+    """Build the canonical payload signed by the trusted web BFF.
+
+    ``auth_time`` is optional only for rolling compatibility with pre-passkey BFF
+    requests. Sensitive endpoints reject identities that do not carry it.
+    """
+    fields = [method.upper(), path, user_id, str(org_id), auth_org_id, role]
+    if auth_time is not None:
+        fields.append(str(auth_time))
+    fields.append(str(timestamp))
+    return "\n".join(fields).encode("utf-8")
 
 
 def sign_actor_identity(
@@ -104,15 +105,40 @@ def sign_actor_identity(
     auth_org_id: str,
     role: str,
     timestamp: int,
+    auth_time: int | None = None,
 ) -> str:
     """Return the HMAC signature used for BFF-to-API actor propagation."""
     return hmac.new(
         secret.encode("utf-8"),
         actor_signature_payload(
-            method, path, user_id, org_id, auth_org_id, role, timestamp
+            method,
+            path,
+            user_id,
+            org_id,
+            auth_org_id,
+            role,
+            timestamp,
+            auth_time,
         ),
         hashlib.sha256,
     ).hexdigest()
+
+
+def require_recent_auth(identity: RequestIdentity) -> None:
+    """Require a recently created human-authenticated session in multi-user mode."""
+    if identity.user_id is None:
+        return
+    if identity.auth_time is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="recent_auth_required",
+        )
+    age = int(time.time()) - identity.auth_time
+    if age < 0 or age > RECENT_AUTH_MAX_AGE_SECONDS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="recent_auth_required",
+        )
 
 
 async def _get_or_create_default_org(session: AsyncSession) -> Organization:
@@ -179,6 +205,9 @@ async def require_identity(
         default=None, alias="X-MailFlow-Actor-Auth-Org-Id"
     ),
     actor_role: str | None = Header(default=None, alias="X-MailFlow-Actor-Role"),
+    actor_auth_time: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Auth-Time"
+    ),
     actor_timestamp: str | None = Header(
         default=None, alias="X-MailFlow-Actor-Timestamp"
     ),
@@ -188,11 +217,8 @@ async def require_identity(
 ) -> RequestIdentity:
     """Resolve a trusted human actor for mailbox-scoped authorization.
 
-    In multi-user mode the browser never supplies these headers directly. The
-    web BFF derives membership from the Better Auth server-side session and signs
-    it with ``INTERNAL_API_SECRET``. Binding the signature to method, path,
-    tenant, Better Auth organization, role and a short timestamp prevents an
-    organization API key holder from forging another member or role.
+    The signed authentication time allows sensitive endpoints to require recent
+    authentication without trusting a browser-provided timestamp.
     """
     if settings.AUTH_MODE != "multi":
         return RequestIdentity(org=org, user_id=None)
@@ -219,6 +245,7 @@ async def require_identity(
         )
 
     try:
+        auth_time = int(actor_auth_time) if actor_auth_time is not None else None
         timestamp = int(actor_timestamp)
         signed_org_id = UUID(actor_org_id)
     except (TypeError, ValueError) as exc:
@@ -249,6 +276,7 @@ async def require_identity(
         auth_org_id=actor_auth_org_id,
         role=actor_role,
         timestamp=timestamp,
+        auth_time=auth_time,
     )
     if not hmac.compare_digest(actor_signature, expected):
         raise HTTPException(
@@ -261,4 +289,5 @@ async def require_identity(
         user_id=actor_user_id,
         auth_org_id=actor_auth_org_id,
         role=actor_role,
+        auth_time=auth_time,
     )

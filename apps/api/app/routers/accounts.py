@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import RequestIdentity, require_identity
+from app.auth import RequestIdentity, require_identity, require_recent_auth
 from app.crypto import encrypt_secret
 from app.database import get_session
 from app.mailbox_access import (
@@ -213,6 +213,7 @@ async def replace_shared_mailbox_access(
     session: AsyncSession = Depends(get_session),
 ) -> list[MailboxAccess]:
     account = await get_account_for_management(account_id, identity, session)
+    require_recent_auth(identity)
     if account.ownership_mode != OWNERSHIP_SHARED:
         raise HTTPException(status_code=409, detail="mailbox_not_shared")
 
@@ -240,6 +241,7 @@ async def change_mailbox_ownership(
     session: AsyncSession = Depends(get_session),
 ) -> EmailAccount:
     account = await get_account_for_management(account_id, identity, session)
+    require_recent_auth(identity)
 
     if identity.user_id is None:
         if payload.mode != OWNERSHIP_SHARED:
@@ -294,5 +296,6 @@ async def delete_account(
     session: AsyncSession = Depends(get_session),
 ) -> None:
     account = await get_account_for_management(account_id, identity, session)
+    require_recent_auth(identity)
     await session.delete(account)
     await session.commit()
