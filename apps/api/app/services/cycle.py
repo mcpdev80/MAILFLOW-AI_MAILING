@@ -351,8 +351,7 @@ async def _process_one(
         current_thread = await thread_repo.get_thread(account.id, thread_id)
         if current_thread is None:
             raise RuntimeError("resolved_thread_missing")
-        await thread_repo.apply_message(current_thread, parsed, summary_update)
-        await CycleRepository(session).insert_processed(
+        inserted = await CycleRepository(session).insert_processed(
             account_id=account.id,
             uid=email_data.uid,
             folder=account.inbox_folder,
@@ -366,6 +365,8 @@ async def _process_one(
             draft_saved=draft_saved,
             cycle_id=cycle_id,
         )
+        if inserted:
+            await thread_repo.apply_message(current_thread, parsed, summary_update)
         await session.commit()
 
     stats["emails"] += 1
