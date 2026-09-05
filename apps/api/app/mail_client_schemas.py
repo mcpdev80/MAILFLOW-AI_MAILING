@@ -127,3 +127,11 @@ class MailActionResult(BaseModel):
     action: MailActionName
     applied: bool
     destination_folder: str | None = None
+
+
+class MoveUndoRequest(BaseModel):
+    """Undo a move using stable Message-ID rather than the pre-move IMAP UID."""
+
+    message_id: str = Field(min_length=1, max_length=1000)
+    current_folder: str = Field(min_length=1, max_length=500)
+    original_folder: str = Field(min_length=1, max_length=500)

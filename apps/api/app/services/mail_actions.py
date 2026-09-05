@@ -13,6 +13,7 @@ from app.mail_client_schemas import (
     MailActionResult,
     MailboxCapabilities,
     MailboxFolderView,
+    MoveUndoRequest,
 )
 from app.mailbox_access import get_accessible_account
 from app.services.mail_client import _build_provider
@@ -178,6 +179,56 @@ async def perform_mail_action(
                 raise MailActionError("action_not_supported")
 
             return MailActionResult(action=action, applied=True)
+        finally:
+            provider.disconnect()
+
+    return await asyncio.to_thread(apply)
+
+
+async def undo_mail_move(
+    session: AsyncSession,
+    identity: RequestIdentity,
+    *,
+    account_id: UUID,
+    request: MoveUndoRequest,
+) -> MailActionResult:
+    """Move a message back after an IMAP move without trusting its old UID."""
+    account = await get_accessible_account(account_id, identity, session)
+    provider = await _build_provider(account)
+
+    def apply() -> MailActionResult:
+        provider.connect()
+        try:
+            folders = provider.list_folders()
+            selectable = {item.name for item in folders if item.selectable}
+            if request.current_folder not in selectable:
+                raise MailActionError("folder_not_found")
+            if request.original_folder not in selectable:
+                raise MailActionError("destination_folder_not_found")
+            capabilities = provider.capabilities()
+            if not capabilities.move or not capabilities.restore:
+                raise MailActionError("action_not_supported")
+            current = provider.find_message(
+                request.message_id,
+                folders=[request.current_folder],
+            )
+            if current is None:
+                raise MailActionError("message_not_found")
+            current_folder, current_uid = current
+            if (
+                current_folder != request.original_folder
+                and not provider.move_from_folder(
+                    current_folder,
+                    current_uid,
+                    request.original_folder,
+                )
+            ):
+                raise MailActionError("action_failed")
+            return MailActionResult(
+                action="restore",
+                applied=True,
+                destination_folder=request.original_folder,
+            )
         finally:
             provider.disconnect()
 

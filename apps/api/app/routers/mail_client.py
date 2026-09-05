@@ -16,6 +16,7 @@ from app.mail_client_schemas import (
     MailboxCapabilities,
     MailboxFolderView,
     MessageDetail,
+    MoveUndoRequest,
     ThreadView,
     UnifiedInbox,
 )
@@ -23,6 +24,7 @@ from app.services.mail_actions import (
     MailActionError,
     mailbox_metadata,
     perform_mail_action,
+    undo_mail_move,
 )
 from app.services.mail_client import (
     download_attachment,
@@ -32,6 +34,18 @@ from app.services.mail_client import (
 )
 
 router = APIRouter(prefix="/mail-client", tags=["mail-client"])
+
+
+def _action_http_error(exc: MailActionError) -> HTTPException:
+    detail = str(exc)
+    status_code = (
+        422
+        if detail in {"action_not_supported", "destination_folder_not_found"}
+        else 502
+    )
+    if detail in {"folder_not_found", "message_not_found"}:
+        status_code = 404
+    return HTTPException(status_code=status_code, detail=detail)
 
 
 @router.get("/inbox", response_model=UnifiedInbox)
@@ -143,15 +157,30 @@ async def message_action(
             request=payload,
         )
     except MailActionError as exc:
-        detail = str(exc)
-        status_code = (
-            422
-            if detail in {"action_not_supported", "destination_folder_not_found"}
-            else 502
+        raise _action_http_error(exc) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post(
+    "/accounts/{account_id}/moves/undo",
+    response_model=MailActionResult,
+)
+async def undo_move(
+    account_id: UUID,
+    payload: MoveUndoRequest,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> MailActionResult:
+    try:
+        return await undo_mail_move(
+            session,
+            identity,
+            account_id=account_id,
+            request=payload,
         )
-        if detail == "folder_not_found":
-            status_code = 404
-        raise HTTPException(status_code=status_code, detail=detail) from exc
+    except MailActionError as exc:
+        raise _action_http_error(exc) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
