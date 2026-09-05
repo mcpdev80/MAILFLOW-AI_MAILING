@@ -19,6 +19,8 @@ import type {
   PreSendCheck,
   SendResult,
   SharedMailboxAccess,
+  WritingPreview,
+  WritingRequest,
 } from "./types";
 
 export class ApiError extends Error {
@@ -116,6 +118,11 @@ export const api = {
   removeDraftAttachment: (draftId: string, attachmentId: string) =>
     request<void>(`/mail/drafts/${draftId}/attachments/${attachmentId}`, {
       method: "DELETE",
+    }),
+  previewWriting: (draftId: string, payload: WritingRequest) =>
+    request<WritingPreview>(`/mail/drafts/${draftId}/ai/preview`, {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
   preSendCheck: (id: string) =>
     request<PreSendCheck>(`/mail/drafts/${id}/pre-send`),
