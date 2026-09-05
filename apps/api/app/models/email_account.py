@@ -6,6 +6,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -47,10 +48,7 @@ class EmailAccount(Base):
     org_id: Mapped[UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE")
     )
-    # Stable Better Auth user id for private mailboxes. Deliberately no FK: the
-    # Better Auth tables are managed by the web app, although they share the DB.
     owner_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # ``unresolved`` is migration-only and fails closed in multi-user mode.
     ownership_mode: Mapped[str] = mapped_column(
         String(20), default="unresolved", server_default="unresolved"
     )
@@ -59,9 +57,7 @@ class EmailAccount(Base):
     imap_port: Mapped[int] = mapped_column(Integer, default=993)
     use_ssl: Mapped[bool] = mapped_column(Boolean, default=True)
     username: Mapped[str] = mapped_column(String(255))
-    # Encrypted IMAP password for password-based accounts. Null for OAuth.
     encrypted_credentials: Mapped[str | None] = mapped_column(String, nullable=True)
-    # Encrypted OAuth refresh token for Gmail/Microsoft accounts.
     encrypted_oauth: Mapped[str | None] = mapped_column(String, nullable=True)
     inbox_folder: Mapped[str] = mapped_column(String(255), default="INBOX")
     unclassified_folder: Mapped[str] = mapped_column(
@@ -77,9 +73,6 @@ class EmailAccount(Base):
         ForeignKey("llm_providers.id", ondelete="SET NULL"), nullable=True
     )
 
-    # Side-effect policy stays independent from semantic classification. Delete
-    # and send remain explicit-approval-only and therefore are not configurable
-    # as automatic actions here.
     move_policy: Mapped[str] = mapped_column(
         String(16), default="automatic", server_default="automatic"
     )
@@ -90,11 +83,17 @@ class EmailAccount(Base):
         Float, default=0.85, server_default="0.85"
     )
 
+    # Language-neutral internal IDs mapped to provider folder/tag names and
+    # semantic category/subcategory routes. Provider names are never rewritten
+    # automatically when the UI language changes.
+    structure_config: Mapped[dict] = mapped_column(
+        JSON, default=dict, server_default="{}"
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    # Never auto-loaded; AccountRepository.get_full_config opts in explicitly.
     llm_provider: Mapped[LLMProvider | None] = relationship(
         "LLMProvider",
         foreign_keys=[llm_provider_id],
