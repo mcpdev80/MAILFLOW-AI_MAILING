@@ -1,5 +1,6 @@
 """Re-export models so Alembic can discover them through Base.metadata."""
 
+from app.models.attention import NotificationEvent, NotificationPreference
 from app.models.audit_log import AuditLog
 from app.models.backfill import BackfillFailure, BackfillJob
 from app.models.base import Base
@@ -31,6 +32,8 @@ __all__ = [
     "LifecycleEvent",
     "LLMProvider",
     "MailboxAccess",
+    "NotificationEvent",
+    "NotificationPreference",
     "Organization",
     "OutboundDraft",
     "OutboundDraftAttachment",
