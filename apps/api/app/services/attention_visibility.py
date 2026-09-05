@@ -115,25 +115,13 @@ async def dismiss_message_review(
     return True
 
 
-async def filter_notification_center(
+async def apply_active_notification_counters(
     session: AsyncSession,
     identity: RequestIdentity,
     center: NotificationCenter,
 ) -> NotificationCenter:
-    dismissed = await dismissed_message_ids(session, identity)
-    if dismissed:
-        center.notifications = [
-            item
-            for item in center.notifications
-            if not (
-                item.metadata.get("message_id") in {str(value) for value in dismissed}
-                or item.id in dismissed
-            )
-        ]
-    unread = sum(1 for item in center.notifications if item.read_at is None)
-    center.unread = unread
     center.counters = await active_counters(
-        session, identity, unread_notifications=unread
+        session, identity, unread_notifications=center.unread
     )
     return center
 
