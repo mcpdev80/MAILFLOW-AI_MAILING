@@ -162,6 +162,17 @@ class ImapMailClientProvider(ImapGenericProvider):
         body_text, body_html = self._extract_message_body(raw)
         return replace(parsed, body_text=body_text, body_html=body_html)
 
+    def find_message(self, message_id: str, folders: list[str] | None = None) -> tuple[str, int] | None:
+        if not message_id:
+            return None
+        candidates = folders or [item.name for item in self.list_folders() if item.selectable]
+        for folder in candidates:
+            self._client.select_folder(folder, readonly=True)
+            uids = self._client.search(["HEADER", "Message-ID", message_id])
+            if uids:
+                return folder, max(int(uid) for uid in uids)
+        return None
+
     @staticmethod
     def _extract_message_body(raw: bytes) -> tuple[str, str]:
         from mailflow_core.providers.imap_generic import _extract_body
