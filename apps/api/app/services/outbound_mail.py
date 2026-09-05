@@ -160,9 +160,12 @@ def smtp_config_for_account(account: EmailAccount) -> SMTPConfig:
             oauth_access_token=access_token,
         )
 
-    if not account.encrypted_credentials:
+    encrypted_secret = (
+        account.encrypted_smtp_credentials or account.encrypted_credentials
+    )
+    if not encrypted_secret:
         raise OutboundMailError("smtp_credentials_missing")
-    secret = decrypt_secret(account.encrypted_credentials)
+    secret = decrypt_secret(encrypted_secret)
     password = secret.get("password")
     if not isinstance(password, str) or not password:
         raise OutboundMailError("smtp_credentials_missing")
@@ -198,6 +201,10 @@ def _send_sync(
     recipients: list[str],
 ) -> None:
     context = ssl.create_default_context()
+    _display, envelope_from = parseaddr(str(message["From"]))
+    if not envelope_from:
+        raise OutboundMailError("invalid_sender")
+
     if config.security == "ssl":
         with smtplib.SMTP_SSL(
             config.host,
@@ -209,7 +216,7 @@ def _send_sync(
             _authenticate(client, config)
             client.send_message(
                 message,
-                from_addr=config.username,
+                from_addr=envelope_from,
                 to_addrs=recipients,
             )
         return
@@ -222,7 +229,7 @@ def _send_sync(
         _authenticate(client, config)
         client.send_message(
             message,
-            from_addr=config.username,
+            from_addr=envelope_from,
             to_addrs=recipients,
         )
 
@@ -235,7 +242,7 @@ async def send_draft(account: EmailAccount, draft: OutboundDraft) -> str:
     """
     message = build_message(account, draft)
     recipients = [
-        normalized_address(value)
+        parseaddr(normalized_address(value))[1]
         for value in (
             *draft.to_recipients,
             *draft.cc_recipients,
