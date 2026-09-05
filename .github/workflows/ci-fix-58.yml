@@ -1,0 +1,61 @@
+name: CI Fix Issue 58
+
+on:
+  push:
+    branches: [feat/58-unified-inbox]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, 'style: automated issue 58 fixes') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          python-version: '3.13'
+      - run: pnpm install --frozen-lockfile
+      - name: Replace unsafe HTML rendering
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/app/app/mail/page.tsx')
+          text = path.read_text()
+          old = '''<div
+                        className="mailBody"
+                        // The API strips active content, remote images, styles and unsafe attributes.
+                        dangerouslySetInnerHTML={{ __html: message.safe_html }}
+                      />'''
+          new = '''<iframe
+                        className="mailBodyFrame"
+                        sandbox=""
+                        srcDoc={message.safe_html}
+                        title={`Message from ${message.from_email}`}
+                      />'''
+          if old not in text:
+              raise SystemExit('expected HTML rendering block not found')
+          path.write_text(text.replace(old, new))
+          PY
+      - run: pnpm biome check --write apps/web/src/lib/api.ts apps/web/src/app/app/mail/page.tsx
+      - run: uv run ruff check --fix packages/core/mailflow_core/providers/imap_mail_client.py apps/api/tests/unit/test_mail_client_services.py
+      - run: uv run ruff format packages/core/mailflow_core/providers/imap_mail_client.py apps/api/tests/unit/test_mail_client_services.py
+      - name: Commit fixes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/src/lib/api.ts apps/web/src/app/app/mail/page.tsx packages/core/mailflow_core/providers/imap_mail_client.py apps/api/tests/unit/test_mail_client_services.py
+          if git diff --cached --quiet; then
+            echo 'No fixes needed'
+          else
+            git commit -m 'style: automated issue 58 fixes'
+            git push
+          fi
