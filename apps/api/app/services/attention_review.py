@@ -10,6 +10,7 @@ from app.attention_schemas import ReviewInbox
 from app.auth import RequestIdentity
 from app.services.attention import list_review_items
 from app.services.attention_operational import list_operational_review_items
+from app.services.attention_visibility import active_counters, dismissed_message_ids
 
 
 async def build_review_inbox(
@@ -35,6 +36,12 @@ async def build_review_inbox(
         ownership_mode=ownership_mode,
         limit=limit,
     )
+    dismissed = await dismissed_message_ids(session, identity)
+    if dismissed:
+        message_review.items = [
+            item for item in message_review.items if item.id not in dismissed
+        ]
+
     operational = await list_operational_review_items(session, identity)
     if account_id is not None:
         operational = [item for item in operational if item.account_id == account_id]
@@ -49,6 +56,7 @@ async def build_review_inbox(
 
     operational = operational[:limit]
     message_review.operational = operational
+    message_review.counters = await active_counters(session, identity)
     message_review.counters.review_needed += len(operational)
     message_review.counters.failures += sum(
         1 for item in operational if item.status == "failed"
