@@ -96,9 +96,6 @@ class EmailAccount(Base):
         Float, default=0.85, server_default="0.85"
     )
 
-    # Language-neutral internal IDs mapped to provider folder/tag names and
-    # semantic category/subcategory routes. Provider names are never rewritten
-    # automatically when the UI language changes.
     structure_config: Mapped[dict] = mapped_column(
         JSON, default=dict, server_default="{}"
     )
@@ -112,3 +109,8 @@ class EmailAccount(Base):
         foreign_keys=[llm_provider_id],
         lazy="noload",
     )
+
+    @property
+    def has_smtp_password(self) -> bool:
+        """Expose only whether a separate SMTP secret is configured."""
+        return bool(self.encrypted_smtp_credentials)
