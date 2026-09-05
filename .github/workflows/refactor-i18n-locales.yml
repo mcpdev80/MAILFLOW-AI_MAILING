@@ -24,28 +24,33 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path('apps/web/src/lib/i18n.tsx')
           text = path.read_text()
 
-          en_match = re.search(r'const en = (\{.*?\n\}) as const;\n\nexport type TranslationKey = keyof typeof en;', text, re.S)
-          de_match = re.search(r'const de: Partial<Record<TranslationKey, string>> = (\{.*?\n\});\n\nconst es:', text, re.S)
-          es_match = re.search(r'const es: Partial<Record<TranslationKey, string>> = (\{.*?\n\});\n\nconst translations', text, re.S)
-          if not (en_match and de_match and es_match):
-              raise SystemExit('translation catalog blocks not found')
+          en_start = text.index('const en = ')
+          type_start = text.index('export type TranslationKey = keyof typeof en;')
+          de_start = text.index('const de: Partial<Record<TranslationKey, string>> = ')
+          es_start = text.index('const es: Partial<Record<TranslationKey, string>> = ')
+          catalogs_start = text.index('const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = ')
+
+          en_raw = text[en_start:type_start].strip()
+          de_raw = text[de_start:es_start].strip()
+          es_raw = text[es_start:catalogs_start].strip()
+
+          en_body = en_raw.removeprefix('const en = ').removesuffix(';')
+          de_body = de_raw.removeprefix('const de: Partial<Record<TranslationKey, string>> = ').removesuffix(';')
+          es_body = es_raw.removeprefix('const es: Partial<Record<TranslationKey, string>> = ').removesuffix(';')
 
           locale_dir = Path('apps/web/src/lib/locales')
           locale_dir.mkdir(parents=True, exist_ok=True)
-          locale_dir.joinpath('en.ts').write_text('export const en = ' + en_match.group(1) + ' as const;\n')
+          locale_dir.joinpath('en.ts').write_text('export const en = ' + en_body + ';\n')
           locale_dir.joinpath('types.ts').write_text('import { en } from "./en";\n\nexport type TranslationKey = keyof typeof en;\n')
-          locale_dir.joinpath('de.ts').write_text('import type { TranslationKey } from "./types";\n\nexport const de: Partial<Record<TranslationKey, string>> = ' + de_match.group(1) + ';\n')
-          locale_dir.joinpath('es.ts').write_text('import type { TranslationKey } from "./types";\n\nexport const es: Partial<Record<TranslationKey, string>> = ' + es_match.group(1) + ';\n')
+          locale_dir.joinpath('de.ts').write_text('import type { TranslationKey } from "./types";\n\nexport const de: Partial<Record<TranslationKey, string>> = ' + de_body + ';\n')
+          locale_dir.joinpath('es.ts').write_text('import type { TranslationKey } from "./types";\n\nexport const es: Partial<Record<TranslationKey, string>> = ' + es_body + ';\n')
 
-          start = text.index('const en = ')
-          end = text.index('const translations')
           imports = 'import { de } from "./locales/de";\nimport { en } from "./locales/en";\nimport { es } from "./locales/es";\nimport type { TranslationKey } from "./locales/types";\n\n'
-          text = text[:start] + imports + text[end:]
+          text = text[:en_start] + imports + text[catalogs_start:]
           path.write_text(text)
           PY
       - run: pnpm install --frozen-lockfile --ignore-scripts
