@@ -1,0 +1,164 @@
+name: CI Temp
+
+on:
+  push:
+    branches:
+      - issue-48-security-baseline
+
+jobs:
+  lint-python:
+    name: Lint Python (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          python-version: "3.13"
+      - run: uv sync --all-packages
+      - run: uv run ruff check .
+      - name: Check formatting of changed Python files
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
+          if (( ${#files[@]} )); then
+            uv run ruff format --check --diff "${files[@]}"
+          fi
+
+  test-core:
+    name: Test core (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          python-version: "3.13"
+      - run: uv sync --all-packages
+      - run: uv run pytest packages/core/tests/ -m "not integration" --cov=mailflow_core --cov-fail-under=80
+
+  test-api:
+    name: Test api (pytest + Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: mailflow
+          POSTGRES_PASSWORD: mailflow
+          POSTGRES_DB: mailflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mailflow"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          python-version: "3.13"
+      - run: uv sync --all-packages
+      - name: Run api tests
+        working-directory: apps/api
+        env:
+          SECRET_KEY: qdCa5nGhLjd8qY0CCaQP2dE000lbSYDmtPnhzAVeVgs=
+        run: uv run pytest tests -m "not integration" --cov=app --cov-fail-under=70
+
+  lint-ts:
+    name: Lint TypeScript (Biome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pnpm install --frozen-lockfile
+      - name: Check changed web files
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.(js|jsx|ts|tsx|json|jsonc)$' || true)
+          if (( ${#files[@]} )); then
+            pnpm biome check "${files[@]}"
+          fi
+
+  typecheck-ts:
+    name: TypeScript typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  docker-build:
+    name: Docker build check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/Dockerfile.api
+          push: false
+          tags: mailflow-api:ci
+
+  security-deployment:
+    name: Security deployment config
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: qdCa5nGhLjd8qY0CCaQP2dE000lbSYDmtPnhzAVeVgs=
+      MAILFLOW_PUBLIC_URL: https://mail.example.com
+      TLS_CERT_FILE: /tmp/mailflow-cert.pem
+      TLS_KEY_FILE: /tmp/mailflow-key.pem
+      MAILFLOW_CA_BUNDLE: /tmp/mailflow-ca.pem
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create validation-only certificate fixtures
+        run: |
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout /tmp/mailflow-key.pem -out /tmp/mailflow-cert.pem \
+            -subj '/CN=mail.example.com'
+          cp /tmp/mailflow-cert.pem /tmp/mailflow-ca.pem
+      - name: Validate compose variants
+        run: |
+          docker compose -f infrastructure/docker-compose.yml config >/tmp/base.yml
+          docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.custom-tls.yml config >/tmp/custom-tls.yml
+          docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.custom-ca.yml config >/tmp/custom-ca.yml
+      - name: Assert only edge publishes production ports
+        run: |
+          docker compose -f infrastructure/docker-compose.yml config --format json > /tmp/compose.json
+          for service in api web postgres redis worker; do
+            test "$(jq -r --arg s "$service" '.services[$s] | has("ports")' /tmp/compose.json)" = "false"
+          done
+          test "$(jq -r '.services.edge.ports | length' /tmp/compose.json)" = "2"
+          test "$(jq -r '.networks.database.internal' /tmp/compose.json)" = "true"
+          test "$(jq -r '.networks.queue.internal' /tmp/compose.json)" = "true"
+      - name: Validate automatic TLS Caddyfile
+        run: |
+          docker run --rm \
+            -e MAILFLOW_PUBLIC_URL=https://mail.example.com \
+            -v "$PWD/infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+      - name: Validate custom certificate Caddyfile
+        run: |
+          docker run --rm \
+            -e MAILFLOW_PUBLIC_URL=https://mail.example.com \
+            -v "$PWD/infrastructure/caddy/Caddyfile.custom:/etc/caddy/Caddyfile:ro" \
+            -v /tmp/mailflow-cert.pem:/etc/mailflow/tls/fullchain.pem:ro \
+            -v /tmp/mailflow-key.pem:/etc/mailflow/tls/privkey.pem:ro \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
