@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  format-python:
+  format:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -21,14 +21,23 @@ jobs:
         with:
           version: "latest"
           python-version: "3.13"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - run: uv sync --all-packages
-      - name: Format changed Python files
+      - run: pnpm install --frozen-lockfile
+      - name: Format changed files
         shell: bash
         run: |
           base=$(git merge-base HEAD origin/main)
-          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
-          if (( ${#files[@]} )); then
-            uv run ruff format "${files[@]}"
+          mapfile -t pyfiles < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
+          if (( ${#pyfiles[@]} )); then
+            uv run ruff format "${pyfiles[@]}"
+          fi
+          mapfile -t webfiles < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.(js|jsx|ts|tsx|json|jsonc)$' || true)
+          if (( ${#webfiles[@]} )); then
+            pnpm biome format --write "${webfiles[@]}"
           fi
           git restore uv.lock || true
       - name: Commit formatting
