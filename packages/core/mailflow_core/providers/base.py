@@ -136,7 +136,9 @@ class EmailProvider(ABC):
     def fetch_message(self, folder: str, uid: int) -> EmailData:
         raise NotImplementedError("message reading is not supported by this provider")
 
-    def find_message(self, message_id: str, folders: list[str] | None = None) -> tuple[str, int] | None:
+    def find_message(
+        self, message_id: str, folders: list[str] | None = None
+    ) -> tuple[str, int] | None:
         """Resolve a stable Message-ID to the provider's current folder/UID location."""
         raise NotImplementedError("message lookup is not supported by this provider")
 

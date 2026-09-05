@@ -19,7 +19,11 @@ from app.mail_client_schemas import (
     ThreadView,
     UnifiedInbox,
 )
-from app.services.mail_actions import MailActionError, mailbox_metadata, perform_mail_action
+from app.services.mail_actions import (
+    MailActionError,
+    mailbox_metadata,
+    perform_mail_action,
+)
 from app.services.mail_client import (
     download_attachment,
     list_authorized_inbox,

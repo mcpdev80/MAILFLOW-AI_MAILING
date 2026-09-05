@@ -103,7 +103,10 @@ class MailActionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_arguments(self) -> "MailActionRequest":
-        if self.action in {"move", "restore"} and not (self.destination_folder or "").strip():
+        if (
+            self.action in {"move", "restore"}
+            and not (self.destination_folder or "").strip()
+        ):
             raise ValueError("destination_folder is required for move/restore")
         if self.action in {"add_tags", "remove_tags"} and not self.tags:
             raise ValueError("tags are required for tag actions")

@@ -44,7 +44,9 @@ async def mailbox_metadata(
     return (
         MailboxCapabilities(**capabilities.__dict__),
         [
-            MailboxFolderView(name=item.name, role=item.role, selectable=item.selectable)
+            MailboxFolderView(
+                name=item.name, role=item.role, selectable=item.selectable
+            )
             for item in folders
         ],
     )
@@ -94,7 +96,9 @@ async def perform_mail_action(
                 destination = (request.destination_folder or "").strip()
                 if destination not in selectable:
                     raise MailActionError("destination_folder_not_found")
-                if destination != folder and not provider.move_from_folder(folder, uid, destination):
+                if destination != folder and not provider.move_from_folder(
+                    folder, uid, destination
+                ):
                     raise MailActionError("action_failed")
                 return MailActionResult(
                     action=action,
@@ -105,7 +109,11 @@ async def perform_mail_action(
                 if not capabilities.archive:
                     raise MailActionError("action_not_supported")
                 destination = next(
-                    (item.name for item in folders if item.role == "archive" and item.selectable),
+                    (
+                        item.name
+                        for item in folders
+                        if item.role == "archive" and item.selectable
+                    ),
                     None,
                 )
                 if not destination:
@@ -121,7 +129,11 @@ async def perform_mail_action(
                 if not capabilities.trash:
                     raise MailActionError("action_not_supported")
                 destination = next(
-                    (item.name for item in folders if item.role == "trash" and item.selectable),
+                    (
+                        item.name
+                        for item in folders
+                        if item.role == "trash" and item.selectable
+                    ),
                     None,
                 )
                 if not destination:
@@ -137,7 +149,11 @@ async def perform_mail_action(
                 if not capabilities.spam:
                     raise MailActionError("action_not_supported")
                 destination = next(
-                    (item.name for item in folders if item.role == "spam" and item.selectable),
+                    (
+                        item.name
+                        for item in folders
+                        if item.role == "spam" and item.selectable
+                    ),
                     None,
                 )
                 if not destination:

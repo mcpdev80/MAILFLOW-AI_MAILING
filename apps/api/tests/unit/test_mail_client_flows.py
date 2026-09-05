@@ -120,7 +120,9 @@ def message_pair():
 
 
 @pytest.mark.asyncio
-async def test_list_authorized_inbox_maps_live_state(monkeypatch, account, message_pair):
+async def test_list_authorized_inbox_maps_live_state(
+    monkeypatch, account, message_pair
+):
     state, full = message_pair
     provider = _Provider(state, full)
 
@@ -156,9 +158,11 @@ async def test_list_authorized_inbox_rejects_bad_limit():
 
 
 @pytest.mark.asyncio
-async def test_read_message_returns_sanitized_detail(monkeypatch, account, message_pair):
+async def test_read_message_returns_sanitized_detail(
+    monkeypatch, account, message_pair
+):
     state, full = message_pair
-    full.body_html = '<p>safe</p><script>alert(1)</script>'
+    full.body_html = "<p>safe</p><script>alert(1)</script>"
     provider = _Provider(state, full)
 
     async def accessible(*_args, **_kwargs):
