@@ -7,6 +7,9 @@ import type {
   EmailAccount,
   MailDraft,
   MessageType,
+  WritingAction,
+  WritingPreview,
+  WritingScope,
 } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -20,6 +23,23 @@ import {
 
 const AUTOSAVE_MS = 900;
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+const AI_ACTIONS: Array<{ value: WritingAction; label: string }> = [
+  { value: "draft_reply", label: "Draft reply" },
+  { value: "draft_from_points", label: "Turn notes into email" },
+  { value: "improve", label: "Improve writing" },
+  { value: "shorten", label: "Shorten" },
+  { value: "expand", label: "Expand" },
+  { value: "friendlier", label: "Friendlier" },
+  { value: "professional", label: "More professional" },
+  { value: "direct", label: "More direct" },
+  { value: "formal", label: "Formal" },
+  { value: "informal", label: "Informal" },
+  { value: "proofread", label: "Grammar & spelling" },
+  { value: "same_language", label: "Reply in sender language" },
+  { value: "translate", label: "Translate" },
+  { value: "custom", label: "Custom instruction" },
+];
 
 function splitRecipients(value: string): string[] {
   return value
@@ -53,6 +73,18 @@ function formatBytes(value: number): string {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function textToHtml(value: string): string {
+  const escaped = value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+  return escaped
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${paragraph.replaceAll("\n", "<br>")}</p>`)
+    .join("");
+}
+
 export default function ComposePage() {
   const searchParams = useSearchParams();
   const richEditorRef = useRef<HTMLDivElement>(null);
@@ -78,6 +110,13 @@ export default function ComposePage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [aiAction, setAiAction] = useState<WritingAction>("improve");
+  const [aiScope, setAiScope] = useState<WritingScope>("full");
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [aiLanguage, setAiLanguage] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPreview, setAiPreview] = useState<WritingPreview | null>(null);
+  const [aiSelectedSource, setAiSelectedSource] = useState("");
 
   const applyDraft = useCallback((value: MailDraft) => {
     draftRef.current = value;
@@ -206,6 +245,79 @@ export default function ComposePage() {
     richEditorRef.current?.focus();
     document.execCommand(command);
     richInput();
+  }
+
+  function selectedComposerText(): string {
+    if (editorMode === "rich_text") {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return "";
+      const range = selection.getRangeAt(0);
+      if (!richEditorRef.current?.contains(range.commonAncestorContainer))
+        return "";
+      return selection.toString().trim();
+    }
+    const active = document.activeElement;
+    if (!(active instanceof HTMLTextAreaElement)) return "";
+    return active.value
+      .slice(active.selectionStart, active.selectionEnd)
+      .trim();
+  }
+
+  async function runAI() {
+    const current = draftRef.current;
+    if (!current) return;
+    const selected = aiScope === "selection" ? selectedComposerText() : "";
+    if (aiScope === "selection" && !selected) {
+      setError("Select some composer text first, then run the AI action.");
+      return;
+    }
+    if (aiAction === "translate" && !aiLanguage.trim()) {
+      setError("Choose a target language for translation.");
+      return;
+    }
+    if (aiAction === "custom" && !aiInstruction.trim()) {
+      setError("Enter a custom writing instruction.");
+      return;
+    }
+    setAiLoading(true);
+    setAiPreview(null);
+    setError(null);
+    try {
+      await persist();
+      const preview = await api.previewWriting(current.id, {
+        action: aiAction,
+        scope: aiScope,
+        selected_text: selected || null,
+        instruction: aiInstruction.trim() || null,
+        target_language: aiLanguage.trim() || null,
+      });
+      setAiSelectedSource(selected);
+      setAiPreview(preview);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "AI writing request failed",
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function applyAIPreview() {
+    if (!aiPreview) return;
+    let next = aiPreview.text;
+    if (aiPreview.scope === "selection" && aiSelectedSource) {
+      const index = bodyText.indexOf(aiSelectedSource);
+      if (index >= 0) {
+        next = `${bodyText.slice(0, index)}${aiPreview.text}${bodyText.slice(index + aiSelectedSource.length)}`;
+      }
+    }
+    setBodyText(next);
+    if (editorMode === "rich_text") {
+      setBodyHtml(textToHtml(next));
+    }
+    setAiPreview(null);
+    setAiSelectedSource("");
+    setNotice("AI suggestion applied to the draft. Review it before sending.");
   }
 
   async function addAttachment(event: ChangeEvent<HTMLInputElement>) {
@@ -424,6 +536,90 @@ export default function ComposePage() {
             />
           </label>
 
+          {draft.status !== "sent" && (
+            <div className="aiBar">
+              <span className="aiLabel">AI</span>
+              <select
+                value={aiAction}
+                onChange={(event) =>
+                  setAiAction(event.target.value as WritingAction)
+                }
+                aria-label="AI writing action"
+              >
+                {AI_ACTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={aiScope}
+                onChange={(event) =>
+                  setAiScope(event.target.value as WritingScope)
+                }
+                aria-label="AI writing scope"
+              >
+                <option value="full">Entire draft</option>
+                <option value="selection">Selected text</option>
+              </select>
+              {aiAction === "translate" && (
+                <input
+                  value={aiLanguage}
+                  onChange={(event) => setAiLanguage(event.target.value)}
+                  placeholder="Target language"
+                  aria-label="Target language"
+                />
+              )}
+              {aiAction === "custom" && (
+                <input
+                  value={aiInstruction}
+                  onChange={(event) => setAiInstruction(event.target.value)}
+                  placeholder="What should the AI change?"
+                  aria-label="Custom writing instruction"
+                />
+              )}
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={runAI}
+                disabled={aiLoading}
+              >
+                {aiLoading ? "Generating…" : "Preview"}
+              </button>
+            </div>
+          )}
+
+          {aiPreview && (
+            <div className="aiPreview">
+              <div className="aiPreviewHeader">
+                <strong>AI suggestion</strong>
+                <span className="muted">
+                  {aiPreview.used_thread_context ||
+                  aiPreview.used_current_message
+                    ? "Thread context used"
+                    : "Draft context only"}
+                </span>
+              </div>
+              <pre>{aiPreview.text}</pre>
+              <div className="aiPreviewActions">
+                <button type="button" className="btn" onClick={applyAIPreview}>
+                  Apply to draft
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => setAiPreview(null)}
+                >
+                  Discard suggestion
+                </button>
+              </div>
+              <p className="muted aiNotice">
+                AI output is never sent automatically. Review the draft before
+                sending.
+              </p>
+            </div>
+          )}
+
           <div className="editorModeRow">
             <div className="segmented" aria-label="Editor mode">
               <button
@@ -594,6 +790,15 @@ export default function ComposePage() {
         .textButton { border:0; background:transparent; color:var(--muted); cursor:pointer; padding:.35rem; }
         .textButton:hover { color:inherit; }
         .dangerText:hover { color:#dc2626; }
+        .aiBar { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; padding:.7rem 1rem; border-bottom:1px solid var(--border); background:var(--surface-2, rgba(127,127,127,.05)); }
+        .aiBar select, .aiBar input { min-height:36px; border:1px solid var(--border); border-radius:7px; background:var(--surface, transparent); color:inherit; padding:.35rem .55rem; }
+        .aiBar input { flex:1; min-width:180px; }
+        .aiLabel { font-weight:700; font-size:.82rem; }
+        .aiPreview { padding:1rem; border-bottom:1px solid var(--border); background:var(--surface-2, rgba(127,127,127,.05)); }
+        .aiPreviewHeader { display:flex; justify-content:space-between; gap:1rem; margin-bottom:.6rem; }
+        .aiPreview pre { margin:0; white-space:pre-wrap; font:inherit; line-height:1.5; max-height:260px; overflow:auto; padding:.8rem; border:1px solid var(--border); border-radius:8px; background:var(--surface, transparent); }
+        .aiPreviewActions { display:flex; gap:.5rem; margin-top:.7rem; }
+        .aiNotice { margin:.6rem 0 0; font-size:.78rem; }
         .editorModeRow { padding:.75rem 1rem; display:flex; justify-content:flex-end; }
         .segmented { display:inline-flex; border:1px solid var(--border); border-radius:8px; padding:2px; }
         .segmented button { border:0; background:transparent; color:var(--muted); padding:.35rem .65rem; border-radius:6px; cursor:pointer; }
@@ -614,6 +819,7 @@ export default function ComposePage() {
           .recipientField { grid-template-columns:52px 1fr auto; }
           .composeFooter { align-items:flex-start; flex-direction:column; }
           .richEditor, .markdownEditor { min-height:240px; }
+          .aiPreviewHeader { flex-direction:column; gap:.25rem; }
         }
       `}</style>
     </main>

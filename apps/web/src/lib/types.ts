@@ -5,6 +5,22 @@ export type SmtpSecurity = "ssl" | "starttls" | "plain";
 export type MessageType = "new" | "reply" | "reply_all" | "forward";
 export type EditorMode = "rich_text" | "markdown";
 export type DraftStatus = "draft" | "sending" | "sent" | "failed" | "discarded";
+export type WritingAction =
+  | "draft_reply"
+  | "draft_from_points"
+  | "improve"
+  | "shorten"
+  | "expand"
+  | "friendlier"
+  | "professional"
+  | "direct"
+  | "formal"
+  | "informal"
+  | "proofread"
+  | "translate"
+  | "same_language"
+  | "custom";
+export type WritingScope = "full" | "selection";
 
 export interface EmailAccount {
   id: string;
@@ -132,6 +148,22 @@ export interface DraftAttachmentCreate {
   filename: string;
   content_type: string;
   content_base64: string;
+}
+
+export interface WritingRequest {
+  action: WritingAction;
+  scope?: WritingScope;
+  selected_text?: string | null;
+  instruction?: string | null;
+  target_language?: string | null;
+}
+
+export interface WritingPreview {
+  action: WritingAction;
+  scope: WritingScope;
+  text: string;
+  used_thread_context: boolean;
+  used_current_message: boolean;
 }
 
 export interface PreSendCheck {
