@@ -23,6 +23,7 @@ export interface EmailAccount {
   smtp_port: number | null;
   smtp_security: SmtpSecurity;
   smtp_username: string | null;
+  has_smtp_password: boolean;
   interval_minutes: number;
   is_active: boolean;
   last_cycle_at: string | null;
@@ -50,6 +51,7 @@ export interface EmailAccountCreate {
   smtp_port?: number | null;
   smtp_security?: SmtpSecurity;
   smtp_username?: string | null;
+  smtp_password?: string | null;
 }
 
 export type EmailAccountUpdate = Partial<
@@ -73,7 +75,7 @@ export type EmailAccountUpdate = Partial<
     | "archive_policy"
     | "action_confidence_threshold"
   >
-> & { password?: string | null };
+> & { password?: string | null; smtp_password?: string | null };
 
 export interface DraftAttachment {
   id: string;
