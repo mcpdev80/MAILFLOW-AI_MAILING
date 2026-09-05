@@ -12,6 +12,7 @@ class DashboardCounters(BaseModel):
     total_processed: int = 0
     processed_range: int = 0
     processed_today: int = 0
+    pending_or_queued: int = 0
     review_required: int = 0
     urgent: int = 0
     action_required: int = 0
