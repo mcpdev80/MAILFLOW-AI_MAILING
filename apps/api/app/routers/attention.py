@@ -27,6 +27,11 @@ from app.services.attention import (
 )
 from app.services.attention_jobs import materialize_operational_notifications
 from app.services.attention_review import build_review_inbox
+from app.services.attention_visibility import (
+    apply_active_notification_counters,
+    dismiss_message_review,
+    filter_daily_summary,
+)
 
 router = APIRouter(prefix="/attention", tags=["attention"])
 
@@ -63,6 +68,12 @@ async def update_review_item(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> ReviewItem | Response:
+    if payload.dismiss:
+        found = await dismiss_message_review(session, identity, item_id)
+        if not found:
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     item = await correct_review_item(session, identity, item_id, payload)
     if item is None:
         # Resolved and inaccessible/missing UUIDs both disappear without exposing
@@ -80,12 +91,13 @@ async def notification_center(
 ) -> NotificationCenter:
     preferences = await get_preferences(session, identity)
     await materialize_operational_notifications(session, identity, preferences)
-    return await list_notifications(
+    center = await list_notifications(
         session,
         identity,
         include_resolved=include_resolved,
         limit=limit,
     )
+    return await apply_active_notification_counters(session, identity, center)
 
 
 @router.post("/notifications/{notification_id}/read", status_code=204)
@@ -126,4 +138,5 @@ async def daily_summary(
     preferences = await get_preferences(session, identity)
     if not preferences.daily_summary_enabled:
         raise HTTPException(status_code=404, detail="daily_summary_disabled")
-    return await build_daily_summary(session, identity, hours=hours)
+    summary = await build_daily_summary(session, identity, hours=hours)
+    return await filter_daily_summary(session, identity, summary)
