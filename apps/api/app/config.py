@@ -136,13 +136,23 @@ class Settings(BaseSettings):
     def _validate_security_and_limits(self) -> "Settings":
         if self.ENVIRONMENT == "production":
             if "*" in self.CORS_ORIGINS:
-                raise ValueError("production CORS_ORIGINS must not contain wildcard origins")
+                raise ValueError(
+                    "production CORS_ORIGINS must not contain wildcard origins"
+                )
             for origin in self.CORS_ORIGINS:
                 parsed = urlparse(origin)
                 if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-                    raise ValueError("CORS_ORIGINS entries must be absolute http(s) origins")
-                if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
-                    raise ValueError("production CORS origins must use HTTPS outside localhost")
+                    raise ValueError(
+                        "CORS_ORIGINS entries must be absolute http(s) origins"
+                    )
+                if parsed.scheme != "https" and parsed.hostname not in {
+                    "localhost",
+                    "127.0.0.1",
+                    "::1",
+                }:
+                    raise ValueError(
+                        "production CORS origins must use HTTPS outside localhost"
+                    )
 
         if self.DECISION_MEMORY_HINT_THRESHOLD > self.DECISION_MEMORY_REUSE_THRESHOLD:
             raise ValueError(
