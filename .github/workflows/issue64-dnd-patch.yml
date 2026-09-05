@@ -22,7 +22,18 @@ jobs:
           node-version: "20"
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Apply DnD patch
-        run: python3 .ci/patch_issue64_dnd.py
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.ci/patch_issue64_dnd.py')
+          text = path.read_text()
+          text = text.replace(
+              "css_anchor = '''        .aiResultBackdrop {\n'''",
+              "css_anchor = '''        .aiResultBackdrop { position:fixed;'''",
+          )
+          path.write_text(text)
+          PY
+          python3 .ci/patch_issue64_dnd.py
       - name: Format changed web files
         run: pnpm biome check --write apps/web/src/app/app/mail/page.tsx apps/web/src/lib/mail-ux-api.ts
       - name: Clean helpers and commit
