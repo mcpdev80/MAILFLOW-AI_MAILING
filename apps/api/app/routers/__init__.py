@@ -16,6 +16,7 @@ from app.routers.llm_providers import router as llm_providers_router
 from app.routers.metrics import router as metrics_router
 from app.routers.oauth import router as oauth_router
 from app.routers.rules import router as rules_router
+from app.routers.structure import router as structure_router
 from app.routers.workload import router as workload_router
 
 __all__ = [
@@ -33,5 +34,6 @@ __all__ = [
     "metrics_router",
     "oauth_router",
     "rules_router",
+    "structure_router",
     "workload_router",
 ]

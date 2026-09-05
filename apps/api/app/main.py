@@ -31,6 +31,7 @@ from app.routers import (
     metrics_router,
     oauth_router,
     rules_router,
+    structure_router,
     workload_router,
 )
 from app.secret_storage import validate_stored_secrets
@@ -69,6 +70,7 @@ app.include_router(bulk_router)
 app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
 app.include_router(rules_router)
+app.include_router(structure_router)
 app.include_router(decision_memory_router)
 app.include_router(cycles_router)
 app.include_router(inference_health_router)
