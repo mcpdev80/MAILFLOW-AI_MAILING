@@ -24,6 +24,7 @@ from app.routers import (
     billing_router,
     bulk_router,
     cycles_router,
+    dashboard_router,
     decision_memory_router,
     inference_health_router,
     internal_router,
@@ -73,6 +74,7 @@ app.include_router(attention_router)
 app.include_router(audit_router)
 app.include_router(backfill_router)
 app.include_router(bulk_router)
+app.include_router(dashboard_router)
 app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
 app.include_router(mail_router)
@@ -110,47 +112,45 @@ async def _startup_security_checks() -> None:
     except SecretConfigurationError:
         logger.critical(
             "Encrypted application secrets cannot be decrypted with the configured key ring. "
-            "Restore the matching deployment key or add the previous key as a rotation fallback."
+            "Startup aborted before background processing."
         )
         raise
     logger.info(
-        "Validated database schema revision %s and %d encrypted application secrets",
+        "Startup security checks passed schema_revision=%s encrypted_secrets=%s",
         revision,
         count,
     )
 
 
+@app.middleware("http")
+async def security_headers(request, call_next):
+    start = time.monotonic()
+    try:
+        response = await call_next(request)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Unhandled request failure: %s", redact_text(str(exc)))
+        response = JSONResponse(status_code=500, content={"detail": "internal_error"})
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    )
+    response.headers["X-Response-Time"] = f"{time.monotonic() - start:.3f}s"
+    return response
+
+
 @app.get("/health")
-async def health() -> JSONResponse:
-    started = time.monotonic()
-    db_ok = False
-    error: str | None = None
+async def health():
+    return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready():
     try:
         async with async_session_factory() as session:
             await session.execute(text("SELECT 1"))
-        db_ok = True
-    except Exception as exc:  # noqa: BLE001 — health must never raise
-        error = redact_text(str(exc))
-        logger.warning("health check DB probe failed: %s", error)
-
-    payload: dict[str, object] = {
-        "status": "ok" if db_ok else "degraded",
-        "db": "up" if db_ok else "down",
-        "version": "0.1.0",
-        "latency_ms": round((time.monotonic() - started) * 1000, 1),
-    }
-    if error:
-        payload["error"] = error
-    return JSONResponse(
-        payload,
-        status_code=200 if db_ok else 503,
-        headers={"Cache-Control": "no-store"},
-    )
-
-
-@app.get("/")
-async def root() -> dict[str, str]:
-    payload = {"message": "MailFlow API"}
-    if settings.API_DOCS_ENABLED:
-        payload["docs"] = "/docs"
-    return payload
+    except Exception:  # noqa: BLE001
+        return JSONResponse(status_code=503, content={"status": "not_ready"})
+    return {"status": "ready"}
