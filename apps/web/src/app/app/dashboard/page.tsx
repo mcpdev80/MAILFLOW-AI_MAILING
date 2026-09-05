@@ -70,9 +70,14 @@ export default function DashboardPage() {
         <h1>Dashboard</h1>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {accounts && accounts.length > 0 && (
-            <Link className="btn" href="/app/compose">
-              Compose
-            </Link>
+            <>
+              <Link className="btn" href="/app/compose">
+                Compose
+              </Link>
+              <Link className="btn secondary" href="/app/drafts">
+                Drafts
+              </Link>
+            </>
           )}
           <Link className="btn secondary" href="/app/settings/security">
             Security
