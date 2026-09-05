@@ -4,11 +4,15 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.services import outbound_mail
 from app.services.outbound_mail import (
+    MAX_ATTACHMENT_BYTES,
     OutboundMailError,
     build_message,
     normalized_address,
     pre_send_warnings,
+    smtp_config_for_account,
+    validate_sendable,
 )
 
 
@@ -55,6 +59,17 @@ def test_normalized_address_rejects_non_address() -> None:
         normalized_address("not-an-address")
 
 
+def test_validate_sendable_rejects_missing_recipient() -> None:
+    draft = _draft(to_recipients=[], cc_recipients=[], bcc_recipients=[])
+    with pytest.raises(OutboundMailError, match="missing_recipient"):
+        validate_sendable(draft)
+
+
+def test_validate_sendable_rejects_discarded_draft() -> None:
+    with pytest.raises(OutboundMailError, match="draft_discarded"):
+        validate_sendable(_draft(status="discarded"))
+
+
 def test_build_message_keeps_bcc_out_of_headers_and_thread_metadata() -> None:
     draft = _draft(
         cc_recipients=["cc@example.com"],
@@ -90,6 +105,17 @@ def test_build_message_adds_attachment() -> None:
     assert attachments[0].get_content_type() == "application/pdf"
 
 
+def test_build_message_rejects_oversized_attachment() -> None:
+    attachment = SimpleNamespace(
+        filename="huge.bin",
+        content_type="application/octet-stream",
+        size_bytes=MAX_ATTACHMENT_BYTES + 1,
+        content=b"x",
+    )
+    with pytest.raises(OutboundMailError, match="attachment_size_limit"):
+        build_message(_account(), _draft(attachments=[attachment]))
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -116,3 +142,45 @@ def test_pre_send_marks_missing_recipient() -> None:
         _draft(to_recipients=[], cc_recipients=[], bcc_recipients=[])
     )
     assert "missing_recipient" in warnings
+
+
+def test_smtp_config_uses_generic_encrypted_password(monkeypatch) -> None:
+    monkeypatch.setattr(
+        outbound_mail,
+        "decrypt_secret",
+        lambda _value: {"password": "secret"},
+    )
+    config = smtp_config_for_account(_account(encrypted_credentials="encrypted"))
+    assert config.host == "smtp.example.com"
+    assert config.username == "sender@example.com"
+    assert config.password == "secret"
+    assert config.oauth_access_token is None
+
+
+def test_smtp_config_uses_provider_default_and_oauth(monkeypatch) -> None:
+    monkeypatch.setattr(
+        outbound_mail,
+        "decrypt_secret",
+        lambda _value: {"refresh_token": "refresh"},
+    )
+    monkeypatch.setattr(
+        outbound_mail.oauth,
+        "access_token_from_refresh",
+        lambda provider, token: f"{provider}:{token}:access",
+    )
+    account = _account(
+        provider_type="gmail",
+        smtp_host=None,
+        smtp_port=None,
+        encrypted_oauth="encrypted",
+    )
+    config = smtp_config_for_account(account)
+    assert config.host == "smtp.gmail.com"
+    assert config.port == 587
+    assert config.oauth_access_token == "gmail:refresh:access"
+    assert config.password is None
+
+
+def test_smtp_config_requires_host_for_generic_account() -> None:
+    with pytest.raises(OutboundMailError, match="smtp_not_configured"):
+        smtp_config_for_account(_account(smtp_host=None, smtp_port=None))
