@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   fix:
-    if: ${{ !contains(github.event.head_commit.message, 'style: automated issue 58 fixes') }}
+    if: "${{ !contains(github.event.head_commit.message, 'style: automated issue 58 fixes') }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
