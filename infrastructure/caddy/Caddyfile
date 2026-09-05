@@ -1,5 +1,11 @@
-{$MAILFLOW_DOMAIN:localhost} {
+{$MAILFLOW_PUBLIC_URL:https://localhost} {
 	encode zstd gzip
+
+	@oauth_callback path_regexp oauth_callback ^/oauth/(gmail|microsoft)/callback$
+	reverse_proxy @oauth_callback api:8000
+
+	@stripe_webhook path /billing/webhook
+	reverse_proxy @stripe_webhook api:8000
 
 	@private path /api/mf/internal/* /api/mf/metrics /api/mf/docs* /api/mf/openapi.json
 	respond @private 404
