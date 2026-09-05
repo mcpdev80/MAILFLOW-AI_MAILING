@@ -1,0 +1,65 @@
+name: Refactor i18n locale files
+on:
+  push:
+    branches:
+      - feat/23-dashboard-search
+    paths:
+      - .github/workflows/refactor-i18n-locales.yml
+permissions:
+  contents: write
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/23-dashboard-search
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Split locale catalogs
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('apps/web/src/lib/i18n.tsx')
+          text = path.read_text()
+
+          en_match = re.search(r'const en = (\{.*?\n\}) as const;\n\nexport type TranslationKey = keyof typeof en;', text, re.S)
+          de_match = re.search(r'const de: Partial<Record<TranslationKey, string>> = (\{.*?\n\});\n\nconst es:', text, re.S)
+          es_match = re.search(r'const es: Partial<Record<TranslationKey, string>> = (\{.*?\n\});\n\nconst translations', text, re.S)
+          if not (en_match and de_match and es_match):
+              raise SystemExit('translation catalog blocks not found')
+
+          locale_dir = Path('apps/web/src/lib/locales')
+          locale_dir.mkdir(parents=True, exist_ok=True)
+          locale_dir.joinpath('en.ts').write_text('export const en = ' + en_match.group(1) + ' as const;\n')
+          locale_dir.joinpath('types.ts').write_text('import { en } from "./en";\n\nexport type TranslationKey = keyof typeof en;\n')
+          locale_dir.joinpath('de.ts').write_text('import type { TranslationKey } from "./types";\n\nexport const de: Partial<Record<TranslationKey, string>> = ' + de_match.group(1) + ';\n')
+          locale_dir.joinpath('es.ts').write_text('import type { TranslationKey } from "./types";\n\nexport const es: Partial<Record<TranslationKey, string>> = ' + es_match.group(1) + ';\n')
+
+          start = text.index('const en = ')
+          end = text.index('const translations')
+          imports = 'import { de } from "./locales/de";\nimport { en } from "./locales/en";\nimport { es } from "./locales/es";\nimport type { TranslationKey } from "./locales/types";\n\n'
+          text = text[:start] + imports + text[end:]
+          path.write_text(text)
+          PY
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Validate web
+        shell: bash
+        run: |
+          pnpm biome check --write apps/web/src/lib/i18n.tsx apps/web/src/lib/locales/*.ts
+          pnpm typecheck
+      - name: Commit refactor
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/src/lib/i18n.tsx apps/web/src/lib/locales
+          git diff --cached --check
+          git commit -m 'refactor(i18n): split translations into locale files'
+          git push origin HEAD:feat/23-dashboard-search
