@@ -4,6 +4,11 @@ name: CI
 # merge instead of consuming runner time on every development commit.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/7-localization
+    paths:
+      - .github/workflows/ci.yml
 
 jobs:
   lint-python:
