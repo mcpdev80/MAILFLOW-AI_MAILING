@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import and_, case, cast, func, or_, select, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import RequestIdentity
+from app.inference_health import read_inference_health
 from app.dashboard_schemas import (
     DashboardBreakdownItem,
     DashboardCounters,
@@ -264,11 +267,36 @@ async def build_dashboard(
     for job in backfill_rows:
         backfill_by_account.setdefault(job.account_id, job)
 
+    inference_by_account: dict[UUID, dict[str, object] | None] = {}
+    inference_status = "unknown"
+    inference_warning: str | None = None
+    try:
+        snapshots = await asyncio.wait_for(
+            asyncio.gather(
+                *(read_inference_health(account.id) for account in accounts)
+            ),
+            timeout=1.5,
+        )
+        inference_by_account = dict(zip(account_ids, snapshots, strict=True))
+        if any(bool(snapshot and snapshot.get("degraded")) for snapshot in snapshots):
+            inference_status = "degraded"
+            inference_warning = (
+                "Inference is degraded for at least one authorized mailbox."
+            )
+        elif any(snapshot and snapshot.get("status") == "ok" for snapshot in snapshots):
+            inference_status = "ok"
+    except Exception:
+        # Dashboard availability must never depend on Redis health.
+        inference_by_account = {}
+
     mailboxes: list[DashboardMailboxStatus] = []
     for account in accounts:
         counts = mailbox_counts.get(account.id)
         job = backfill_by_account.get(account.id)
+        snapshot = inference_by_account.get(account.id)
         health = "healthy" if account.is_active else "paused"
+        if snapshot and snapshot.get("degraded"):
+            health = "degraded"
         if job is not None and job.last_error:
             health = "attention"
         mailboxes.append(
@@ -297,6 +325,8 @@ async def build_dashboard(
         categories=categories,
         handling=handling,
         mailboxes=mailboxes,
+        inference_status=inference_status,
+        inference_warning=inference_warning,
     )
 
 
@@ -366,8 +396,8 @@ async def search_messages(
     if tag:
         predicates.append(
             or_(
-                ProcessedEmail.system_tags.contains([tag]),
-                ProcessedEmail.user_tags.contains([tag]),
+                cast(ProcessedEmail.system_tags, JSONB).op("?")(tag),
+                cast(ProcessedEmail.user_tags, JSONB).op("?")(tag),
             )
         )
     if destination_folder:
