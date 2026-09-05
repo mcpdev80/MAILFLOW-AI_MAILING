@@ -14,6 +14,7 @@ from mailflow_core.providers.base import (
 from mailflow_core.providers.imap_generic import (
     ImapGenericProvider,
     _attachment_metadata,
+    _extract_body,
     _first_fetch_bytes,
 )
 
@@ -175,8 +176,6 @@ class ImapMailClientProvider(ImapGenericProvider):
 
     @staticmethod
     def _extract_message_body(raw: bytes) -> tuple[str, str]:
-        from mailflow_core.providers.imap_generic import _extract_body
-
         return _extract_body(email.message_from_bytes(raw))
 
     def set_seen(self, folder: str, uid: int, seen: bool) -> None:
