@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, LargeBinary, String, Text, func
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, LargeBinary, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, uuid_pk
@@ -39,11 +39,11 @@ class OutboundDraft(Base):
 
     message_type: Mapped[str] = mapped_column(String(16), default="new", server_default="new")
     in_reply_to: Mapped[str | None] = mapped_column(String(998), nullable=True)
-    references: Mapped[list[str]] = mapped_column(default=list, server_default="[]")
+    references: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
 
-    to_recipients: Mapped[list[str]] = mapped_column(default=list, server_default="[]")
-    cc_recipients: Mapped[list[str]] = mapped_column(default=list, server_default="[]")
-    bcc_recipients: Mapped[list[str]] = mapped_column(default=list, server_default="[]")
+    to_recipients: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    cc_recipients: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    bcc_recipients: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
     subject: Mapped[str] = mapped_column(String(998), default="", server_default="")
     body_text: Mapped[str] = mapped_column(Text, default="", server_default="")
     body_html: Mapped[str | None] = mapped_column(Text, nullable=True)
