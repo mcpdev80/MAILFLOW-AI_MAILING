@@ -38,13 +38,7 @@ export interface MailActionDefinition {
   label: string;
   destructive?: boolean;
   ai?: boolean;
-  capability?:
-    | "read_state"
-    | "flag"
-    | "move"
-    | "archive"
-    | "trash"
-    | "spam";
+  capability?: "read_state" | "flag" | "move" | "archive" | "trash" | "spam";
   submenu?: readonly MailActionDefinition[];
 }
 
@@ -170,7 +164,12 @@ export const MAIL_ACTION_GROUPS: ReadonlyArray<{
         label: "Remove star",
         capability: "flag",
       },
-      { id: "spam", group: "organize", label: "Spam / junk", capability: "spam" },
+      {
+        id: "spam",
+        group: "organize",
+        label: "Spam / junk",
+        capability: "spam",
+      },
       {
         id: "trash",
         group: "organize",

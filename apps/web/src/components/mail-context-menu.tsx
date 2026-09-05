@@ -160,7 +160,9 @@ export function MailContextMenu({
                       role="menuitem"
                       disabled={!allowed}
                       aria-disabled={!allowed}
-                      aria-haspopup={action.submenu?.length ? "menu" : undefined}
+                      aria-haspopup={
+                        action.submenu?.length ? "menu" : undefined
+                      }
                       aria-expanded={
                         action.submenu?.length
                           ? openSubmenu === action.id
@@ -175,7 +177,9 @@ export function MailContextMenu({
                       onKeyDown={keyboardNavigate}
                       onClick={() => run(action)}
                     >
-                      <span>{action.ai ? `✨ ${action.label}` : action.label}</span>
+                      <span>
+                        {action.ai ? `✨ ${action.label}` : action.label}
+                      </span>
                       {action.submenu?.length ? (
                         <span aria-hidden="true">›</span>
                       ) : null}

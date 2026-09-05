@@ -68,19 +68,23 @@ export default function MailPrintPage() {
       return;
     }
 
+    const accountId = account;
+    const folderName = folder;
     let cancelled = false;
     async function load() {
       try {
-        const message = await api.messageDetail(account!, folder!, uid);
+        const message = await api.messageDetail(accountId, folderName, uid);
         if (mode === "thread" && message.thread_id) {
-          const thread = await api.threadDetail(account!, message.thread_id);
+          const thread = await api.threadDetail(accountId, message.thread_id);
           if (!cancelled) setMessages(thread.messages);
         } else if (!cancelled) {
           setMessages([message]);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Could not load mail");
+          setError(
+            err instanceof ApiError ? err.message : "Could not load mail",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -95,7 +99,11 @@ export default function MailPrintPage() {
   return (
     <main className="printPage">
       <div className="printToolbar">
-        <button type="button" onClick={() => window.print()} disabled={loading || Boolean(error)}>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          disabled={loading || Boolean(error)}
+        >
           Print
         </button>
         <button type="button" onClick={() => window.close()}>
@@ -104,12 +112,14 @@ export default function MailPrintPage() {
       </div>
       {loading && <p>Loading…</p>}
       {error && <p className="error">{error}</p>}
-      {!loading && !error && messages.map((message) => (
-        <PrintableMessage
-          key={`${message.account_id}:${message.folder}:${message.uid}`}
-          message={message}
-        />
-      ))}
+      {!loading &&
+        !error &&
+        messages.map((message) => (
+          <PrintableMessage
+            key={`${message.account_id}:${message.folder}:${message.uid}`}
+            message={message}
+          />
+        ))}
 
       <style jsx>{`
         .printPage {

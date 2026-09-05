@@ -1,6 +1,11 @@
 "use client";
 
+import {
+  type ContextMenuPosition,
+  MailContextMenu,
+} from "@/components/mail-context-menu";
 import { ApiError, api, mailAttachmentUrl } from "@/lib/api";
+import type { MailActionId } from "@/lib/mail-actions";
 import type {
   EmailAccount,
   InboxMessage,
@@ -76,6 +81,14 @@ export default function MailPage() {
   const [messageLoading, setMessageLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    position: ContextMenuPosition;
+    message: InboxMessage;
+  } | null>(null);
+  const [aiResult, setAiResult] = useState<{
+    title: string;
+    body: string;
+  } | null>(null);
 
   const selectedAccountId = accountFilter === "all" ? null : accountFilter;
 
@@ -210,6 +223,47 @@ export default function MailPage() {
     }
   }
 
+  async function detailFor(message: InboxMessage): Promise<MessageDetail> {
+    if (selected && messageKey(selected) === messageKey(message))
+      return selected;
+    return api.messageDetail(message.account_id, message.folder, message.uid);
+  }
+
+  async function runActionFor(
+    message: InboxMessage,
+    payload: MailActionRequest,
+  ) {
+    if (
+      payload.action === "trash" &&
+      !window.confirm("Move this message to Trash?")
+    )
+      return;
+    if (
+      payload.action === "spam" &&
+      !window.confirm("Move this message to Spam/Junk?")
+    )
+      return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      await api.mailAction(
+        message.account_id,
+        message.folder,
+        message.uid,
+        payload,
+      );
+      if (selected && messageKey(selected) === messageKey(message)) {
+        setSelected(null);
+        setThread(null);
+      }
+      await loadInbox();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Mail action failed");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function runAction(payload: MailActionRequest) {
     if (!selected) return;
     if (
@@ -254,61 +308,248 @@ export default function MailPage() {
     }
   }
 
-  async function createReply(type: "reply" | "reply_all" | "forward") {
-    if (!selected) return;
+  async function createReply(
+    type: "reply" | "reply_all" | "forward",
+    source: MessageDetail | null = selected,
+    aiAction?: MailActionId,
+  ) {
+    if (!source) return;
     setActionLoading(true);
     setError(null);
     try {
       const references = Array.from(
-        new Set([...selected.references, selected.message_id].filter(Boolean)),
+        new Set([...source.references, source.message_id].filter(Boolean)),
       );
-      const ownAddress = selected.account_address;
+      const ownAddress = source.account_address;
       let toRecipients: string[] = [];
       let ccRecipients: string[] = [];
       let bodyText = "";
       if (type === "reply") {
-        toRecipients = [selected.from_email];
+        toRecipients = [source.from_email];
       } else if (type === "reply_all") {
         toRecipients = safeRecipients(
-          [selected.from_email, ...selected.to_emails],
+          [source.from_email, ...source.to_emails],
           ownAddress,
         );
         const toSet = new Set(toRecipients.map((item) => item.toLowerCase()));
-        ccRecipients = safeRecipients(selected.cc_emails, ownAddress).filter(
+        ccRecipients = safeRecipients(source.cc_emails, ownAddress).filter(
           (item) => !toSet.has(item.toLowerCase()),
         );
       } else {
         bodyText = [
           "",
           "---------- Forwarded message ----------",
-          `From: ${selected.from_email}`,
-          `Date: ${selected.date ?? ""}`,
-          `Subject: ${selected.subject}`,
-          `To: ${selected.to_emails.join(", ")}`,
+          `From: ${source.from_email}`,
+          `Date: ${source.date ?? ""}`,
+          `Subject: ${source.subject}`,
+          `To: ${source.to_emails.join(", ")}`,
           "",
-          selected.body_text,
+          source.body_text,
         ].join("\n");
       }
       const draft = await api.createDraft({
-        account_id: selected.account_id,
+        account_id: source.account_id,
         message_type: type,
-        in_reply_to: type === "forward" ? null : selected.message_id,
+        in_reply_to: type === "forward" ? null : source.message_id,
         references,
         to_recipients: toRecipients,
         cc_recipients: ccRecipients,
         subject: subjectWithPrefix(
-          selected.subject,
+          source.subject,
           type === "forward" ? "Fwd:" : "Re:",
         ),
         body_text: bodyText,
         editor_mode: "rich_text",
       });
+      if (aiAction?.startsWith("ai_reply")) {
+        const instructionByAction: Partial<Record<MailActionId, string>> = {
+          ai_reply:
+            "Write a helpful reply to the sender in the sender's language.",
+          ai_reply_short: "Write a concise reply. Keep only what is necessary.",
+          ai_reply_friendly: "Write a warm, friendly reply.",
+          ai_reply_professional: "Write a professional, polished reply.",
+          ai_reply_direct:
+            "Write a direct, clear reply without unnecessary filler.",
+        };
+        let instruction = instructionByAction[aiAction] ?? "";
+        if (aiAction === "ai_reply_custom") {
+          instruction =
+            window.prompt("How should AI write the reply?")?.trim() ?? "";
+          if (!instruction) return;
+        }
+        const preview = await api.previewWriting(draft.id, {
+          action: "custom",
+          scope: "full",
+          instruction,
+        });
+        await api.updateDraft(draft.id, {
+          body_text: preview.content,
+          body_html: null,
+          editor_mode: "rich_text",
+        });
+      }
       router.push(`/app/compose?draft=${encodeURIComponent(draft.id)}`);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Could not create reply draft",
       );
       setActionLoading(false);
+    }
+  }
+
+  function showExistingInsight(action: MailActionId) {
+    const insights = thread?.insights;
+    if (!insights) {
+      setAiResult({
+        title: "AI insight",
+        body: "No processed thread insight is available yet for this message.",
+      });
+      return;
+    }
+    if (action === "ai_summarize")
+      setAiResult({ title: "Summary", body: insights.overview });
+    else if (action === "ai_key_points")
+      setAiResult({
+        title: "Key points",
+        body: insights.key_points.join("\n• ") || "No key points detected.",
+      });
+    else if (action === "ai_todos")
+      setAiResult({
+        title: "To-dos",
+        body: insights.todos.join("\n• ") || "No to-dos detected.",
+      });
+    else if (action === "ai_questions")
+      setAiResult({
+        title: "Open questions",
+        body:
+          insights.open_questions.join("\n• ") || "No open questions detected.",
+      });
+    else if (action === "ai_deadlines")
+      setAiResult({
+        title: "Deadlines / dates",
+        body: insights.deadline || "No deadline detected.",
+      });
+  }
+
+  async function executeContextAction(
+    action: MailActionId,
+    message: InboxMessage,
+  ) {
+    if (action === "reply" || action === "reply_all" || action === "forward") {
+      await createReply(action, await detailFor(message));
+      return;
+    }
+    if (action.startsWith("ai_reply")) {
+      await createReply("reply", await detailFor(message), action);
+      return;
+    }
+    if (
+      [
+        "ai_summarize",
+        "ai_key_points",
+        "ai_todos",
+        "ai_questions",
+        "ai_deadlines",
+      ].includes(action)
+    ) {
+      const detail = await detailFor(message);
+      if (!selected || messageKey(selected) !== messageKey(detail))
+        await openMessage(message);
+      showExistingInsight(action);
+      return;
+    }
+    if (action.startsWith("ai_translate_") || action === "ai_custom") {
+      const detail = await detailFor(message);
+      const language =
+        action === "ai_translate_de"
+          ? "German"
+          : action === "ai_translate_en"
+            ? "English"
+            : action === "ai_translate_es"
+              ? "Spanish"
+              : "";
+      const custom =
+        language ||
+        window
+          .prompt(
+            action === "ai_custom"
+              ? "What should AI do with this message?"
+              : "Translate to which language?",
+          )
+          ?.trim();
+      if (!custom) return;
+      const draft = await api.createDraft({
+        account_id: detail.account_id,
+        message_type: "new",
+        subject: `AI: ${detail.subject}`,
+        body_text: detail.body_text,
+        editor_mode: "rich_text",
+      });
+      const preview = await api.previewWriting(draft.id, {
+        action: language ? "translate" : "custom",
+        scope: "full",
+        target_language: language || undefined,
+        instruction: language ? undefined : custom,
+      });
+      setAiResult({
+        title: language ? `Translation · ${language}` : "AI result",
+        body: preview.content,
+      });
+      await api.discardDraft(draft.id);
+      return;
+    }
+    if (action === "mark_read")
+      return runActionFor(message, { action: "mark_read" });
+    if (action === "mark_unread")
+      return runActionFor(message, { action: "mark_unread" });
+    if (action === "flag") return runActionFor(message, { action: "flag" });
+    if (action === "unflag") return runActionFor(message, { action: "unflag" });
+    if (action === "archive")
+      return runActionFor(message, { action: "archive" });
+    if (action === "spam") return runActionFor(message, { action: "spam" });
+    if (action === "trash") return runActionFor(message, { action: "trash" });
+    if (action === "move") {
+      const meta = await ensureMetadata(message.account_id);
+      const names = meta.folders
+        .filter((item) => item.selectable && item.name !== message.folder)
+        .map((item) => item.name);
+      const destination = window
+        .prompt(`Move to folder:\n${names.join("\n")}`)
+        ?.trim();
+      if (destination && names.includes(destination))
+        await runActionFor(message, {
+          action: "move",
+          destination_folder: destination,
+        });
+      return;
+    }
+    if (action === "print_message" || action === "print_thread") {
+      const detail = await detailFor(message);
+      const params = new URLSearchParams({
+        account: detail.account_id,
+        folder: detail.folder,
+        uid: String(detail.uid),
+        mode: action === "print_thread" ? "thread" : "message",
+      });
+      window.open(
+        `/print/mail?${params.toString()}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+      return;
+    }
+    if (action === "message_details") {
+      const detail = await detailFor(message);
+      setAiResult({
+        title: "Message details",
+        body: [
+          `Message-ID: ${detail.message_id}`,
+          `From: ${detail.from_email}`,
+          `To: ${detail.to_emails.join(", ")}`,
+          `Folder: ${detail.folder}`,
+          `UID: ${detail.uid}`,
+        ].join("\n"),
+      });
     }
   }
 
@@ -421,6 +662,16 @@ export default function MailPage() {
                   key={messageKey(message)}
                   className={`messageRow ${!message.seen ? "unread" : ""} ${selected && messageKey(selected) === messageKey(message) ? "selected" : ""}`}
                   onClick={() => openMessage(message)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setContextMenu({
+                      position: {
+                        x: Math.min(event.clientX, window.innerWidth - 210),
+                        y: Math.min(event.clientY, window.innerHeight - 220),
+                      },
+                      message,
+                    });
+                  }}
                 >
                   <span className="rowTop">
                     <span className="sender">{message.from_email}</span>
@@ -693,6 +944,37 @@ export default function MailPage() {
         </section>
       </div>
 
+      {contextMenu && (
+        <MailContextMenu
+          position={contextMenu.position}
+          capabilities={metadata?.capabilities}
+          seen={contextMenu.message.seen}
+          flagged={contextMenu.message.flagged}
+          onClose={() => setContextMenu(null)}
+          onAction={(action) =>
+            executeContextAction(action, contextMenu.message)
+          }
+        />
+      )}
+
+      {aiResult && (
+        <div className="aiResultBackdrop" role="presentation">
+          <dialog open className="aiResultDialog" aria-label={aiResult.title}>
+            <header>
+              <strong>{aiResult.title}</strong>
+              <button
+                type="button"
+                onClick={() => setAiResult(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </header>
+            <pre>{aiResult.body}</pre>
+          </dialog>
+        </div>
+      )}
+
       <style jsx>{`
         .mailApp { min-height:100vh; background:var(--bg); color:var(--fg); display:flex; flex-direction:column; }
         .mailTopbar { min-height:58px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 1rem; gap:1rem; background:var(--surface, var(--bg)); }
@@ -750,6 +1032,11 @@ export default function MailPage() {
         .attachments { border-top:1px solid var(--border); padding:.7rem 1rem; display:flex; flex-wrap:wrap; gap:.5rem; }
         .attachment { display:flex; gap:.4rem; align-items:center; border:1px solid var(--border); border-radius:8px; padding:.42rem .55rem; color:inherit; text-decoration:none; font-size:.78rem; }
         .attachment small { color:var(--muted); }
+        .aiResultBackdrop { position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.36); display:grid; place-items:center; padding:1rem; }
+        .aiResultDialog { width:min(680px,100%); max-height:80vh; overflow:auto; border:1px solid var(--border); border-radius:12px; background:var(--surface,var(--bg)); box-shadow:0 20px 60px rgba(0,0,0,.28); }
+        .aiResultDialog header { display:flex; justify-content:space-between; align-items:center; padding:.8rem 1rem; border-bottom:1px solid var(--border); }
+        .aiResultDialog header button { border:0; background:transparent; color:inherit; font-size:1.3rem; cursor:pointer; }
+        .aiResultDialog pre { margin:0; padding:1rem; white-space:pre-wrap; font:inherit; line-height:1.55; }
         @media (max-width: 1000px) {
           .workspace { grid-template-columns:180px 320px minmax(0, 1fr); }
         }
