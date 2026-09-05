@@ -19,7 +19,7 @@ class UserPreferencesView(BaseModel):
 
 
 class UserPreferencesUpdate(BaseModel):
-    locale: Locale
-    theme: Theme = "system"
-    density: Density = "comfortable"
-    workspace_layout: WorkspaceLayout = "classic"
+    locale: Locale | None = None
+    theme: Theme | None = None
+    density: Density | None = None
+    workspace_layout: WorkspaceLayout | None = None
