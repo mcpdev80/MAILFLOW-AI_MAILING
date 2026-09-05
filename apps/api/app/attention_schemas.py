@@ -3,9 +3,32 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+Category = Literal[
+    "work",
+    "private",
+    "finance",
+    "orders",
+    "appointments",
+    "newsletters",
+    "notifications",
+    "other",
+]
+Importance = Literal["critical", "high", "normal", "low", "unknown"]
+Urgency = Literal["immediate", "today", "this_week", "none", "unknown"]
+ActionRequired = Literal["yes", "no", "unknown"]
+SystemTag = Literal[
+    "urgent",
+    "action_required",
+    "today",
+    "this_week",
+    "information_only",
+    "follow_up",
+]
 
 
 class AttentionCounters(BaseModel):
@@ -50,15 +73,15 @@ class ReviewInbox(BaseModel):
 
 
 class ReviewCorrection(BaseModel):
-    category: str | None = Field(default=None, max_length=64)
+    category: Category | None = None
     subcategory: str | None = Field(default=None, max_length=255)
-    importance: str | None = Field(default=None, max_length=32)
-    urgency: str | None = Field(default=None, max_length=32)
-    action_required: str | None = Field(default=None, max_length=16)
+    importance: Importance | None = None
+    urgency: Urgency | None = None
+    action_required: ActionRequired | None = None
     destination_folder: str | None = Field(default=None, max_length=255)
-    system_tags: list[str] | None = None
+    system_tags: list[SystemTag] | None = None
     user_tags: list[str] | None = None
-    routing_decision: str | None = Field(default=None, pattern="^(approve|reject)$")
+    routing_decision: Literal["approve", "reject"] | None = None
     dismiss: bool = False
     remember: bool = True
 
