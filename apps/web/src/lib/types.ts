@@ -262,10 +262,20 @@ export interface MessageDetail extends InboxMessage {
   references: string[];
 }
 
+export interface ThreadInsights {
+  overview: string;
+  key_points: string[];
+  todos: string[];
+  open_questions: string[];
+  open_action_required: boolean;
+  deadline: string | null;
+}
+
 export interface ThreadView {
   account_id: string;
   thread_id: string;
   messages: MessageDetail[];
+  insights: ThreadInsights | null;
 }
 
 export interface MailActionRequest {

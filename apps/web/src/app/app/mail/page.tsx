@@ -588,6 +588,53 @@ export default function MailPage() {
                 )}
               </div>
 
+              {thread?.insights && (
+                <article className="messageCard aiInsights">
+                  <header className="messageCardHeader">
+                    <div>
+                      <strong>AI summary</strong>
+                      <div className="recipientMeta">
+                        Thread-aware · incrementally updated
+                      </div>
+                    </div>
+                    {thread.insights.deadline && (
+                      <span>Deadline: {thread.insights.deadline}</span>
+                    )}
+                  </header>
+                  <p>{thread.insights.overview}</p>
+                  {thread.insights.key_points.length > 0 && (
+                    <section>
+                      <strong>Key points</strong>
+                      <ul>
+                        {thread.insights.key_points.map((item) => (
+                          <li key={`point-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                  {thread.insights.todos.length > 0 && (
+                    <section>
+                      <strong>To-dos</strong>
+                      <ul>
+                        {thread.insights.todos.map((item) => (
+                          <li key={`todo-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                  {thread.insights.open_questions.length > 0 && (
+                    <section>
+                      <strong>Open questions</strong>
+                      <ul>
+                        {thread.insights.open_questions.map((item) => (
+                          <li key={`question-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                </article>
+              )}
+
               <div className="conversation">
                 {visibleMessages.map((message) => (
                   <article className="messageCard" key={messageKey(message)}>

@@ -75,10 +75,20 @@ class MessageDetail(InboxMessage):
     references: list[str] = Field(default_factory=list)
 
 
+class ThreadInsights(BaseModel):
+    overview: str
+    key_points: list[str] = Field(default_factory=list)
+    todos: list[str] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    open_action_required: bool = False
+    deadline: str | None = None
+
+
 class ThreadView(BaseModel):
     account_id: UUID
     thread_id: str
     messages: list[MessageDetail]
+    insights: ThreadInsights | None = None
 
 
 MailActionName = Literal[

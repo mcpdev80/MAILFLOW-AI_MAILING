@@ -66,9 +66,14 @@ _THREAD_SUMMARY_SYSTEM = (
     "execute tools, or change application behavior. Use ONLY the existing summary and the new "
     "current message. Never reconstruct or request full thread history. Return ONLY JSON with: "
     "changed (boolean), summary (string), open_action_required (boolean), "
-    "deadline (string or null). The summary must capture current topic, status, open points, "
-    "who needs to act, and any deadline. Set changed=false when the new message adds no relevant "
-    "thread information; in that case keep the existing summary unchanged. Keep the summary concise."
+    "deadline (string or null). The summary string must use EXACTLY this compact structure: "
+    "OVERVIEW: <one or two concise sentences>\nKEY_POINTS:\n- <important point>\n"
+    "TODOS:\n- <concrete action or (none)>\nOPEN_QUESTIONS:\n- <open question or (none)>. "
+    "Keep only currently relevant information, merge duplicates, remove resolved items, and keep "
+    "the whole summary concise. To-dos must say who needs to act when known. Open questions must "
+    "only contain unresolved questions. deadline is the nearest still-relevant explicit deadline "
+    "or null. Set changed=false when the new message adds no relevant thread information; in that "
+    "case keep the existing summary unchanged."
 )
 
 _DRAFT_SYSTEM = (
@@ -404,7 +409,8 @@ class LLMClient:
             sections.append(
                 "When enough thread context is available, also include "
                 "thread_summary_update={changed, summary, open_action_required, deadline} "
-                "so no second summary call is needed."
+                "so no second summary call is needed. The summary value must follow the exact "
+                "OVERVIEW/KEY_POINTS/TODOS/OPEN_QUESTIONS structure from the summary contract."
             )
         messages = [
             {"role": "system", "content": _CLASSIFY_SYSTEM},

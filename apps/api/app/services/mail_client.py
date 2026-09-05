@@ -20,11 +20,13 @@ from app.mail_client_schemas import (
     MailAttachment,
     MailboxCounter,
     MessageDetail,
+    ThreadInsights,
     ThreadView,
 )
 from app.mailbox_access import access_condition, get_accessible_account
 from app.models.email_account import EmailAccount
 from app.models.processed_email import ProcessedEmail
+from app.models.thread_summary import ThreadSummary
 from mailflow_core.providers.base import EmailData, MailboxMessage
 from mailflow_core.providers.imap_mail_client import ImapMailClientProvider
 
@@ -183,6 +185,61 @@ def _inbox_message(
     )
 
 
+def _thread_insights(thread: ThreadSummary | None) -> ThreadInsights | None:
+    if thread is None or not (thread.summary or "").strip():
+        return None
+
+    summary = thread.summary.strip()
+    sections: dict[str, list[str]] = {
+        "overview": [],
+        "key_points": [],
+        "todos": [],
+        "open_questions": [],
+    }
+    current: str | None = None
+    found_structure = False
+    for raw_line in summary.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        upper = line.upper()
+        if upper.startswith("OVERVIEW:"):
+            found_structure = True
+            current = "overview"
+            value = line.split(":", 1)[1].strip()
+            if value:
+                sections[current].append(value)
+            continue
+        if upper == "KEY_POINTS:":
+            found_structure = True
+            current = "key_points"
+            continue
+        if upper == "TODOS:":
+            found_structure = True
+            current = "todos"
+            continue
+        if upper == "OPEN_QUESTIONS:":
+            found_structure = True
+            current = "open_questions"
+            continue
+        if current is not None:
+            value = line[2:].strip() if line.startswith("- ") else line
+            if value.casefold() not in {"none", "(none)", "keine", "(keine)"}:
+                sections[current].append(value)
+
+    if not found_structure:
+        sections["overview"] = [summary]
+
+    return ThreadInsights(
+        overview=" ".join(sections["overview"]).strip() or summary,
+        key_points=sections["key_points"][:8],
+        todos=sections["todos"][:8],
+        open_questions=sections["open_questions"][:8],
+        open_action_required=thread.open_action_required,
+        deadline=thread.deadline,
+    )
+
+
 def _message_detail(
     account: EmailAccount,
     state: MailboxMessage,
@@ -331,6 +388,12 @@ async def read_thread(
     thread_id: str,
 ) -> ThreadView:
     account = await get_accessible_account(account_id, identity, session)
+    thread_state = await session.scalar(
+        select(ThreadSummary).where(
+            ThreadSummary.account_id == account_id,
+            ThreadSummary.thread_id == thread_id,
+        )
+    )
     rows = list(
         (
             await session.execute(
@@ -381,7 +444,12 @@ async def read_thread(
             provider.disconnect()
 
     messages = await asyncio.to_thread(fetch_thread)
-    return ThreadView(account_id=account_id, thread_id=thread_id, messages=messages)
+    return ThreadView(
+        account_id=account_id,
+        thread_id=thread_id,
+        messages=messages,
+        insights=_thread_insights(thread_state),
+    )
 
 
 async def download_attachment(

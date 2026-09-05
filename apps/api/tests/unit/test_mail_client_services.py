@@ -319,3 +319,42 @@ async def test_build_provider_requires_credentials(account):
     account.encrypted_credentials = None
     with pytest.raises(RuntimeError, match="mailbox_credentials_unavailable"):
         await mail_client._build_provider(account)
+
+
+def test_thread_insights_parse_structured_summary():
+    thread = SimpleNamespace(
+        summary=(
+            "OVERVIEW: Project date moved to Friday.\n"
+            "KEY_POINTS:\n- Release scope stays unchanged.\n"
+            "TODOS:\n- Marcel confirms the new slot.\n"
+            "OPEN_QUESTIONS:\n- Can QA join at 14:00?"
+        ),
+        open_action_required=True,
+        deadline="2026-09-11",
+    )
+
+    insights = mail_client._thread_insights(thread)
+
+    assert insights is not None
+    assert insights.overview == "Project date moved to Friday."
+    assert insights.key_points == ["Release scope stays unchanged."]
+    assert insights.todos == ["Marcel confirms the new slot."]
+    assert insights.open_questions == ["Can QA join at 14:00?"]
+    assert insights.open_action_required is True
+    assert insights.deadline == "2026-09-11"
+
+
+def test_thread_insights_keep_legacy_summary_as_overview():
+    thread = SimpleNamespace(
+        summary="Legacy compact thread summary.",
+        open_action_required=False,
+        deadline=None,
+    )
+
+    insights = mail_client._thread_insights(thread)
+
+    assert insights is not None
+    assert insights.overview == "Legacy compact thread summary."
+    assert insights.key_points == []
+    assert insights.todos == []
+    assert insights.open_questions == []
