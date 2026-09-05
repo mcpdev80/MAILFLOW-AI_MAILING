@@ -1,12 +1,28 @@
-# MailFlow — self-host (OSS). Single-tenant por defecto.
-#
-#   cp .env.example .env   # y rellena SECRET_KEY (ver README)
-#   docker compose -f infrastructure/docker-compose.yml up -d
-#
-# Servicios: postgres + redis + api (migra al arrancar) + worker (ARQ).
-# El frontend (apps/web) se añadirá en la fase de UI.
+# MailFlow production self-host stack.
+# Only the edge proxy publishes host ports. Web/API/data services stay on Docker networks.
 
 services:
+  edge:
+    image: caddy:2-alpine
+    environment:
+      MAILFLOW_PUBLIC_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+    networks:
+      - edge
+      - backend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
   postgres:
     image: pgvector/pgvector:pg17
     environment:
@@ -20,7 +36,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - database
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   redis:
     image: redis:7-alpine
@@ -31,7 +51,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - queue
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   api:
     build:
@@ -40,17 +64,31 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required — see README}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - see README}
+      SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
       AUTH_MODE: ${AUTH_MODE:-single}
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      OAUTH_REDIRECT_BASE: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      OAUTH_SUCCESS_REDIRECT: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/dashboard
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
+      STRIPE_PRICE_TEAM: ${STRIPE_PRICE_TEAM:-}
+      BILLING_SUCCESS_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/billing?status=success
+      BILLING_CANCEL_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/billing?status=cancel
       LOG_FORMAT: ${LOG_FORMAT:-json}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.0}
-    ports:
-      - "${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,7 +101,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - backend
+      - database
+      - queue
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   worker:
     build:
@@ -72,7 +116,13 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required — see README}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - see README}
+      SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
       LOG_FORMAT: ${LOG_FORMAT:-json}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-production}
@@ -85,7 +135,13 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
+    networks:
+      - backend
+      - database
+      - queue
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   web:
     build:
@@ -93,31 +149,29 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.web
     environment:
       NODE_ENV: production
-      # El navegador habla con el proxy BFF (/api/mf) del propio Next; el proxy
-      # reenvía al API por la red interna usando esta URL (server-side).
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
-      # Modo de auth web: "off" self-host (sin login), "on" SaaS (Better Auth).
       WEB_AUTH: ${WEB_AUTH:-off}
-      # Solo en self-host con API key: el proxy la añade server-side.
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
-      # Necesarios cuando WEB_AUTH=on (SaaS).
-      DATABASE_URL: ${DATABASE_URL:-postgresql://mailflow:mailflow@postgres:5432/mailflow}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      PASSKEY_RP_NAME: ${PASSKEY_RP_NAME:-MailFlow}
+      PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
+      PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}
       WEB_SECRET_KEY: ${WEB_SECRET_KEY:-}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
-    ports:
-      - "${WEB_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+      - database
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
-  # One-shot: crea las tablas de Better Auth (SaaS / WEB_AUTH=on) en el mismo
-  # Postgres. No corre por defecto; ejecútalo una vez antes de activar el SaaS:
-  #   docker compose -f infrastructure/docker-compose.yml --profile migrate \
-  #     run --rm web-migrate
-  # Es idempotente (CREATE TABLE/INDEX IF NOT EXISTS), seguro de re-ejecutar.
   web-migrate:
     profiles: ["migrate"]
     image: pgvector/pgvector:pg17
@@ -132,8 +186,22 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - database
     restart: "no"
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  edge:
+  backend:
+  database:
+    internal: true
+  queue:
+    internal: true
 
 volumes:
   postgres_data:
   redis_data:
+  caddy_data:
+  caddy_config:

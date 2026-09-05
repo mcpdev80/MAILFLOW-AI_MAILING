@@ -40,20 +40,27 @@ setup_logging()
 init_sentry()
 logger = logging.getLogger("mailflow.api")
 
+_docs_url = "/docs" if settings.API_DOCS_ENABLED else None
+_openapi_url = "/openapi.json" if settings.API_DOCS_ENABLED else None
+
 app = FastAPI(
     title="MailFlow API",
     version="0.1.0",
     description="Open source AI email assistant API",
+    docs_url=_docs_url,
+    redoc_url=None,
+    openapi_url=_openapi_url,
 )
 
 app.add_middleware(RequestIdMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if settings.CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
+    )
 
 app.include_router(accounts_router)
 app.include_router(audit_router)
@@ -131,4 +138,7 @@ async def health() -> JSONResponse:
 
 @app.get("/")
 async def root() -> dict[str, str]:
-    return {"message": "MailFlow API", "docs": "/docs"}
+    payload = {"message": "MailFlow API"}
+    if settings.API_DOCS_ENABLED:
+        payload["docs"] = "/docs"
+    return payload

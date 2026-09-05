@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,6 +15,7 @@ class Settings(BaseSettings):
     SECRET_ENCRYPTION_KEYS: str = ""
 
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    API_DOCS_ENABLED: bool = False
 
     AUTH_MODE: str = "single"
     SINGLE_TENANT_API_KEY: str = ""
@@ -32,24 +35,16 @@ class Settings(BaseSettings):
     LIFECYCLE_AUDIT_RETENTION_DAYS: int = 180
     LIFECYCLE_CLEANUP_BATCH_SIZE: int = 500
 
-    # Historical backfill intentionally works in very small resumable batches so
-    # live mail/model work can run between batches.
     BACKFILL_BATCH_SIZE: int = Field(default=10, ge=1, le=100)
     BACKFILL_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=20)
     BACKFILL_REQUEUE_DELAY_SECONDS: float = Field(default=1.0, ge=0.0, le=60.0)
 
-    # Adaptive classification escalates while confidence is below this value or
-    # the model explicitly requests more context/review.
     CLASSIFICATION_CONFIDENCE_THRESHOLD: float = Field(default=0.85, ge=0.0, le=1.0)
 
-    # DecisionMemory is conservative by default: only very strong trusted matches
-    # bypass classification while weaker matches may be supplied as hints.
     DECISION_MEMORY_REUSE_THRESHOLD: float = Field(default=0.93, ge=0.0, le=1.0)
     DECISION_MEMORY_HINT_THRESHOLD: float = Field(default=0.68, ge=0.0, le=1.0)
     DECISION_MEMORY_DECAY_DAYS: int = Field(default=180, gt=0)
 
-    # Attachment extraction is optional escalation context. Keep all limits
-    # centrally configurable so deployments can tune local resource use safely.
     ATTACHMENT_MAX_BYTES: int = Field(default=5 * 1024 * 1024, gt=0)
     ATTACHMENT_MAX_EXTRACTED_CHARS: int = Field(default=8_000, gt=0)
     ATTACHMENT_MAX_COUNT: int = Field(default=2, gt=0)
@@ -60,17 +55,12 @@ class Settings(BaseSettings):
         gt=0,
     )
 
-    # Global stage-to-model defaults. Account-level role overrides can be added
-    # later without changing the adaptive classifier contract.
     CLASSIFICATION_STAGE_0_ROLE: str = "fast"
     CLASSIFICATION_STAGE_1_ROLE: str = "fast"
     CLASSIFICATION_STAGE_2_ROLE: str = "deep"
     CLASSIFICATION_STAGE_3_ROLE: str = "deep"
     THREAD_SUMMARY_MODEL_ROLE: str = "fast"
 
-    # LLM resilience. Fast classification should fail quickly; deep/generation
-    # get a little more time. LiteLLM retries remain bounded and are independent
-    # of ARQ job retries.
     LLM_FAST_TIMEOUT_SECONDS: float = Field(default=12.0, gt=0)
     LLM_FAST_MAX_RETRIES: int = Field(default=1, ge=0, le=10)
     LLM_DEEP_TIMEOUT_SECONDS: float = Field(default=45.0, gt=0)
@@ -81,8 +71,6 @@ class Settings(BaseSettings):
     LLM_CIRCUIT_RESET_SECONDS: float = Field(default=60.0, gt=0)
     LLM_HEALTH_TTL_SECONDS: int = Field(default=180, gt=0)
 
-    # Global model workload admission. Batch size and model parallelism are
-    # intentionally independent. Defaults reserve one global slot from bulk work.
     WORKLOAD_GLOBAL_CONCURRENCY: int = Field(default=3, ge=1, le=128)
     WORKLOAD_FAST_CONCURRENCY: int = Field(default=2, ge=1, le=128)
     WORKLOAD_DEEP_CONCURRENCY: int = Field(default=1, ge=1, le=128)
@@ -113,9 +101,9 @@ class Settings(BaseSettings):
     BILLING_SUCCESS_URL: str = "http://localhost:3000/app/billing?status=success"
     BILLING_CANCEL_URL: str = "http://localhost:3000/app/billing?status=cancel"
 
-    @field_validator("AUTH_MODE", mode="before")
+    @field_validator("AUTH_MODE", "ENVIRONMENT", mode="before")
     @classmethod
-    def _normalize_auth_mode(cls, value: object) -> object:
+    def _normalize_lowercase(cls, value: object) -> object:
         if isinstance(value, str):
             return value.strip().lower()
         return value
@@ -145,7 +133,27 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
-    def _validate_memory_thresholds(self) -> "Settings":
+    def _validate_security_and_limits(self) -> "Settings":
+        if self.ENVIRONMENT == "production":
+            if "*" in self.CORS_ORIGINS:
+                raise ValueError(
+                    "production CORS_ORIGINS must not contain wildcard origins"
+                )
+            for origin in self.CORS_ORIGINS:
+                parsed = urlparse(origin)
+                if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                    raise ValueError(
+                        "CORS_ORIGINS entries must be absolute http(s) origins"
+                    )
+                if parsed.scheme != "https" and parsed.hostname not in {
+                    "localhost",
+                    "127.0.0.1",
+                    "::1",
+                }:
+                    raise ValueError(
+                        "production CORS origins must use HTTPS outside localhost"
+                    )
+
         if self.DECISION_MEMORY_HINT_THRESHOLD > self.DECISION_MEMORY_REUSE_THRESHOLD:
             raise ValueError(
                 "DecisionMemory hint threshold must not exceed reuse threshold"

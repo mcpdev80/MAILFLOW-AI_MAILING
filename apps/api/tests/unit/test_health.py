@@ -1,8 +1,4 @@
-"""Tests para el endpoint /health.
-
-No requieren Postgres: se mockea la session factory para cubrir tanto el
-camino "DB up" (200) como "DB down" (503).
-"""
+"""Tests for the API health endpoint and production-safe root defaults."""
 
 from __future__ import annotations
 
@@ -52,7 +48,9 @@ def test_health_db_down_returns_503():
     assert "error" in body
 
 
-def test_root_returns_docs_link():
+def test_root_does_not_advertise_docs_when_disabled():
     resp = _client().get("/")
     assert resp.status_code == 200
-    assert resp.json()["docs"] == "/docs"
+    assert resp.json() == {"message": "MailFlow API"}
+    assert _client().get("/docs").status_code == 404
+    assert _client().get("/openapi.json").status_code == 404

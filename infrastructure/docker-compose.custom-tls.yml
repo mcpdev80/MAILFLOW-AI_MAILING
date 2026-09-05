@@ -1,0 +1,8 @@
+services:
+  edge:
+    volumes:
+      - ./caddy/Caddyfile.custom:/etc/caddy/Caddyfile:ro
+      - ${TLS_CERT_FILE:?TLS_CERT_FILE is required}:/etc/mailflow/tls/fullchain.pem:ro
+      - ${TLS_KEY_FILE:?TLS_KEY_FILE is required}:/etc/mailflow/tls/privkey.pem:ro
+      - caddy_data:/data
+      - caddy_config:/config
