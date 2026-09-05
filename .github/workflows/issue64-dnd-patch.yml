@@ -34,6 +34,14 @@ jobs:
           path.write_text(text)
           PY
           python3 .ci/patch_issue64_dnd.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/app/app/mail/page.tsx')
+          text = path.read_text()
+          text = text.replace('<div className="undoToast" role="status">', '<output className="undoToast">')
+          text = text.replace('</div>\n      )}\n\n      {contextMenu && (', '</output>\n      )}\n\n      {contextMenu && (', 1)
+          path.write_text(text)
+          PY
       - name: Format changed web files
         run: pnpm biome check --write apps/web/src/app/app/mail/page.tsx apps/web/src/lib/mail-ux-api.ts
       - name: Clean helpers and commit
