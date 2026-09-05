@@ -1,5 +1,6 @@
 name: CI Temp Issue 50
 
+# Temporary branch-only validation; removed before merge.
 on:
   push:
     branches:
