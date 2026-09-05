@@ -89,7 +89,9 @@ async def dismiss_message_review(
     identity: RequestIdentity,
     item_id: UUID,
 ) -> bool:
-    row = await session.scalar(select(ProcessedEmail).where(ProcessedEmail.id == item_id))
+    row = await session.scalar(
+        select(ProcessedEmail).where(ProcessedEmail.id == item_id)
+    )
     if row is None:
         return False
     await get_accessible_account(row.account_id, identity, session)
@@ -120,7 +122,9 @@ async def filter_daily_summary(
 ) -> DailySummary:
     dismissed = await dismissed_message_ids(session, identity)
     if dismissed:
-        summary.urgent = [item for item in summary.urgent if item.message_id not in dismissed]
+        summary.urgent = [
+            item for item in summary.urgent if item.message_id not in dismissed
+        ]
         summary.action_required = [
             item for item in summary.action_required if item.message_id not in dismissed
         ]

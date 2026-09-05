@@ -67,7 +67,10 @@ function ReviewEditor({
       >
         <label>
           <span className="muted">Category</span>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
             {categories.map((value) => (
               <option key={value} value={value}>
                 {value}
@@ -197,7 +200,12 @@ function OperationalCard({
       <p>{item.reason}</p>
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
         {item.retry_available && item.job_id && (
-          <button className="btn" type="button" disabled={busy} onClick={onRetry}>
+          <button
+            className="btn"
+            type="button"
+            disabled={busy}
+            onClick={onRetry}
+          >
             Retry
           </button>
         )}
