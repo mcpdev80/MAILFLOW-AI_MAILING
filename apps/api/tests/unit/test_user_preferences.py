@@ -6,7 +6,10 @@ import pytest
 
 from app.auth import RequestIdentity
 from app.models.organization import Organization
-from app.services.user_preferences import get_user_preferences, update_user_preferences
+from app.services.user_preferences import (
+    get_user_preferences,
+    update_user_preferences,
+)
 from app.user_preferences_schemas import UserPreferencesUpdate
 
 
