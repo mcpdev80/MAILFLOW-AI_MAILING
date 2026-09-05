@@ -1,13 +1,14 @@
 """OAuth2 para conectar buzones Gmail / Microsoft 365 sin contraseña.
 
-Gmail y M365 exponen IMAP con XOAUTH2, así que solo necesitamos obtener y
-refrescar un access_token; el acceso al buzón lo hace ImapGenericProvider.
+Gmail y M365 exponen IMAP y SMTP con XOAUTH2, así que obtenemos y refrescamos
+un access_token que puede usarse para leer y para los envíos explícitos del
+usuario.
 
 Flujo (Authorization Code):
   1. authorize_url(provider, state) → URL de consentimiento.
   2. el proveedor redirige a REDIRECT_URI con ?code=...&state=...
   3. exchange_code(provider, code) → {refresh_token, email}.
-  4. en cada ciclo, access_token_from_refresh(provider, refresh_token).
+  4. en cada ciclo/envío, access_token_from_refresh(provider, refresh_token).
 
 Todo es config-driven (CLIENT_ID/SECRET/REDIRECT_URI). Si falta config, se lanza
 OAuthNotConfigured para que las rutas devuelvan un 400 claro.
@@ -25,9 +26,14 @@ IMAP_ENDPOINTS = {
     "microsoft": ("outlook.office365.com", 993),
 }
 
-# Scopes necesarios para acceso IMAP + refresh token offline.
+# Gmail's mail scope covers IMAP/SMTP. Microsoft requires explicit delegated
+# Outlook scopes for both IMAP and SMTP AUTH plus offline refresh access.
 _GOOGLE_SCOPES = ["https://mail.google.com/"]
-_MS_SCOPES = ["https://outlook.office365.com/IMAP.AccessAsUser.All", "offline_access"]
+_MS_SCOPES = [
+    "https://outlook.office.com/IMAP.AccessAsUser.All",
+    "https://outlook.office.com/SMTP.Send",
+    "offline_access",
+]
 
 _GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
