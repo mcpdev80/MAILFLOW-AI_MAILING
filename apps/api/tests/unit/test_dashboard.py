@@ -97,9 +97,7 @@ async def test_dashboard_aggregates_only_authorized_mailboxes(session) -> None:
     own = await _account(
         session, org, username="own@example.test", mode="private", owner="user-a"
     )
-    shared = await _account(
-        session, org, username="shared@example.test", mode="shared"
-    )
+    shared = await _account(session, org, username="shared@example.test", mode="shared")
     foreign = await _account(
         session, org, username="foreign@example.test", mode="private", owner="user-b"
     )

@@ -153,7 +153,11 @@ async def build_dashboard(
     )
 
     counters = DashboardCounters(
-        **{key: int(getattr(counter_row, key) or 0) for key in DashboardCounters.model_fields if key != "active_backfills"},
+        **{
+            key: int(getattr(counter_row, key) or 0)
+            for key in DashboardCounters.model_fields
+            if key != "active_backfills"
+        },
         active_backfills=active_backfills,
     )
 
@@ -341,7 +345,9 @@ async def search_messages(
     if date_to:
         predicates.append(
             ProcessedEmail.processed_at
-            < datetime.combine(date_to + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
+            < datetime.combine(
+                date_to + timedelta(days=1), datetime.min.time(), tzinfo=UTC
+            )
         )
     if category:
         predicates.append(ProcessedEmail.category == category)
