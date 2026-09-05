@@ -1,5 +1,7 @@
 version: "3.9"
 
+# Development-only stack. Direct host ports are intentional here and must not be
+# copied into the production security boundary in docker-compose.yml.
 services:
   postgres:
     image: pgvector/pgvector:pg17
@@ -43,6 +45,10 @@ services:
       - "8000:8000"
     env_file:
       - ../.env
+    environment:
+      ENVIRONMENT: development
+      API_DOCS_ENABLED: "true"
+      CORS_ORIGINS: http://localhost:3000
     depends_on:
       postgres:
         condition: service_healthy
