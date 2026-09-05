@@ -1,4 +1,4 @@
-"""Add per-user notification preferences and events.
+"""Add per-user notification preferences and attention state.
 
 Revision ID: 022
 Revises: 021
@@ -15,6 +15,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.add_column(
+        "processed_emails",
+        sa.Column("attention_dismissed_at", sa.DateTime(timezone=True), nullable=True),
+    )
+
     op.create_table(
         "notification_preferences",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -127,3 +132,4 @@ def downgrade() -> None:
     op.drop_index("ix_notification_event_actor_read", table_name="notification_events")
     op.drop_table("notification_events")
     op.drop_table("notification_preferences")
+    op.drop_column("processed_emails", "attention_dismissed_at")
