@@ -1,0 +1,36 @@
+name: Issue 64 DnD Patch
+
+on:
+  push:
+    branches:
+      - feat/64-context-actions-dnd-print
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "${{ !startsWith(github.event.head_commit.message, 'feat(mail): add drag and drop') }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Apply DnD patch
+        run: python3 .ci/patch_issue64_dnd.py
+      - name: Format changed web files
+        run: pnpm biome check --write apps/web/src/app/app/mail/page.tsx apps/web/src/lib/mail-ux-api.ts
+      - name: Clean helpers and commit
+        shell: bash
+        run: |
+          rm -f .ci/patch_issue64_dnd.py .github/workflows/issue64-dnd-patch.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat(mail): add drag and drop, multi-select and move undo'
+          git push
