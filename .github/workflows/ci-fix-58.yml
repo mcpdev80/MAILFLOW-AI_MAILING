@@ -24,7 +24,7 @@ jobs:
           version: latest
           python-version: '3.13'
       - run: pnpm install --frozen-lockfile
-      - name: Replace unsafe HTML rendering
+      - name: Keep HTML message rendering sandboxed
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -32,6 +32,10 @@ jobs:
 
           path = Path('apps/web/src/app/app/mail/page.tsx')
           text = path.read_text()
+          if 'dangerouslySetInnerHTML' not in text:
+              if 'className="mailBodyFrame"' not in text:
+                  raise SystemExit('expected sandboxed mail body frame not found')
+              raise SystemExit(0)
           pattern = re.compile(
               r'<div\s+className="mailBody"\s+'
               r'// The API strips active content, remote images, styles and unsafe attributes\.\s+'
@@ -50,13 +54,26 @@ jobs:
           path.write_text(new_text)
           PY
       - run: pnpm biome check --write apps/web/src/lib/api.ts apps/web/src/app/app/mail/page.tsx
-      - run: uv run ruff check --fix packages/core/mailflow_core/providers/imap_mail_client.py apps/api/tests/unit/test_mail_client_services.py
-      - run: uv run ruff format packages/core/mailflow_core/providers/imap_mail_client.py apps/api/tests/unit/test_mail_client_services.py
+      - name: Format all changed Python files
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
+          if (( ${#files[@]} )); then
+            uv run ruff check --fix "${files[@]}"
+            uv run ruff format "${files[@]}"
+          fi
       - name: Commit fixes
+        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/web/src/lib/api.ts apps/web/src/app/app/mail/page.tsx packages/core/mailflow_core/providers/imap_mail_client.py apps/api/tests/unit/test_mail_client_services.py
+          git add apps/web/src/lib/api.ts apps/web/src/app/app/mail/page.tsx
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
+          if (( ${#files[@]} )); then
+            git add "${files[@]}"
+          fi
           if git diff --cached --quiet; then
             echo 'No fixes needed'
           else
