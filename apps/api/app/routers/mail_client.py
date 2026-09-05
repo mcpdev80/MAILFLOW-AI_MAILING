@@ -16,10 +16,16 @@ from app.mail_client_schemas import (
     MailboxCapabilities,
     MailboxFolderView,
     MessageDetail,
+    ThreadView,
     UnifiedInbox,
 )
 from app.services.mail_actions import MailActionError, mailbox_metadata, perform_mail_action
-from app.services.mail_client import download_attachment, list_authorized_inbox, read_message
+from app.services.mail_client import (
+    download_attachment,
+    list_authorized_inbox,
+    read_message,
+    read_thread,
+)
 
 router = APIRouter(prefix="/mail-client", tags=["mail-client"])
 
@@ -34,7 +40,7 @@ async def unified_inbox(
     session: AsyncSession = Depends(get_session),
 ) -> UnifiedInbox:
     try:
-        messages, cursors = await list_authorized_inbox(
+        messages, counters, cursors = await list_authorized_inbox(
             session,
             identity,
             account_id=account_id,
@@ -46,7 +52,12 @@ async def unified_inbox(
         raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return UnifiedInbox(messages=messages, next_before_uid_by_account=cursors)
+    return UnifiedInbox(
+        messages=messages,
+        counters=counters,
+        total_unread=sum(item.unread for item in counters),
+        next_before_uid_by_account=cursors,
+    )
 
 
 @router.get("/accounts/{account_id}/metadata")
@@ -88,6 +99,24 @@ async def message_detail(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@router.get("/accounts/{account_id}/threads/{thread_id}", response_model=ThreadView)
+async def thread_detail(
+    account_id: UUID,
+    thread_id: str,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> ThreadView:
+    try:
+        return await read_thread(
+            session,
+            identity,
+            account_id=account_id,
+            thread_id=thread_id,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @router.post(
     "/accounts/{account_id}/messages/{uid}/actions",
     response_model=MailActionResult,
@@ -111,7 +140,11 @@ async def message_action(
         )
     except MailActionError as exc:
         detail = str(exc)
-        status_code = 422 if detail in {"action_not_supported", "destination_folder_not_found"} else 502
+        status_code = (
+            422
+            if detail in {"action_not_supported", "destination_folder_not_found"}
+            else 502
+        )
         if detail == "folder_not_found":
             status_code = 404
         raise HTTPException(status_code=status_code, detail=detail) from exc
