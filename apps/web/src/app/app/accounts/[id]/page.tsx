@@ -316,14 +316,22 @@ export default function AccountDetailPage() {
             <h1 style={{ margin: 0 }}>{account.username}</h1>
             <div style={{ display: "flex", gap: "0.6rem" }}>
               {contentAccessible && (
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={runNow}
-                  disabled={busy}
-                >
-                  {busy ? "Working…" : "Run cycle now"}
-                </button>
+                <>
+                  <Link
+                    className="btn secondary"
+                    href={`/app/accounts/${id}/decision-memory`}
+                  >
+                    Learned decisions
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={runNow}
+                    disabled={busy}
+                  >
+                    {busy ? "Working…" : "Run cycle now"}
+                  </button>
+                </>
               )}
               {canManageOwnership && (
                 <button
