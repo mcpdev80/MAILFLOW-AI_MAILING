@@ -9,6 +9,7 @@ from app.routers.backfill import router as backfill_router
 from app.routers.billing import router as billing_router
 from app.routers.bulk import router as bulk_router
 from app.routers.cycles import router as cycles_router
+from app.routers.dashboard import router as dashboard_router
 from app.routers.decision_memory import router as decision_memory_router
 from app.routers.inference_health import router as inference_health_router
 from app.routers.internal import router as internal_router
@@ -32,6 +33,7 @@ __all__ = [
     "billing_router",
     "bulk_router",
     "cycles_router",
+    "dashboard_router",
     "decision_memory_router",
     "inference_health_router",
     "internal_router",
