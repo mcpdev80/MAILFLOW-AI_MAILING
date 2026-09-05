@@ -42,7 +42,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Link href="/app/mail">{t("nav.mail")}</Link>
         <Link href="/app/review">{t("nav.review")}</Link>
         <Link href="/app/notifications">
-          {t("nav.notifications")}{unread > 0 ? ` (${unread})` : ""}
+          {t("nav.notifications")}
+          {unread > 0 ? ` (${unread})` : ""}
         </Link>
         <Link href="/app/daily-summary">{t("nav.dailySummary")}</Link>
         <Link href="/app/settings/preferences">{t("nav.settings")}</Link>

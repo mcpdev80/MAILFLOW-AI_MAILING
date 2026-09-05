@@ -318,14 +318,23 @@ export default function ReviewPage() {
             marginBottom: "1rem",
           }}
         >
-          <Counter label={t("review.title")} value={data.counters.review_needed} />
+          <Counter
+            label={t("review.title")}
+            value={data.counters.review_needed}
+          />
           <Counter label={t("review.urgent")} value={data.counters.urgent} />
           <Counter
             label={t("review.actionRequired")}
             value={data.counters.action_required}
           />
-          <Counter label={t("review.security")} value={data.counters.security} />
-          <Counter label={t("review.failures")} value={data.counters.failures} />
+          <Counter
+            label={t("review.security")}
+            value={data.counters.security}
+          />
+          <Counter
+            label={t("review.failures")}
+            value={data.counters.failures}
+          />
         </div>
       )}
 
@@ -389,13 +398,15 @@ export default function ReviewPage() {
                 {item.subcategory ? ` / ${item.subcategory}` : ""}
               </span>
               <span>
-                {t("review.importance")}: {enumLabel(t, "importance", item.importance)}
+                {t("review.importance")}:{" "}
+                {enumLabel(t, "importance", item.importance)}
               </span>
               <span>
                 {t("review.urgency")}: {enumLabel(t, "urgency", item.urgency)}
               </span>
               <span>
-                {t("review.actionRequired")}: {enumLabel(t, "action_required", item.action_required)}
+                {t("review.actionRequired")}:{" "}
+                {enumLabel(t, "action_required", item.action_required)}
               </span>
               <span>
                 {t("review.confidence")}: {Math.round(item.confidence * 100)}%

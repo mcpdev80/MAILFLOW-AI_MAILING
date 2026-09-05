@@ -2,8 +2,8 @@
 
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ApiError, api } from "@/lib/api";
-import { useI18n } from "@/lib/i18n";
 import { authClient, useSession } from "@/lib/auth-client";
+import { useI18n } from "@/lib/i18n";
 import type { LLMProvider } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -253,7 +253,18 @@ export default function OnboardingPage() {
 
   return (
     <main className="container">
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}><h1>{t("onboarding.title")}</h1><LanguageSwitcher /></div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "1rem",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <h1>{t("onboarding.title")}</h1>
+        <LanguageSwitcher />
+      </div>
       <p className="muted">
         Step {step === "llm" ? "1" : step === "account" ? "2" : "✓"} of 2
       </p>
@@ -460,7 +471,10 @@ export default function OnboardingPage() {
       )}
 
       {step === "done" && (
-        <div className="alert ok"><strong>{t("onboarding.done.title")}</strong> — {t("onboarding.done.body")}</div>
+        <div className="alert ok">
+          <strong>{t("onboarding.done.title")}</strong> —{" "}
+          {t("onboarding.done.body")}
+        </div>
       )}
     </main>
   );

@@ -43,7 +43,9 @@ async def test_locale_defaults_then_persists_per_user(session) -> None:
 
 @pytest.mark.asyncio
 async def test_single_user_locale_uses_stable_actor_key(session) -> None:
-    org = Organization(name="Single Locale", slug=f"locale-single-{uuid4()}", plan="free")
+    org = Organization(
+        name="Single Locale", slug=f"locale-single-{uuid4()}", plan="free"
+    )
     session.add(org)
     await session.commit()
     await session.refresh(org)

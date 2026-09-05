@@ -2,8 +2,8 @@
 
 import { api } from "@/lib/api";
 import {
-  createContext,
   type ReactNode,
+  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -40,7 +40,8 @@ const en = {
   "common.active": "active",
   "common.paused": "paused",
   "settings.language.title": "Language",
-  "settings.language.description": "Choose the language used by the Mailflow interface.",
+  "settings.language.description":
+    "Choose the language used by the Mailflow interface.",
   "settings.language.saved": "Language preference saved.",
   "onboarding.title": "Get started",
   "onboarding.step": "Step",
@@ -54,14 +55,18 @@ const en = {
   "onboarding.privateOnlyMe": "Private — only me",
   "onboarding.sharedSelected": "Shared — selected members",
   "onboarding.membersAccess": "Members with mailbox access",
-  "onboarding.sharedNotice": "Organization admins do not automatically get mailbox access. Only the selected members can see this mailbox.",
-  "onboarding.browserLanguage": "We selected this language from your browser. You can change it now.",
+  "onboarding.sharedNotice":
+    "Organization admins do not automatically get mailbox access. Only the selected members can see this mailbox.",
+  "onboarding.browserLanguage":
+    "We selected this language from your browser. You can change it now.",
   "mail.learnedDecisions": "Learned decisions",
   "decision.title": "Learned decisions",
-  "decision.description": "Human-confirmed classification decisions that Mailflow can safely reuse.",
+  "decision.description":
+    "Human-confirmed classification decisions that Mailflow can safely reuse.",
   "decision.entries": "entries",
   "decision.emptyTitle": "No learned decisions yet",
-  "decision.emptyBody": "Confirmed and corrected classifications will appear here.",
+  "decision.emptyBody":
+    "Confirmed and corrected classifications will appear here.",
   "decision.classification": "Classification",
   "decision.priority": "Priority",
   "decision.action": "Action",
@@ -85,11 +90,13 @@ const en = {
   "dashboard.runNow": "Run now",
   "dashboard.running": "Running…",
   "dashboard.managedTitle": "Shared mailboxes you manage",
-  "dashboard.managedBody": "These mailboxes are not visible to you unless you are also explicitly granted mailbox access.",
+  "dashboard.managedBody":
+    "These mailboxes are not visible to you unless you are also explicitly granted mailbox access.",
   "dashboard.manageOnly": "manage only",
   "dashboard.manageAccess": "Manage access",
   "review.title": "Review",
-  "review.description": "Only exceptions and actionable items across your authorized mailboxes.",
+  "review.description":
+    "Only exceptions and actionable items across your authorized mailboxes.",
   "review.urgent": "Urgent",
   "review.actionRequired": "Action required",
   "review.security": "Security",
@@ -126,7 +133,8 @@ const en = {
   "notifications.unread": "unread",
   "notifications.empty": "No notifications.",
   "notifications.markRead": "Mark read",
-  "summary.description": "Deterministic digest from persisted Mailflow state — no extra LLM pass.",
+  "summary.description":
+    "Deterministic digest from persisted Mailflow state — no extra LLM pass.",
   "summary.urgent": "Urgent",
   "summary.action": "Action required",
   "summary.review": "Awaiting review",
@@ -187,20 +195,25 @@ const de: Partial<Record<TranslationKey, string>> = {
   "onboarding.llm.title": "1. KI-Anbieter verbinden",
   "onboarding.account.title": "2. Postfach verbinden",
   "onboarding.done.title": "Bereit",
-  "onboarding.done.body": "Dein Postfach ist verbunden. Mailflow wird geöffnet…",
+  "onboarding.done.body":
+    "Dein Postfach ist verbunden. Mailflow wird geöffnet…",
   "onboarding.mailboxPrivacy": "Postfach-Datenschutz",
   "onboarding.whoAccess": "Wer soll Zugriff haben?",
   "onboarding.privateOnlyMe": "Privat — nur ich",
   "onboarding.sharedSelected": "Geteilt — ausgewählte Mitglieder",
   "onboarding.membersAccess": "Mitglieder mit Postfachzugriff",
-  "onboarding.sharedNotice": "Organisations-Admins erhalten nicht automatisch Zugriff. Nur die ausgewählten Mitglieder können dieses Postfach sehen.",
-  "onboarding.browserLanguage": "Diese Sprache wurde anhand deines Browsers gewählt. Du kannst sie jetzt ändern.",
+  "onboarding.sharedNotice":
+    "Organisations-Admins erhalten nicht automatisch Zugriff. Nur die ausgewählten Mitglieder können dieses Postfach sehen.",
+  "onboarding.browserLanguage":
+    "Diese Sprache wurde anhand deines Browsers gewählt. Du kannst sie jetzt ändern.",
   "mail.learnedDecisions": "Gelernte Entscheidungen",
   "decision.title": "Gelernte Entscheidungen",
-  "decision.description": "Von Menschen bestätigte Klassifizierungsentscheidungen, die Mailflow sicher wiederverwenden kann.",
+  "decision.description":
+    "Von Menschen bestätigte Klassifizierungsentscheidungen, die Mailflow sicher wiederverwenden kann.",
   "decision.entries": "Einträge",
   "decision.emptyTitle": "Noch keine gelernten Entscheidungen",
-  "decision.emptyBody": "Bestätigte und korrigierte Klassifizierungen erscheinen hier.",
+  "decision.emptyBody":
+    "Bestätigte und korrigierte Klassifizierungen erscheinen hier.",
   "decision.classification": "Klassifizierung",
   "decision.priority": "Priorität",
   "decision.action": "Aktion",
@@ -224,11 +237,13 @@ const de: Partial<Record<TranslationKey, string>> = {
   "dashboard.runNow": "Jetzt ausführen",
   "dashboard.running": "Läuft…",
   "dashboard.managedTitle": "Geteilte Postfächer, die du verwaltest",
-  "dashboard.managedBody": "Diese Postfächer sind für dich nur sichtbar, wenn dir zusätzlich ausdrücklich Postfachzugriff gewährt wurde.",
+  "dashboard.managedBody":
+    "Diese Postfächer sind für dich nur sichtbar, wenn dir zusätzlich ausdrücklich Postfachzugriff gewährt wurde.",
   "dashboard.manageOnly": "nur verwalten",
   "dashboard.manageAccess": "Zugriff verwalten",
   "review.title": "Prüfung",
-  "review.description": "Nur Ausnahmen und handlungsrelevante Elemente aus deinen berechtigten Postfächern.",
+  "review.description":
+    "Nur Ausnahmen und handlungsrelevante Elemente aus deinen berechtigten Postfächern.",
   "review.urgent": "Dringend",
   "review.actionRequired": "Aktion erforderlich",
   "review.security": "Sicherheit",
@@ -253,7 +268,8 @@ const de: Partial<Record<TranslationKey, string>> = {
   "review.openMessage": "Nachricht öffnen",
   "review.noSubject": "(Kein Betreff)",
   "review.confidence": "Konfidenz",
-  "notifications.description": "Nur Ausnahmen und handlungsrelevante Ereignisse.",
+  "notifications.description":
+    "Nur Ausnahmen und handlungsrelevante Ereignisse.",
   "notifications.preferences": "Einstellungen",
   "notifications.urgentAction": "Dringend / Aktion erforderlich",
   "notifications.securityReview": "Sicherheit / Prüfung",
@@ -265,7 +281,8 @@ const de: Partial<Record<TranslationKey, string>> = {
   "notifications.unread": "ungelesen",
   "notifications.empty": "Keine Benachrichtigungen.",
   "notifications.markRead": "Als gelesen markieren",
-  "summary.description": "Deterministische Übersicht aus gespeichertem Mailflow-Zustand — ohne zusätzlichen LLM-Aufruf.",
+  "summary.description":
+    "Deterministische Übersicht aus gespeichertem Mailflow-Zustand — ohne zusätzlichen LLM-Aufruf.",
   "summary.urgent": "Dringend",
   "summary.action": "Aktion erforderlich",
   "summary.review": "Prüfung ausstehend",
@@ -274,7 +291,8 @@ const de: Partial<Record<TranslationKey, string>> = {
   "summary.important": "Wichtige neue Nachrichten",
   "summary.since": "Seit",
   "summary.generated": "erstellt",
-  "summary.empty": "In diesem Zeitraum gibt es keine handlungsrelevanten Elemente.",
+  "summary.empty":
+    "In diesem Zeitraum gibt es keine handlungsrelevanten Elemente.",
   "category.work": "Arbeit",
   "category.private": "Privat",
   "category.finance": "Finanzen",
@@ -316,7 +334,8 @@ const es: Partial<Record<TranslationKey, string>> = {
   "common.active": "activo",
   "common.paused": "pausado",
   "settings.language.title": "Idioma",
-  "settings.language.description": "Elige el idioma de la interfaz de Mailflow.",
+  "settings.language.description":
+    "Elige el idioma de la interfaz de Mailflow.",
   "settings.language.saved": "Preferencia de idioma guardada.",
   "onboarding.title": "Configuración",
   "onboarding.step": "Paso",
@@ -330,14 +349,18 @@ const es: Partial<Record<TranslationKey, string>> = {
   "onboarding.privateOnlyMe": "Privado — solo yo",
   "onboarding.sharedSelected": "Compartido — miembros seleccionados",
   "onboarding.membersAccess": "Miembros con acceso al buzón",
-  "onboarding.sharedNotice": "Los administradores de la organización no obtienen acceso automáticamente. Solo los miembros seleccionados pueden ver este buzón.",
-  "onboarding.browserLanguage": "Hemos seleccionado este idioma según tu navegador. Puedes cambiarlo ahora.",
+  "onboarding.sharedNotice":
+    "Los administradores de la organización no obtienen acceso automáticamente. Solo los miembros seleccionados pueden ver este buzón.",
+  "onboarding.browserLanguage":
+    "Hemos seleccionado este idioma según tu navegador. Puedes cambiarlo ahora.",
   "mail.learnedDecisions": "Decisiones aprendidas",
   "decision.title": "Decisiones aprendidas",
-  "decision.description": "Decisiones de clasificación confirmadas por una persona que Mailflow puede reutilizar de forma segura.",
+  "decision.description":
+    "Decisiones de clasificación confirmadas por una persona que Mailflow puede reutilizar de forma segura.",
   "decision.entries": "entradas",
   "decision.emptyTitle": "Aún no hay decisiones aprendidas",
-  "decision.emptyBody": "Las clasificaciones confirmadas y corregidas aparecerán aquí.",
+  "decision.emptyBody":
+    "Las clasificaciones confirmadas y corregidas aparecerán aquí.",
   "decision.classification": "Clasificación",
   "decision.priority": "Prioridad",
   "decision.action": "Acción",
@@ -361,11 +384,13 @@ const es: Partial<Record<TranslationKey, string>> = {
   "dashboard.runNow": "Ejecutar ahora",
   "dashboard.running": "Ejecutando…",
   "dashboard.managedTitle": "Buzones compartidos que administras",
-  "dashboard.managedBody": "Estos buzones no son visibles salvo que también tengas acceso explícito al buzón.",
+  "dashboard.managedBody":
+    "Estos buzones no son visibles salvo que también tengas acceso explícito al buzón.",
   "dashboard.manageOnly": "solo administrar",
   "dashboard.manageAccess": "Administrar acceso",
   "review.title": "Revisión",
-  "review.description": "Solo excepciones y elementos que requieren acción en tus buzones autorizados.",
+  "review.description":
+    "Solo excepciones y elementos que requieren acción en tus buzones autorizados.",
   "review.urgent": "Urgente",
   "review.actionRequired": "Acción requerida",
   "review.security": "Seguridad",
@@ -390,7 +415,8 @@ const es: Partial<Record<TranslationKey, string>> = {
   "review.openMessage": "Abrir mensaje",
   "review.noSubject": "(Sin asunto)",
   "review.confidence": "confianza",
-  "notifications.description": "Solo excepciones y eventos que requieren acción.",
+  "notifications.description":
+    "Solo excepciones y eventos que requieren acción.",
   "notifications.preferences": "Preferencias",
   "notifications.urgentAction": "Urgente / acción requerida",
   "notifications.securityReview": "Seguridad / revisión",
@@ -402,7 +428,8 @@ const es: Partial<Record<TranslationKey, string>> = {
   "notifications.unread": "sin leer",
   "notifications.empty": "Sin notificaciones.",
   "notifications.markRead": "Marcar como leído",
-  "summary.description": "Resumen determinista del estado persistido de Mailflow — sin llamada LLM adicional.",
+  "summary.description":
+    "Resumen determinista del estado persistido de Mailflow — sin llamada LLM adicional.",
   "summary.urgent": "Urgente",
   "summary.action": "Acción requerida",
   "summary.review": "Pendiente de revisión",

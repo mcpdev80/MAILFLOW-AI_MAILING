@@ -131,7 +131,8 @@ export default function NotificationsPage() {
 
       <section>
         <h2>
-          {t("notifications.inbox")} {center ? `(${center.unread} ${t("notifications.unread")})` : ""}
+          {t("notifications.inbox")}{" "}
+          {center ? `(${center.unread} ${t("notifications.unread")})` : ""}
         </h2>
         {!center && !error && <p className="muted">{t("common.loading")}</p>}
         {center?.notifications.length === 0 && (

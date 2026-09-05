@@ -1,6 +1,6 @@
 "use client";
 
-import { LOCALE_NAMES, LOCALES, type Locale, useI18n } from "@/lib/i18n";
+import { LOCALES, LOCALE_NAMES, type Locale, useI18n } from "@/lib/i18n";
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   const { locale, setLocale, t } = useI18n();

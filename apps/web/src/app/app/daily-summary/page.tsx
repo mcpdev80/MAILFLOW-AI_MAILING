@@ -135,10 +135,14 @@ export default function DailySummaryPage() {
           </div>
           <div className="muted" style={{ marginBottom: "1rem" }}>
             {t("summary.since")} {new Date(summary.since).toLocaleString()} ·{" "}
-            {t("summary.generated")} {new Date(summary.generated_at).toLocaleString()}
+            {t("summary.generated")}{" "}
+            {new Date(summary.generated_at).toLocaleString()}
           </div>
           <div style={{ display: "grid", gap: "1rem" }}>
-            <SummarySection title={t("summary.urgent")} items={summary.urgent} />
+            <SummarySection
+              title={t("summary.urgent")}
+              items={summary.urgent}
+            />
             <SummarySection
               title={t("summary.action")}
               items={summary.action_required}
