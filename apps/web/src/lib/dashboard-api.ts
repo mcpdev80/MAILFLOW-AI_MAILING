@@ -91,7 +91,9 @@ async function request<T>(path: string): Promise<T> {
   const body = text ? JSON.parse(text) : undefined;
   if (!response.ok) {
     const detail =
-      (body && (body.detail as string)) || response.statusText || "request failed";
+      (body && (body.detail as string)) ||
+      response.statusText ||
+      "request failed";
     throw new ApiError(response.status, detail);
   }
   return body as T;

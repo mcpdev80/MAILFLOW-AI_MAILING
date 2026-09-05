@@ -2,9 +2,9 @@
 
 import { ApiError, api } from "@/lib/api";
 import {
-  dashboardApi,
   type DashboardBreakdownItem,
   type DashboardOverview,
+  dashboardApi,
 } from "@/lib/dashboard-api";
 import { enumLabel, useI18n } from "@/lib/i18n";
 import Link from "next/link";
@@ -51,6 +51,7 @@ function Distribution({
         {items.map((item) => {
           const row = (
             <div
+              key={item.key}
               style={{
                 display: "grid",
                 gridTemplateColumns: "minmax(110px, 1fr) 3fr auto",
@@ -104,21 +105,24 @@ export default function DashboardPage() {
   const [runningId, setRunningId] = useState<string | null>(null);
   const { t } = useI18n();
 
-  const load = useCallback(async (days = rangeDays) => {
-    setError(null);
-    try {
-      setOverview(await dashboardApi.overview(days));
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? `Could not reach the API (${err.message})`
-          : err instanceof Error
-            ? err.message
-            : "Could not reach the API",
-      );
-      setOverview(null);
-    }
-  }, [rangeDays]);
+  const load = useCallback(
+    async (days = rangeDays) => {
+      setError(null);
+      try {
+        setOverview(await dashboardApi.overview(days));
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? `Could not reach the API (${err.message})`
+            : err instanceof Error
+              ? err.message
+              : "Could not reach the API",
+        );
+        setOverview(null);
+      }
+    },
+    [rangeDays],
+  );
 
   useEffect(() => {
     load(rangeDays);
@@ -171,7 +175,8 @@ export default function DashboardPage() {
         <div>
           <h1>{t("nav.dashboard")}</h1>
           <p className="muted" style={{ marginTop: 0 }}>
-            Operational health and mail outcomes across your authorized mailboxes.
+            Operational health and mail outcomes across your authorized
+            mailboxes.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -218,7 +223,10 @@ export default function DashboardPage() {
               marginBottom: "1rem",
             }}
           >
-            <MetricCard label="Processed today" value={overview.counters.processed_today} />
+            <MetricCard
+              label="Processed today"
+              value={overview.counters.processed_today}
+            />
             <MetricCard
               label={`Processed (${rangeDays}d)`}
               value={overview.counters.processed_range}
@@ -270,7 +278,9 @@ export default function DashboardPage() {
               title={t("review.category")}
               items={categoryItems}
               hrefFor={(displayKey) => {
-                const item = categoryItems.find((entry) => entry.key === displayKey);
+                const item = categoryItems.find(
+                  (entry) => entry.key === displayKey,
+                );
                 return `/app/search?category=${encodeURIComponent(item?.rawKey ?? displayKey)}`;
               }}
             />
@@ -355,7 +365,8 @@ export default function DashboardPage() {
                         <td>
                           {mailbox.backfill_status ? (
                             <span>
-                              {mailbox.backfill_status} {mailbox.backfill_processed ?? 0}/
+                              {mailbox.backfill_status}{" "}
+                              {mailbox.backfill_processed ?? 0}/
                               {mailbox.backfill_total ?? 0}
                             </span>
                           ) : (

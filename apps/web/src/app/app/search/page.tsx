@@ -1,10 +1,10 @@
 "use client";
 
-import { dashboardApi, type MessageSearchResult } from "@/lib/dashboard-api";
+import { type MessageSearchResult, dashboardApi } from "@/lib/dashboard-api";
 import { enumLabel, useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 function initialValue(params: URLSearchParams, key: string): string {
   return params.get(key) ?? "";
@@ -50,7 +50,11 @@ export default function SearchPage() {
         }
         params.set("limit", "100");
         setResult(await dashboardApi.search(params));
-        window.history.replaceState(null, "", `/app/search?${params.toString()}`);
+        window.history.replaceState(
+          null,
+          "",
+          `/app/search?${params.toString()}`,
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Search failed");
       } finally {
@@ -60,11 +64,13 @@ export default function SearchPage() {
     [filters],
   );
 
+  const initialSearchDone = useRef(false);
+
   useEffect(() => {
+    if (initialSearchDone.current) return;
+    initialSearchDone.current = true;
     runSearch(filters);
-    // Run once for URL-provided drill-down filters.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [filters, runSearch]);
 
   function setFilter(key: keyof typeof filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -317,7 +323,9 @@ export default function SearchPage() {
               <span className="pill">{item.classification_source}</span>
               <span className="pill">{item.processed_state}</span>
               {item.review_required && <span className="pill">Review</span>}
-              {item.suspicious_content && <span className="pill off">Security</span>}
+              {item.suspicious_content && (
+                <span className="pill off">Security</span>
+              )}
             </div>
             <div className="muted" style={{ marginTop: "0.45rem" }}>
               {item.destination_folder}
