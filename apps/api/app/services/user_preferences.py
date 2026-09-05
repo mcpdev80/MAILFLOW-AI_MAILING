@@ -48,10 +48,9 @@ async def get_user_preferences(
 
 
 def _apply(row: UserPreference, payload: UserPreferencesUpdate) -> None:
-    row.locale = payload.locale
-    row.theme = payload.theme
-    row.density = payload.density
-    row.workspace_layout = payload.workspace_layout
+    values = payload.model_dump(exclude_none=True)
+    for key, value in values.items():
+        setattr(row, key, value)
 
 
 async def update_user_preferences(
