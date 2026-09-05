@@ -7,7 +7,11 @@
  */
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+} from "better-auth/api";
 import { organization } from "better-auth/plugins";
 import { Pool } from "pg";
 import { encryptSecret } from "./crypto";
@@ -46,7 +50,9 @@ function resolvePasskeyConfig() {
 
   const originHost = configuredOrigin.hostname;
   if (originHost !== rpID && !originHost.endsWith(`.${rpID}`)) {
-    throw new Error("PASSKEY_RP_ID must match the passkey origin hostname or its parent domain");
+    throw new Error(
+      "PASSKEY_RP_ID must match the passkey origin hostname or its parent domain",
+    );
   }
 
   return { origin, rpID, rpName };
@@ -59,26 +65,36 @@ function mailflowOrgId(metadata: unknown): string {
       : (metadata as Record<string, unknown> | null | undefined);
   const orgId = value?.mf_org_id;
   if (typeof orgId !== "string" || !orgId) {
-    throw new APIError("CONFLICT", { message: "MailFlow organization linkage missing" });
+    throw new APIError("CONFLICT", {
+      message: "MailFlow organization linkage missing",
+    });
   }
   return orgId;
 }
 
-async function requireRecentSession(ctx: Parameters<typeof getSessionFromCtx>[0]) {
+async function requireRecentSession(
+  ctx: Parameters<typeof getSessionFromCtx>[0],
+) {
   const session = await getSessionFromCtx(ctx);
   if (!session) {
     throw new APIError("UNAUTHORIZED", { message: "Authentication required" });
   }
 
   const createdAt = new Date(session.session.createdAt).getTime();
-  if (!Number.isFinite(createdAt) || Date.now() - createdAt > RECENT_AUTH_MAX_AGE_MS) {
+  if (
+    !Number.isFinite(createdAt) ||
+    Date.now() - createdAt > RECENT_AUTH_MAX_AGE_MS
+  ) {
     throw new APIError("FORBIDDEN", {
       message: "Recent authentication required",
     });
   }
 }
 
-async function recordSecurityEvent(userId: string, event: "passkey_added" | "passkey_removed") {
+async function recordSecurityEvent(
+  userId: string,
+  event: "passkey_added" | "passkey_removed",
+) {
   try {
     await authDb.query(
       `insert into "auth_security_event" ("id", "userId", "event") values (gen_random_uuid()::text, $1, $2)`,
@@ -157,11 +173,15 @@ function buildAuth() {
           },
           beforeRemoveMember: async ({ member, organization: org }) => {
             try {
-              await assertMemberRemovalSafe(mailflowOrgId(org.metadata), member.userId);
+              await assertMemberRemovalSafe(
+                mailflowOrgId(org.metadata),
+                member.userId,
+              );
             } catch (error) {
               throw new APIError("CONFLICT", {
                 message:
-                  error instanceof Error && error.message.includes("private_mailboxes_require_resolution")
+                  error instanceof Error &&
+                  error.message.includes("private_mailboxes_require_resolution")
                     ? "Resolve private mailboxes before removing this member"
                     : "Mailbox lifecycle check failed",
               });
