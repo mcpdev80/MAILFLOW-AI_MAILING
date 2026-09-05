@@ -1,4 +1,5 @@
 name: Dispatch final CI
+# Final MVP validation after restoring the established health/root endpoints.
 on:
   push:
     branches:
