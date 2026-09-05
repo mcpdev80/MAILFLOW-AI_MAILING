@@ -45,11 +45,16 @@ class SMTPConfig:
 
 
 def normalized_address(value: str) -> str:
-    """Return a minimally validated mailbox address without accepting header injection."""
+    """Return a minimally validated mailbox address without header injection."""
     if "\r" in value or "\n" in value:
         raise OutboundMailError("invalid_recipient")
     _display, address = parseaddr(value)
-    if not address or "@" not in address or address.startswith("@") or address.endswith("@"):
+    if (
+        not address
+        or "@" not in address
+        or address.startswith("@")
+        or address.endswith("@")
+    ):
         raise OutboundMailError("invalid_recipient")
     return value.strip()
 
@@ -70,7 +75,11 @@ def validate_sendable(draft: OutboundDraft) -> None:
         return
     if not (draft.to_recipients or draft.cc_recipients or draft.bcc_recipients):
         raise OutboundMailError("missing_recipient")
-    for value in (*draft.to_recipients, *draft.cc_recipients, *draft.bcc_recipients):
+    for value in (
+        *draft.to_recipients,
+        *draft.cc_recipients,
+        *draft.bcc_recipients,
+    ):
         normalized_address(value)
 
 
@@ -98,9 +107,14 @@ def build_message(account: EmailAccount, draft: OutboundDraft) -> EmailMessage:
     total = 0
     for attachment in draft.attachments:
         total += attachment.size_bytes
-        if attachment.size_bytes > MAX_ATTACHMENT_BYTES or total > MAX_TOTAL_ATTACHMENT_BYTES:
+        if (
+            attachment.size_bytes > MAX_ATTACHMENT_BYTES
+            or total > MAX_TOTAL_ATTACHMENT_BYTES
+        ):
             raise OutboundMailError("attachment_size_limit")
-        maintype, _, subtype = (attachment.content_type or "application/octet-stream").partition("/")
+        maintype, _, subtype = (
+            attachment.content_type or "application/octet-stream"
+        ).partition("/")
         if not subtype:
             maintype, subtype = "application", "octet-stream"
         message.add_attachment(
@@ -134,7 +148,10 @@ def smtp_config_for_account(account: EmailAccount) -> SMTPConfig:
         refresh_token = oauth_data.get("refresh_token")
         if not refresh_token:
             raise OutboundMailError("oauth_refresh_token_missing")
-        access_token = oauth.access_token_from_refresh(account.provider_type, refresh_token)
+        access_token = oauth.access_token_from_refresh(
+            account.provider_type,
+            refresh_token,
+        )
         return SMTPConfig(
             host=host,
             port=port,
@@ -163,34 +180,67 @@ def _xoauth2(username: str, access_token: str) -> str:
     return base64.b64encode(raw).decode()
 
 
-def _send_sync(config: SMTPConfig, message: EmailMessage, recipients: list[str]) -> None:
+def _authenticate(client: smtplib.SMTP, config: SMTPConfig) -> None:
+    if config.oauth_access_token:
+        code, _response = client.docmd(
+            "AUTH",
+            "XOAUTH2 " + _xoauth2(config.username, config.oauth_access_token),
+        )
+        if code not in {235, 503}:
+            raise OutboundMailError(f"smtp_auth_failed:{code}")
+    elif config.password:
+        client.login(config.username, config.password)
+
+
+def _send_sync(
+    config: SMTPConfig,
+    message: EmailMessage,
+    recipients: list[str],
+) -> None:
     context = ssl.create_default_context()
-    smtp_cls = smtplib.SMTP_SSL if config.security == "ssl" else smtplib.SMTP
-    with smtp_cls(config.host, config.port, timeout=30, context=context if config.security == "ssl" else None) as client:
+    if config.security == "ssl":
+        with smtplib.SMTP_SSL(
+            config.host,
+            config.port,
+            timeout=30,
+            context=context,
+        ) as client:
+            client.ehlo()
+            _authenticate(client, config)
+            client.send_message(
+                message,
+                from_addr=config.username,
+                to_addrs=recipients,
+            )
+        return
+
+    with smtplib.SMTP(config.host, config.port, timeout=30) as client:
         client.ehlo()
         if config.security == "starttls":
             client.starttls(context=context)
             client.ehlo()
-        if config.oauth_access_token:
-            code, response = client.docmd("AUTH", "XOAUTH2 " + _xoauth2(config.username, config.oauth_access_token))
-            if code not in {235, 503}:
-                raise OutboundMailError(f"smtp_auth_failed:{code}:{response!r}")
-        elif config.password:
-            client.login(config.username, config.password)
-        client.send_message(message, from_addr=config.username, to_addrs=recipients)
+        _authenticate(client, config)
+        client.send_message(
+            message,
+            from_addr=config.username,
+            to_addrs=recipients,
+        )
 
 
 async def send_draft(account: EmailAccount, draft: OutboundDraft) -> str:
-    """Send a persisted draft exactly once per explicit API invocation.
+    """Send a persisted draft after the caller has persisted the send fence.
 
-    The caller persists ``sending`` plus the stable Message-ID before invoking
-    this function. We intentionally do not auto-retry SMTP delivery because an
-    ambiguous connection loss after DATA could otherwise duplicate delivery.
+    We intentionally do not auto-retry SMTP delivery because an ambiguous
+    connection loss after DATA could otherwise duplicate delivery.
     """
     message = build_message(account, draft)
     recipients = [
         normalized_address(value)
-        for value in (*draft.to_recipients, *draft.cc_recipients, *draft.bcc_recipients)
+        for value in (
+            *draft.to_recipients,
+            *draft.cc_recipients,
+            *draft.bcc_recipients,
+        )
     ]
     config = await asyncio.to_thread(smtp_config_for_account, account)
     await asyncio.to_thread(_send_sync, config, message, recipients)
