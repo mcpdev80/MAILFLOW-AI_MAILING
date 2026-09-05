@@ -1,0 +1,60 @@
+name: Fix Issue 7 Final Formatting
+on:
+  push:
+    branches:
+      - feat/7-localization
+    paths:
+      - .github/workflows/fix-7-final.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/7-localization
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          python-version: '3.13'
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Update model registry expectation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/tests/unit/test_models.py')
+          text = path.read_text()
+          if '"user_preferences"' not in text:
+              anchor = '        "notification_events",\n'
+              if anchor not in text:
+                  raise SystemExit('model table anchor missing')
+              text = text.replace(anchor, anchor + '        "user_preferences",\n', 1)
+              path.write_text(text)
+          PY
+      - name: Format Python delta
+        run: |
+          uvx ruff@0.15.12 format apps/api/tests/unit/test_user_preferences.py apps/api/tests/unit/test_models.py
+          uvx ruff@0.15.12 check apps/api/tests/unit/test_user_preferences.py apps/api/tests/unit/test_models.py
+      - name: Format web delta
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          base=$(git merge-base HEAD origin/main || git rev-parse HEAD~1)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '^apps/web/.*\.(js|jsx|ts|tsx|json|jsonc)$' || true)
+          if (( ${#files[@]} )); then
+            pnpm biome check --write "${files[@]}"
+          fi
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/api/tests apps/web
+          git diff --cached --check
+          git commit -m 'style(i18n): apply final formatting and model registry fix'
+          git push origin HEAD:feat/7-localization
