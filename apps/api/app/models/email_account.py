@@ -42,6 +42,10 @@ class EmailAccount(Base):
             "action_confidence_threshold >= 0 AND action_confidence_threshold <= 1",
             name="ck_email_accounts_action_confidence",
         ),
+        CheckConstraint(
+            "smtp_security IN ('ssl', 'starttls', 'plain')",
+            name="ck_email_accounts_smtp_security",
+        ),
     )
 
     id: Mapped[UUID] = uuid_pk()
@@ -64,6 +68,12 @@ class EmailAccount(Base):
         String(255), default="Sin_Clasificar"
     )
     drafts_folder: Mapped[str] = mapped_column(String(255), default="Drafts")
+    smtp_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    smtp_security: Mapped[str] = mapped_column(
+        String(16), default="starttls", server_default="starttls"
+    )
+    smtp_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     interval_minutes: Mapped[int] = mapped_column(Integer, default=5)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_cycle_at: Mapped[datetime | None] = mapped_column(
