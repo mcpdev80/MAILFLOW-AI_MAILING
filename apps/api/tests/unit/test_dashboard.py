@@ -48,6 +48,8 @@ async def _message(
     action_status: str = "execute",
     stage: int | None = 1,
     decision_memory: bool = False,
+    system_tags: list[str] | None = None,
+    user_tags: list[str] | None = None,
     processed_at: datetime | None = None,
 ) -> ProcessedEmail:
     cycle_id = uuid4()
@@ -74,6 +76,8 @@ async def _message(
         importance="high" if urgency == "today" else "normal",
         urgency=urgency,
         action_required=action_required,
+        system_tags=system_tags or [],
+        user_tags=user_tags or [],
         confidence=0.95,
         review_required=review_required,
         classification_stage=stage,
@@ -186,6 +190,7 @@ async def test_search_filters_and_does_not_leak_private_mailbox(session) -> None
         category="finance",
         action_required="yes",
         decision_memory=True,
+        system_tags=["invoice", "customer"],
     )
     await _message(
         session,
@@ -220,6 +225,13 @@ async def test_search_filters_and_does_not_leak_private_mailbox(session) -> None
     assert result.items[0].subject == "Invoice September"
     assert result.items[0].account_id == own.id
     assert result.items[0].classification_source == "decision_memory"
+
+    tagged = await search_messages(session, identity, tag="invoice")
+    assert tagged.total == 1
+    assert tagged.items[0].subject == "Invoice September"
+
+    missing_tag = await search_messages(session, identity, tag="voice")
+    assert missing_tag.total == 0
 
     hidden = await search_messages(session, identity, query="foreign private")
     assert hidden.total == 0

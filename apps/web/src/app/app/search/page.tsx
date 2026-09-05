@@ -1,7 +1,9 @@
 "use client";
 
+import { api } from "@/lib/api";
 import { type MessageSearchResult, dashboardApi } from "@/lib/dashboard-api";
 import { enumLabel, useI18n } from "@/lib/i18n";
+import type { EmailAccount } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +37,7 @@ export default function SearchPage() {
     date_from: initialValue(initial, "date_from"),
     date_to: initialValue(initial, "date_to"),
   }));
+  const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [result, setResult] = useState<MessageSearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,6 +68,13 @@ export default function SearchPage() {
   );
 
   const initialSearchDone = useRef(false);
+
+  useEffect(() => {
+    api
+      .listAccounts()
+      .then(setAccounts)
+      .catch(() => setAccounts([]));
+  }, []);
 
   useEffect(() => {
     if (initialSearchDone.current) return;
@@ -122,6 +132,20 @@ export default function SearchPage() {
             />
           </label>
           <label className="field">
+            <span>Mailbox</span>
+            <select
+              value={filters.account_id}
+              onChange={(event) => setFilter("account_id", event.target.value)}
+            >
+              <option value="">All</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.username}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
             <span>{t("review.category")}</span>
             <select
               value={filters.category}
@@ -143,6 +167,13 @@ export default function SearchPage() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="field">
+            <span>Subcategory</span>
+            <input
+              value={filters.subcategory}
+              onChange={(event) => setFilter("subcategory", event.target.value)}
+            />
           </label>
           <label className="field">
             <span>{t("review.importance")}</span>
@@ -214,6 +245,25 @@ export default function SearchPage() {
               <option value="">All</option>
               <option value="true">Suspicious</option>
               <option value="false">Normal</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Processing state</span>
+            <select
+              value={filters.processed_state}
+              onChange={(event) =>
+                setFilter("processed_state", event.target.value)
+              }
+            >
+              <option value="">All</option>
+              <option value="execute">Executed</option>
+              <option value="review">Review</option>
+              <option value="pending">Pending</option>
+              <option value="queued">Queued</option>
+              <option value="deferred">Deferred</option>
+              <option value="blocked">Blocked</option>
+              <option value="failed">Failed</option>
+              <option value="error">Error</option>
             </select>
           </label>
           <label className="field">

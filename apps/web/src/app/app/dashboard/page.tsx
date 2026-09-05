@@ -224,6 +224,10 @@ export default function DashboardPage() {
             }}
           >
             <MetricCard
+              label="Total processed"
+              value={overview.counters.total_processed}
+            />
+            <MetricCard
               label="Processed today"
               value={overview.counters.processed_today}
             />
@@ -254,6 +258,18 @@ export default function DashboardPage() {
             <MetricCard
               label="Pending / queued"
               value={overview.counters.pending_or_queued}
+            />
+            <MetricCard
+              label="Automated actions"
+              value={overview.counters.automated_actions}
+            />
+            <MetricCard
+              label={`Inference: ${overview.inference_status}`}
+              value={
+                overview.counters.fast_model +
+                overview.counters.deep_model +
+                overview.counters.decision_memory
+              }
             />
             <MetricCard
               label="Active backfills"
