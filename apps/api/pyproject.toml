@@ -21,7 +21,6 @@ dependencies = [
     "google-auth-oauthlib>=1.2",
     "email-reply-parser>=0.5",
     "beautifulsoup4>=4.12",
-    "python-multipart>=0.0.20",
     "mailflow-core",
     "cryptography>=43.0",
     "stripe>=11.0",
