@@ -13,12 +13,18 @@ import type {
   LLMProvider,
   LLMProviderCreate,
   LLMProviderUpdate,
+  MailActionRequest,
+  MailActionResult,
+  MailboxMetadata,
   MailDraft,
   MailboxOwnershipUpdate,
+  MessageDetail,
   PlanStatus,
   PreSendCheck,
   SendResult,
   SharedMailboxAccess,
+  ThreadView,
+  UnifiedInbox,
   WritingPreview,
   WritingRequest,
 } from "./types";
@@ -57,6 +63,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+export function mailAttachmentUrl(
+  accountId: string,
+  folder: string,
+  uid: number,
+  partId: string,
+): string {
+  const query = new URLSearchParams({ folder });
+  return `${API_BASE}/mail-client/accounts/${encodeURIComponent(accountId)}/messages/${uid}/attachments/${encodeURIComponent(partId)}?${query.toString()}`;
+}
+
 export const api = {
   health: () => request<{ status: string; db: string }>("/health"),
 
@@ -93,6 +109,46 @@ export const api = {
     }),
   listUnresolvedMailboxes: () =>
     request<EmailAccount[]>("/accounts/unresolved-mailboxes"),
+
+  // Mail client
+  unifiedInbox: (options?: {
+    accountId?: string | null;
+    folder?: string | null;
+    beforeUid?: number | null;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (options?.accountId) params.set("account_id", options.accountId);
+    if (options?.folder) params.set("folder", options.folder);
+    if (options?.beforeUid != null)
+      params.set("before_uid", String(options.beforeUid));
+    params.set("limit", String(options?.limit ?? 50));
+    return request<UnifiedInbox>(`/mail-client/inbox?${params.toString()}`);
+  },
+  mailboxMetadata: (accountId: string) =>
+    request<MailboxMetadata>(`/mail-client/accounts/${accountId}/metadata`),
+  messageDetail: (accountId: string, folder: string, uid: number) => {
+    const params = new URLSearchParams({ folder });
+    return request<MessageDetail>(
+      `/mail-client/accounts/${accountId}/messages/${uid}?${params.toString()}`,
+    );
+  },
+  threadDetail: (accountId: string, threadId: string) =>
+    request<ThreadView>(
+      `/mail-client/accounts/${accountId}/threads/${encodeURIComponent(threadId)}`,
+    ),
+  mailAction: (
+    accountId: string,
+    folder: string,
+    uid: number,
+    payload: MailActionRequest,
+  ) => {
+    const params = new URLSearchParams({ folder });
+    return request<MailActionResult>(
+      `/mail-client/accounts/${accountId}/messages/${uid}/actions?${params.toString()}`,
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+  },
 
   // Outbound mail
   listDrafts: (includeSent = false) =>
