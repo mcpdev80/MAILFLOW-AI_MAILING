@@ -1,4 +1,4 @@
-name: Port Issue 11 UI Delta
+name: Validate Issue 11 UI
 on:
   push:
     branches:
@@ -10,47 +10,50 @@ permissions:
   contents: write
 
 jobs:
-  port:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feat/11-decision-memory-management
           fetch-depth: 0
-      - name: Apply DecisionMemory client delta onto current main
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Add mailbox navigation
         shell: bash
         run: |
-          git fetch origin c1722387bc206c13f6666a2418707523983b593d cec00f1ce984ab44ee214b0c40495335783441c7
-          git diff cec00f1ce984ab44ee214b0c40495335783441c7 c1722387bc206c13f6666a2418707523983b593d -- apps/web/src/lib/types.ts > /tmp/decision-memory-types.patch
-          git apply --3way /tmp/decision-memory-types.patch
           python - <<'PY'
           from pathlib import Path
 
-          path = Path('apps/web/src/lib/api.ts')
+          path = Path('apps/web/src/app/app/accounts/[id]/page.tsx')
           text = path.read_text()
-
-          import_anchor = '  CycleEnqueued,\n'
-          import_block = '  CycleEnqueued,\n  DecisionMemoryEntry,\n  DecisionMemoryWrite,\n'
-          if '  DecisionMemoryEntry,\n' not in text:
-              if text.count(import_anchor) != 1:
-                  raise SystemExit('DecisionMemory import anchor not unique')
-              text = text.replace(import_anchor, import_block, 1)
-
-          method_anchor = '''  listUnresolvedMailboxes: () =>\n    request<EmailAccount[]>("/accounts/unresolved-mailboxes"),\n\n'''
-          methods = '''  listUnresolvedMailboxes: () =>\n    request<EmailAccount[]>("/accounts/unresolved-mailboxes"),\n\n  // DecisionMemory\n  listDecisionMemory: (accountId: string, includeDisabled = true) =>\n    request<DecisionMemoryEntry[]>(\n      `/accounts/${accountId}/decision-memory?include_disabled=${includeDisabled}`,\n    ),\n  updateDecisionMemory: (\n    accountId: string,\n    entryId: string,\n    payload: DecisionMemoryWrite,\n  ) =>\n    request<DecisionMemoryEntry>(\n      `/accounts/${accountId}/decision-memory/${entryId}`,\n      {\n        method: "PUT",\n        body: JSON.stringify(payload),\n      },\n    ),\n  deleteDecisionMemory: (accountId: string, entryId: string) =>\n    request<void>(`/accounts/${accountId}/decision-memory/${entryId}`, {\n      method: "DELETE",\n    }),\n\n'''
-          if 'listDecisionMemory:' not in text:
-              if text.count(method_anchor) != 1:
-                  raise SystemExit('DecisionMemory method anchor not unique')
-              text = text.replace(method_anchor, methods, 1)
-
-          path.write_text(text)
+          if '/decision-memory' not in text:
+              old = '''              {contentAccessible && (\n                <button\n                  type="button"\n                  className="btn"\n                  onClick={runNow}\n                  disabled={busy}\n                >\n                  {busy ? "Working…" : "Run cycle now"}\n                </button>\n              )}\n'''
+              new = '''              {contentAccessible && (\n                <>\n                  <Link\n                    className="btn secondary"\n                    href={`/app/accounts/${id}/decision-memory`}\n                  >\n                    Learned decisions\n                  </Link>\n                  <button\n                    type="button"\n                    className="btn"\n                    onClick={runNow}\n                    disabled={busy}\n                  >\n                    {busy ? "Working…" : "Run cycle now"}\n                  </button>\n                </>\n              )}\n'''
+              if text.count(old) != 1:
+                  raise SystemExit('mailbox action anchor not unique')
+              path.write_text(text.replace(old, new, 1))
           PY
+      - run: pnpm install --frozen-lockfile
+      - name: Format and lint changed web files
+        shell: bash
+        run: |
+          pnpm biome check --write \
+            'apps/web/src/app/app/accounts/[id]/decision-memory/page.tsx' \
+            'apps/web/src/app/app/accounts/[id]/page.tsx' \
+            apps/web/src/lib/api.ts \
+            apps/web/src/lib/types.ts
           git diff --check
-      - name: Commit port
+      - run: pnpm typecheck
+      - name: Commit validated UI
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/web/src/lib/api.ts apps/web/src/lib/types.ts
-          git commit -m 'feat(web): add DecisionMemory client contracts'
-          git push origin HEAD:feat/11-decision-memory-management
+          git add apps/web/src/app/app/accounts/[id]/decision-memory/page.tsx apps/web/src/app/app/accounts/[id]/page.tsx apps/web/src/lib/api.ts apps/web/src/lib/types.ts
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat(web): link and validate DecisionMemory management'
+            git push origin HEAD:feat/11-decision-memory-management
+          fi
