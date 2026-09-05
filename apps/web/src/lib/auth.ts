@@ -93,11 +93,20 @@ async function recordSecurityEvent(userId: string, event: "passkey_added" | "pas
 
 function buildAuth() {
   const passkeyConfig = resolvePasskeyConfig();
+  const production = process.env.NODE_ENV === "production";
 
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
     database: authDb,
     emailAndPassword: { enabled: true },
+    advanced: {
+      useSecureCookies: production,
+      defaultCookieAttributes: {
+        httpOnly: true,
+        secure: production,
+        sameSite: "lax",
+      },
+    },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         const passkeyMethodChange =
@@ -160,8 +169,6 @@ function buildAuth() {
           },
           afterRemoveMember: async ({ member, organization: org }) => {
             const mfOrgId = mailflowOrgId(org.metadata);
-            // Better Auth sessions belong to the auth layer. Revoke sessions tied
-            // to the removed organization before cleaning API-owned mailbox grants.
             await authDb.query(
               `delete from "session" where "userId" = $1 and "activeOrganizationId" = $2`,
               [member.userId, org.id],
