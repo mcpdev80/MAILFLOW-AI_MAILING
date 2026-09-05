@@ -22,11 +22,11 @@ from app.services.attention import (
     correct_review_item,
     get_preferences,
     list_notifications,
-    list_review_items,
     mark_notification_read,
     update_preferences,
 )
 from app.services.attention_jobs import materialize_operational_notifications
+from app.services.attention_review import build_review_inbox
 
 router = APIRouter(prefix="/attention", tags=["attention"])
 
@@ -43,7 +43,7 @@ async def review_inbox(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> ReviewInbox:
-    return await list_review_items(
+    return await build_review_inbox(
         session,
         identity,
         account_id=account_id,
