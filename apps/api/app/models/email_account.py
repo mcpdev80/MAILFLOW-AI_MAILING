@@ -74,7 +74,9 @@ class EmailAccount(Base):
         String(16), default="starttls", server_default="starttls"
     )
     smtp_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    encrypted_smtp_credentials: Mapped[str | None] = mapped_column(String, nullable=True)
+    encrypted_smtp_credentials: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )
     interval_minutes: Mapped[int] = mapped_column(Integer, default=5)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_cycle_at: Mapped[datetime | None] = mapped_column(
