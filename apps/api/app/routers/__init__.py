@@ -14,6 +14,7 @@ from app.routers.internal import router as internal_router
 from app.routers.lifecycle import router as lifecycle_router
 from app.routers.llm_providers import router as llm_providers_router
 from app.routers.mail import router as mail_router
+from app.routers.mail_client import router as mail_client_router
 from app.routers.metrics import router as metrics_router
 from app.routers.oauth import router as oauth_router
 from app.routers.rules import router as rules_router
@@ -33,6 +34,7 @@ __all__ = [
     "internal_router",
     "lifecycle_router",
     "llm_providers_router",
+    "mail_client_router",
     "mail_router",
     "metrics_router",
     "oauth_router",
