@@ -34,6 +34,51 @@ class EmailData:
 
 
 @dataclass(frozen=True)
+class MailboxMessage:
+    """Normalized lightweight message state for normal mail-client views."""
+
+    uid: int
+    folder: str
+    message_id: str
+    subject: str
+    from_email: str
+    to_emails: tuple[str, ...]
+    cc_emails: tuple[str, ...] = ()
+    date: str | None = None
+    in_reply_to: str | None = None
+    references: tuple[str, ...] = ()
+    seen: bool = False
+    flagged: bool = False
+    answered: bool = False
+    deleted: bool = False
+    keywords: tuple[str, ...] = ()
+    attachments: tuple[AttachmentInfo, ...] = ()
+
+
+@dataclass(frozen=True)
+class MailboxFolder:
+    name: str
+    delimiter: str
+    role: str | None = None
+    selectable: bool = True
+
+
+@dataclass(frozen=True)
+class ProviderCapabilities:
+    """Capabilities exposed to UI/API without provider-specific assumptions."""
+
+    read_state: bool = False
+    flag: bool = False
+    move: bool = False
+    archive: bool = False
+    trash: bool = False
+    spam: bool = False
+    restore: bool = False
+    tags: bool = False
+    attachments: bool = False
+
+
+@dataclass(frozen=True)
 class DraftRef:
     uid: int
     folder: str
@@ -72,6 +117,45 @@ class EmailProvider(ABC):
     def fetch_attachment_content(self, uid: int, attachment: AttachmentInfo) -> bytes:
         """Fetch one attachment payload when the provider supports staged attachment access."""
         raise NotImplementedError("attachment content fetching is not supported by this provider")
+
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities()
+
+    def list_folders(self) -> list[MailboxFolder]:
+        raise NotImplementedError("folder listing is not supported by this provider")
+
+    def list_messages(
+        self,
+        folder: str,
+        *,
+        before_uid: int | None = None,
+        limit: int = 50,
+    ) -> list[MailboxMessage]:
+        raise NotImplementedError("message listing is not supported by this provider")
+
+    def fetch_message(self, folder: str, uid: int) -> EmailData:
+        raise NotImplementedError("message reading is not supported by this provider")
+
+    def find_message(
+        self, message_id: str, folders: list[str] | None = None
+    ) -> tuple[str, int] | None:
+        """Resolve a stable Message-ID to the provider's current folder/UID location."""
+        raise NotImplementedError("message lookup is not supported by this provider")
+
+    def set_seen(self, folder: str, uid: int, seen: bool) -> None:
+        raise NotImplementedError("read state is not supported by this provider")
+
+    def set_flagged(self, folder: str, uid: int, flagged: bool) -> None:
+        raise NotImplementedError("flagging is not supported by this provider")
+
+    def remove_tags(self, folder: str, uid: int, tags: list[str] | tuple[str, ...]) -> None:
+        raise NotImplementedError("tag removal is not supported by this provider")
+
+    def trash_email(self, folder: str, uid: int) -> bool:
+        raise NotImplementedError("trash is not supported by this provider")
+
+    def mark_spam(self, folder: str, uid: int) -> bool:
+        raise NotImplementedError("spam is not supported by this provider")
 
     @abstractmethod
     def move_email(self, uid: int, destination_folder: str) -> bool: ...
