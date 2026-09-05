@@ -39,6 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <strong>Mailflow</strong>
         </Link>
         <Link href="/app/dashboard">{t("nav.dashboard")}</Link>
+        <Link href="/app/search">Search</Link>
         <Link href="/app/mail">{t("nav.mail")}</Link>
         <Link href="/app/review">{t("nav.review")}</Link>
         <Link href="/app/notifications">

@@ -24,6 +24,7 @@ from app.routers import (
     billing_router,
     bulk_router,
     cycles_router,
+    dashboard_router,
     decision_memory_router,
     inference_health_router,
     internal_router,
@@ -73,6 +74,7 @@ app.include_router(attention_router)
 app.include_router(audit_router)
 app.include_router(backfill_router)
 app.include_router(bulk_router)
+app.include_router(dashboard_router)
 app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
 app.include_router(mail_router)
