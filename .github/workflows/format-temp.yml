@@ -1,0 +1,45 @@
+name: Format Temp Issue 50
+
+on:
+  push:
+    branches:
+      - feat/50-mail-composer-backend
+
+permissions:
+  contents: write
+
+jobs:
+  format-python:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          python-version: "3.13"
+      - run: uv sync --all-packages
+      - name: Format changed Python files
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
+          if (( ${#files[@]} )); then
+            uv run ruff format "${files[@]}"
+          fi
+          git restore uv.lock || true
+      - name: Commit formatting
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No formatting changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: format issue 50 changes"
+          git push
