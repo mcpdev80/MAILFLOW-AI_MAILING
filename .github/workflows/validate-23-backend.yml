@@ -1,0 +1,71 @@
+name: Validate Issue 23 Backend
+on:
+  push:
+    branches:
+      - feat/23-dashboard-search
+    paths:
+      - .github/workflows/validate-23-backend.yml
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: mailflow
+          POSTGRES_PASSWORD: mailflow
+          POSTGRES_DB: mailflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mailflow -d mailflow_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/23-dashboard-search
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          python-version: '3.13'
+      - name: Wire schema revision
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/app/restore_validation.py')
+          text = path.read_text()
+          old = 'EXPECTED_SCHEMA_REVISION = "023"'
+          new = 'EXPECTED_SCHEMA_REVISION = "024"'
+          if old in text:
+              path.write_text(text.replace(old, new, 1))
+          elif new not in text:
+              raise SystemExit('restore schema anchor missing')
+          PY
+      - run: uv sync --all-packages
+      - name: Format and lint dashboard delta
+        shell: bash
+        run: |
+          uv run ruff format apps/api/alembic/versions/024_dashboard_search_indexes.py apps/api/app/dashboard_schemas.py apps/api/app/services/dashboard.py apps/api/app/routers/dashboard.py apps/api/app/routers/__init__.py apps/api/app/main.py apps/api/app/restore_validation.py apps/api/tests/unit/test_dashboard.py
+          uv run ruff check apps/api/alembic/versions/024_dashboard_search_indexes.py apps/api/app/dashboard_schemas.py apps/api/app/services/dashboard.py apps/api/app/routers/dashboard.py apps/api/app/routers/__init__.py apps/api/app/main.py apps/api/app/restore_validation.py apps/api/tests/unit/test_dashboard.py
+      - name: Run dashboard tests
+        working-directory: apps/api
+        env:
+          SECRET_KEY: issue23-test-only-secret-key-000000000000000000000
+        run: uv run pytest tests/unit/test_dashboard.py -q
+      - name: Commit validated backend formatting
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/api
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat(dashboard): wire and format scoped dashboard backend'
+            git push origin HEAD:feat/23-dashboard-search
+          fi
