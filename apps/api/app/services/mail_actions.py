@@ -215,10 +215,13 @@ async def undo_mail_move(
             if current is None:
                 raise MailActionError("message_not_found")
             current_folder, current_uid = current
-            if current_folder != request.original_folder and not provider.move_from_folder(
-                current_folder,
-                current_uid,
-                request.original_folder,
+            if (
+                current_folder != request.original_folder
+                and not provider.move_from_folder(
+                    current_folder,
+                    current_uid,
+                    request.original_folder,
+                )
             ):
                 raise MailActionError("action_failed")
             return MailActionResult(

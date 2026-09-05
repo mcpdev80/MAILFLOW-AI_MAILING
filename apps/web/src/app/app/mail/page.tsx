@@ -500,7 +500,7 @@ export default function MailPage() {
           instruction,
         });
         await api.updateDraft(draft.id, {
-          body_text: preview.content,
+          body_text: preview.text,
           body_html: null,
           editor_mode: "rich_text",
         });
@@ -625,7 +625,7 @@ export default function MailPage() {
       });
       setAiResult({
         title: language ? `Translation · ${language}` : "AI result",
-        body: preview.content,
+        body: preview.text,
       });
       await api.discardDraft(draft.id);
       return;
