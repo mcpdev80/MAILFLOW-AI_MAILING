@@ -5,6 +5,7 @@ import {
   type NotificationPreference,
   attentionApi,
 } from "@/lib/attention-api";
+import { useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -15,6 +16,7 @@ export default function NotificationsPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { t } = useI18n();
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +62,14 @@ export default function NotificationsPage() {
     setPreferences({ ...preferences, [key]: !preferences[key] });
   }
 
+  const preferenceRows = [
+    ["urgent_enabled", t("notifications.urgentAction")],
+    ["security_review_enabled", t("notifications.securityReview")],
+    ["jobs_enabled", t("notifications.jobResult")],
+    ["mailbox_health_enabled", t("notifications.mailboxHealth")],
+    ["daily_summary_enabled", t("nav.dailySummary")],
+  ] as const;
+
   return (
     <main className="container">
       <div
@@ -71,15 +81,15 @@ export default function NotificationsPage() {
         }}
       >
         <div>
-          <h1>Notifications</h1>
-          <p className="muted">Exceptions and actionable events only.</p>
+          <h1>{t("nav.notifications")}</h1>
+          <p className="muted">{t("notifications.description")}</p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <Link className="btn secondary" href="/app/review">
-            Review
+            {t("nav.review")}
           </Link>
           <Link className="btn secondary" href="/app/daily-summary">
-            Daily summary
+            {t("nav.dailySummary")}
           </Link>
         </div>
       </div>
@@ -88,19 +98,11 @@ export default function NotificationsPage() {
 
       {preferences && (
         <section className="card" style={{ marginBottom: "1rem" }}>
-          <h3>Preferences</h3>
+          <h3>{t("notifications.preferences")}</h3>
           <div
             style={{ display: "grid", gap: "0.55rem", marginBottom: "0.75rem" }}
           >
-            {(
-              [
-                ["urgent_enabled", "Urgent / action-required"],
-                ["security_review_enabled", "Security / review"],
-                ["jobs_enabled", "Job completion / failure"],
-                ["mailbox_health_enabled", "Mailbox health"],
-                ["daily_summary_enabled", "Daily summary"],
-              ] as const
-            ).map(([key, label]) => (
+            {preferenceRows.map(([key, label]) => (
               <label
                 key={key}
                 style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
@@ -120,16 +122,20 @@ export default function NotificationsPage() {
             disabled={saving}
             onClick={savePreferences}
           >
-            {saving ? "Saving…" : "Save preferences"}
+            {saving
+              ? t("notifications.saving")
+              : t("notifications.savePreferences")}
           </button>
         </section>
       )}
 
       <section>
-        <h2>Inbox {center ? `(${center.unread} unread)` : ""}</h2>
-        {!center && !error && <p className="muted">Loading…</p>}
+        <h2>
+          {t("notifications.inbox")} {center ? `(${center.unread} ${t("notifications.unread")})` : ""}
+        </h2>
+        {!center && !error && <p className="muted">{t("common.loading")}</p>}
         {center?.notifications.length === 0 && (
-          <div className="card empty">No notifications.</div>
+          <div className="card empty">{t("notifications.empty")}</div>
         )}
         <div style={{ display: "grid", gap: "0.65rem" }}>
           {center?.notifications.map((item) => (
@@ -159,7 +165,7 @@ export default function NotificationsPage() {
                     type="button"
                     onClick={() => markRead(item.id)}
                   >
-                    Mark read
+                    {t("notifications.markRead")}
                   </button>
                 )}
               </div>
