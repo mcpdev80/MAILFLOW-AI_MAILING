@@ -22,9 +22,18 @@ jobs:
           node-version: "20"
       - run: pnpm install --frozen-lockfile
       - name: Apply patch
-        run: python3 .ci/patch_issue64_mail.py
+        run: |
+          python3 .ci/patch_issue64_mail.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/app/app/mail/page.tsx')
+          text = path.read_text()
+          text = text.replace('join("\n• ")', 'join("\\n• ")')
+          text = text.replace('/app/mail/print?', '/print/mail?')
+          path.write_text(text)
+          PY
       - name: Format web files
-        run: pnpm biome check --write apps/web/src/app/app/mail/page.tsx apps/web/src/components/mail-context-menu.tsx apps/web/src/lib/mail-actions.ts
+        run: pnpm biome check --write apps/web/src/app/app/mail/page.tsx apps/web/src/components/mail-context-menu.tsx apps/web/src/lib/mail-actions.ts apps/web/src/app/print/mail/page.tsx
       - name: Clean helpers and commit
         shell: bash
         run: |
