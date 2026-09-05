@@ -21,6 +21,18 @@ export type WritingAction =
   | "same_language"
   | "custom";
 export type WritingScope = "full" | "selection";
+export type MailActionName =
+  | "mark_read"
+  | "mark_unread"
+  | "flag"
+  | "unflag"
+  | "move"
+  | "archive"
+  | "trash"
+  | "spam"
+  | "restore"
+  | "add_tags"
+  | "remove_tags";
 
 export interface EmailAccount {
   id: string;
@@ -176,6 +188,96 @@ export interface SendResult {
   status: DraftStatus;
   message_id: string | null;
   warning_codes: string[];
+}
+
+export interface MailAttachment {
+  part_id: string;
+  filename: string;
+  mime_type: string;
+  size: number | null;
+}
+
+export interface MailboxCapabilities {
+  read_state: boolean;
+  flag: boolean;
+  move: boolean;
+  archive: boolean;
+  trash: boolean;
+  spam: boolean;
+  restore: boolean;
+  tags: boolean;
+  attachments: boolean;
+}
+
+export interface MailboxFolderView {
+  name: string;
+  role: string | null;
+  selectable: boolean;
+}
+
+export interface MailboxMetadata {
+  capabilities: MailboxCapabilities;
+  folders: MailboxFolderView[];
+}
+
+export interface MailboxCounter {
+  account_id: string;
+  account_address: string;
+  folder: string;
+  total: number;
+  unread: number;
+}
+
+export interface InboxMessage {
+  account_id: string;
+  account_address: string;
+  ownership_mode: string;
+  uid: number;
+  folder: string;
+  message_id: string;
+  thread_id: string | null;
+  subject: string;
+  from_email: string;
+  to_emails: string[];
+  cc_emails: string[];
+  date: string | null;
+  seen: boolean;
+  flagged: boolean;
+  answered: boolean;
+  keywords: string[];
+  attachments: MailAttachment[];
+}
+
+export interface UnifiedInbox {
+  messages: InboxMessage[];
+  counters: MailboxCounter[];
+  total_unread: number;
+  next_before_uid_by_account: Record<string, number>;
+}
+
+export interface MessageDetail extends InboxMessage {
+  body_text: string;
+  safe_html: string | null;
+  in_reply_to: string | null;
+  references: string[];
+}
+
+export interface ThreadView {
+  account_id: string;
+  thread_id: string;
+  messages: MessageDetail[];
+}
+
+export interface MailActionRequest {
+  action: MailActionName;
+  destination_folder?: string | null;
+  tags?: string[];
+}
+
+export interface MailActionResult {
+  action: MailActionName;
+  applied: boolean;
+  destination_folder: string | null;
 }
 
 export interface SharedMailboxAccess {
