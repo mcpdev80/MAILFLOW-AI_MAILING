@@ -28,6 +28,7 @@ from app.routers import (
     internal_router,
     lifecycle_router,
     llm_providers_router,
+    mail_router,
     metrics_router,
     oauth_router,
     rules_router,
@@ -69,6 +70,7 @@ app.include_router(backfill_router)
 app.include_router(bulk_router)
 app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
+app.include_router(mail_router)
 app.include_router(rules_router)
 app.include_router(structure_router)
 app.include_router(decision_memory_router)
