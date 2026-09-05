@@ -11,6 +11,7 @@ from app.auth import RequestIdentity, require_identity
 from app.database import async_session_factory, get_session
 from app.mailbox_access import get_account_for_management
 from app.services.mailbox_structure import MailboxStructureService
+from app.services.user_preferences import get_user_preferences
 from app.structure_schemas import StructureApply, StructureApplyOut
 
 router = APIRouter(
@@ -22,14 +23,17 @@ router = APIRouter(
 @router.get("/proposal")
 async def propose_mailbox_structure(
     account_id: UUID,
-    locale: str = Query(default="en", pattern=r"^(de|en|es)$"),
+    locale: str | None = Query(default=None, pattern=r"^(de|en|es)$"),
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, object]:
     await get_account_for_management(account_id, identity, session)
+    effective_locale = locale
+    if effective_locale is None:
+        effective_locale = (await get_user_preferences(session, identity)).locale
     try:
         result = await MailboxStructureService(async_session_factory).discover(
-            account_id, locale=locale
+            account_id, locale=effective_locale
         )
     except Exception as exc:  # provider errors stay explicit but content-free
         raise HTTPException(
