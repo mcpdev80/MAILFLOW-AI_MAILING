@@ -10,7 +10,7 @@ from app.models.lifecycle_event import LifecycleEvent
 from app.models.llm_provider import LLMProvider
 from app.models.mailbox_access import MailboxAccess
 from app.models.organization import Organization
-from app.models.outbound_draft import OutboundDraft
+from app.models.outbound_draft import OutboundDraft, OutboundDraftAttachment
 from app.models.processed_email import ProcessedEmail
 from app.models.rules import DomainRule, InternalDomain, KeywordRule
 from app.models.stripe_event import StripeEvent
@@ -33,6 +33,7 @@ __all__ = [
     "MailboxAccess",
     "Organization",
     "OutboundDraft",
+    "OutboundDraftAttachment",
     "ProcessedEmail",
     "StripeEvent",
     "ThreadSummary",
