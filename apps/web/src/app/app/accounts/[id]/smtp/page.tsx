@@ -32,7 +32,11 @@ export default function SmtpSettingsPage() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Could not load SMTP settings");
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : "Could not load SMTP settings",
+          );
         }
       });
     return () => {
@@ -43,7 +47,12 @@ export default function SmtpSettingsPage() {
   async function save() {
     if (!account) return;
     const parsedPort = Number(port);
-    if (!host.trim() || !Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+    if (
+      !host.trim() ||
+      !Number.isInteger(parsedPort) ||
+      parsedPort < 1 ||
+      parsedPort > 65535
+    ) {
       setError("Enter a valid SMTP host and port.");
       return;
     }
@@ -62,7 +71,9 @@ export default function SmtpSettingsPage() {
       setPassword("");
       setNotice("SMTP settings saved.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save SMTP settings");
+      setError(
+        err instanceof ApiError ? err.message : "Could not save SMTP settings",
+      );
     } finally {
       setBusy(false);
     }
@@ -75,7 +86,9 @@ export default function SmtpSettingsPage() {
       </p>
       <h1>Outgoing mail</h1>
       <p className="muted">
-        Configure SMTP for generic IMAP accounts. Gmail and Microsoft OAuth accounts use their provider SMTP service automatically unless you override it here.
+        Configure SMTP for generic IMAP accounts. Gmail and Microsoft OAuth
+        accounts use their provider SMTP service automatically unless you
+        override it here.
       </p>
 
       {error && <div className="alert error">{error}</div>}
@@ -85,15 +98,33 @@ export default function SmtpSettingsPage() {
         <div className="card">
           <div className="field">
             <label htmlFor="smtp-host">SMTP host</label>
-            <input id="smtp-host" value={host} onChange={(event) => setHost(event.target.value)} placeholder="smtp.example.com" />
+            <input
+              id="smtp-host"
+              value={host}
+              onChange={(event) => setHost(event.target.value)}
+              placeholder="smtp.example.com"
+            />
           </div>
           <div className="field">
             <label htmlFor="smtp-port">Port</label>
-            <input id="smtp-port" type="number" min={1} max={65535} value={port} onChange={(event) => setPort(event.target.value)} />
+            <input
+              id="smtp-port"
+              type="number"
+              min={1}
+              max={65535}
+              value={port}
+              onChange={(event) => setPort(event.target.value)}
+            />
           </div>
           <div className="field">
             <label htmlFor="smtp-security">Connection security</label>
-            <select id="smtp-security" value={security} onChange={(event) => setSecurity(event.target.value as SmtpSecurity)}>
+            <select
+              id="smtp-security"
+              value={security}
+              onChange={(event) =>
+                setSecurity(event.target.value as SmtpSecurity)
+              }
+            >
               <option value="starttls">STARTTLS</option>
               <option value="ssl">TLS / SSL</option>
               <option value="plain">Plain connection</option>
@@ -101,13 +132,29 @@ export default function SmtpSettingsPage() {
           </div>
           <div className="field">
             <label htmlFor="smtp-username">SMTP username</label>
-            <input id="smtp-username" value={username} onChange={(event) => setUsername(event.target.value)} />
+            <input
+              id="smtp-username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+            />
           </div>
           <div className="field">
             <label htmlFor="smtp-password">SMTP password</label>
-            <input id="smtp-password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={account.has_smtp_password ? "Configured — enter to replace" : "Leave empty to reuse mailbox password"} />
+            <input
+              id="smtp-password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder={
+                account.has_smtp_password
+                  ? "Configured — enter to replace"
+                  : "Leave empty to reuse mailbox password"
+              }
+            />
             <span className="muted" style={{ fontSize: "0.8rem" }}>
-              Stored encrypted and never returned by the API. If empty, generic SMTP falls back to the mailbox password.
+              Stored encrypted and never returned by the API. If empty, generic
+              SMTP falls back to the mailbox password.
             </span>
           </div>
           <button type="button" className="btn" onClick={save} disabled={busy}>

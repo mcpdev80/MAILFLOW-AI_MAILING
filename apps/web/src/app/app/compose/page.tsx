@@ -35,10 +35,13 @@ function joinRecipients(values: string[]): string {
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("File read failed"));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("File read failed"));
     reader.onload = () => {
       const value = String(reader.result ?? "");
-      resolve(value.includes(",") ? value.slice(value.indexOf(",") + 1) : value);
+      resolve(
+        value.includes(",") ? value.slice(value.indexOf(",") + 1) : value,
+      );
     };
     reader.readAsDataURL(file);
   });
@@ -67,7 +70,9 @@ export default function ComposePage() {
   const [bodyText, setBodyText] = useState("");
   const [bodyHtml, setBodyHtml] = useState("");
   const [editorMode, setEditorMode] = useState<EditorMode>("rich_text");
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const [saveState, setSaveState] = useState<
+    "idle" | "saving" | "saved" | "failed"
+  >("idle");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +86,9 @@ export default function ComposePage() {
     setTo(joinRecipients(value.to_recipients));
     setCc(joinRecipients(value.cc_recipients));
     setBcc(joinRecipients(value.bcc_recipients));
-    setShowCcBcc(value.cc_recipients.length > 0 || value.bcc_recipients.length > 0);
+    setShowCcBcc(
+      value.cc_recipients.length > 0 || value.bcc_recipients.length > 0,
+    );
     setSubject(value.subject);
     setBodyText(value.body_text);
     setBodyHtml(value.body_html ?? "");
@@ -112,7 +119,9 @@ export default function ComposePage() {
         const messageType = (searchParams.get("type") ?? "new") as MessageType;
         const created = await api.createDraft({
           account_id: selected.id,
-          message_type: ["new", "reply", "reply_all", "forward"].includes(messageType)
+          message_type: ["new", "reply", "reply_all", "forward"].includes(
+            messageType,
+          )
             ? messageType
             : "new",
           to_recipients: splitRecipients(searchParams.get("to") ?? ""),
@@ -123,7 +132,9 @@ export default function ComposePage() {
         if (!cancelled) applyDraft(created);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Could not open composer");
+          setError(
+            err instanceof ApiError ? err.message : "Could not open composer",
+          );
         }
       }
     }
@@ -136,7 +147,8 @@ export default function ComposePage() {
 
   const persist = useCallback(async () => {
     const current = draftRef.current;
-    if (!current || current.status === "sent" || current.status === "discarded") return;
+    if (!current || current.status === "sent" || current.status === "discarded")
+      return;
     setSaveState("saving");
     try {
       const updated = await api.updateDraft(current.id, {
@@ -183,7 +195,14 @@ export default function ComposePage() {
     setBodyText(editor.innerText);
   }
 
-  function format(command: "bold" | "italic" | "underline" | "insertUnorderedList" | "insertOrderedList") {
+  function format(
+    command:
+      | "bold"
+      | "italic"
+      | "underline"
+      | "insertUnorderedList"
+      | "insertOrderedList",
+  ) {
     richEditorRef.current?.focus();
     document.execCommand(command);
     richInput();
@@ -209,7 +228,13 @@ export default function ComposePage() {
       }
       applyDraft(await api.getDraft(draftRef.current.id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Attachment upload failed");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Attachment upload failed",
+      );
     } finally {
       setUploading(false);
     }
@@ -221,7 +246,9 @@ export default function ComposePage() {
       await api.removeDraftAttachment(draftRef.current.id, attachment.id);
       applyDraft(await api.getDraft(draftRef.current.id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not remove attachment");
+      setError(
+        err instanceof ApiError ? err.message : "Could not remove attachment",
+      );
     }
   }
 
@@ -248,7 +275,9 @@ export default function ComposePage() {
       const result = await api.sendDraft(current.id);
       const refreshed = await api.getDraft(current.id);
       applyDraft(refreshed);
-      setNotice(`Message sent${result.message_id ? ` (${result.message_id})` : ""}.`);
+      setNotice(
+        `Message sent${result.message_id ? ` (${result.message_id})` : ""}.`,
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Sending failed");
       if (draftRef.current) {
@@ -272,7 +301,9 @@ export default function ComposePage() {
       setDraft(null);
       draftRef.current = null;
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not discard draft");
+      setError(
+        err instanceof ApiError ? err.message : "Could not discard draft",
+      );
     }
   }
 
@@ -321,7 +352,9 @@ export default function ComposePage() {
       {error && <div className="alert error">{error}</div>}
       {notice && <div className="alert ok">{notice}</div>}
       {warnings.includes("attachment_mentioned_but_missing") && (
-        <div className="alert">You mention an attachment, but none is attached.</div>
+        <div className="alert">
+          You mention an attachment, but none is attached.
+        </div>
       )}
 
       {draft && (
@@ -335,7 +368,8 @@ export default function ComposePage() {
             >
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.username}{account.ownership_mode === "shared" ? " · shared" : ""}
+                  {account.username}
+                  {account.ownership_mode === "shared" ? " · shared" : ""}
                 </option>
               ))}
             </select>
@@ -350,7 +384,11 @@ export default function ComposePage() {
               disabled={draft.status === "sent"}
             />
             {!showCcBcc && (
-              <button type="button" className="textButton" onClick={() => setShowCcBcc(true)}>
+              <button
+                type="button"
+                className="textButton"
+                onClick={() => setShowCcBcc(true)}
+              >
                 CC / BCC
               </button>
             )}
@@ -360,11 +398,19 @@ export default function ComposePage() {
             <>
               <label className="composeField">
                 <span>CC</span>
-                <input value={cc} onChange={(event) => setCc(event.target.value)} disabled={draft.status === "sent"} />
+                <input
+                  value={cc}
+                  onChange={(event) => setCc(event.target.value)}
+                  disabled={draft.status === "sent"}
+                />
               </label>
               <label className="composeField">
                 <span>BCC</span>
-                <input value={bcc} onChange={(event) => setBcc(event.target.value)} disabled={draft.status === "sent"} />
+                <input
+                  value={bcc}
+                  onChange={(event) => setBcc(event.target.value)}
+                  disabled={draft.status === "sent"}
+                />
               </label>
             </>
           )}
@@ -402,11 +448,41 @@ export default function ComposePage() {
           {editorMode === "rich_text" ? (
             <div className="editorShell">
               <div className="editorToolbar" aria-label="Formatting">
-                <button type="button" onClick={() => format("bold")} title="Bold"><strong>B</strong></button>
-                <button type="button" onClick={() => format("italic")} title="Italic"><em>I</em></button>
-                <button type="button" onClick={() => format("underline")} title="Underline"><u>U</u></button>
-                <button type="button" onClick={() => format("insertUnorderedList")} title="Bullet list">• List</button>
-                <button type="button" onClick={() => format("insertOrderedList")} title="Numbered list">1. List</button>
+                <button
+                  type="button"
+                  onClick={() => format("bold")}
+                  title="Bold"
+                >
+                  <strong>B</strong>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => format("italic")}
+                  title="Italic"
+                >
+                  <em>I</em>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => format("underline")}
+                  title="Underline"
+                >
+                  <u>U</u>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => format("insertUnorderedList")}
+                  title="Bullet list"
+                >
+                  • List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => format("insertOrderedList")}
+                  title="Numbered list"
+                >
+                  1. List
+                </button>
               </div>
               <div
                 ref={richEditorRef}
@@ -432,9 +508,16 @@ export default function ComposePage() {
               <div className="attachmentChip" key={attachment.id}>
                 <span>▧</span>
                 <span>{attachment.filename}</span>
-                <span className="muted">{formatBytes(attachment.size_bytes)}</span>
+                <span className="muted">
+                  {formatBytes(attachment.size_bytes)}
+                </span>
                 {draft.status !== "sent" && (
-                  <button type="button" className="textButton" onClick={() => removeAttachment(attachment)} aria-label={`Remove ${attachment.filename}`}>
+                  <button
+                    type="button"
+                    className="textButton"
+                    onClick={() => removeAttachment(attachment)}
+                    aria-label={`Remove ${attachment.filename}`}
+                  >
                     ×
                   </button>
                 )}
@@ -443,7 +526,13 @@ export default function ComposePage() {
             {draft.status !== "sent" && (
               <label className="btn secondary attachmentButton">
                 {uploading ? "Adding…" : "Attach files"}
-                <input type="file" multiple hidden disabled={uploading} onChange={addAttachment} />
+                <input
+                  type="file"
+                  multiple
+                  hidden
+                  disabled={uploading}
+                  onChange={addAttachment}
+                />
               </label>
             )}
           </div>
@@ -451,25 +540,47 @@ export default function ComposePage() {
           <div className="composeFooter">
             <div className="composeFooterActions">
               {draft.status !== "sent" && (
-                <button type="button" className="btn" onClick={send} disabled={sending || uploading}>
-                  {sending ? "Sending…" : draft.status === "failed" ? "Retry send" : "Send"}
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={send}
+                  disabled={sending || uploading}
+                >
+                  {sending
+                    ? "Sending…"
+                    : draft.status === "failed"
+                      ? "Retry send"
+                      : "Send"}
                 </button>
               )}
               {draft.status !== "sent" && (
-                <button type="button" className="btn secondary" onClick={persist} disabled={saveState === "saving"}>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={persist}
+                  disabled={saveState === "saving"}
+                >
                   Save draft
                 </button>
               )}
             </div>
             {draft.status !== "sent" && (
-              <button type="button" className="textButton dangerText" onClick={discard}>
+              <button
+                type="button"
+                className="textButton dangerText"
+                onClick={discard}
+              >
                 Discard
               </button>
             )}
             {draft.status === "sent" && <span className="pill ok">Sent</span>}
           </div>
 
-          {draft.last_error && <div className="alert error">Last send error: {draft.last_error}</div>}
+          {draft.last_error && (
+            <div className="alert error">
+              Last send error: {draft.last_error}
+            </div>
+          )}
         </section>
       )}
 

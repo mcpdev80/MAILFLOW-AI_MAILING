@@ -29,23 +29,38 @@ export default function DraftsPage() {
       await api.discardDraft(id);
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not discard draft");
+      setError(
+        err instanceof ApiError ? err.message : "Could not discard draft",
+      );
     }
   }
 
   return (
     <main className="container">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "1rem",
+        }}
+      >
         <div>
           <h1 style={{ marginBottom: "0.25rem" }}>Drafts</h1>
-          <p className="muted">Saved outgoing messages across your authorized mailboxes.</p>
+          <p className="muted">
+            Saved outgoing messages across your authorized mailboxes.
+          </p>
         </div>
-        <Link className="btn" href="/app/compose">Compose</Link>
+        <Link className="btn" href="/app/compose">
+          Compose
+        </Link>
       </div>
 
       {error && <div className="alert error">{error}</div>}
       {drafts === null && <p className="muted">Loading…</p>}
-      {drafts?.length === 0 && <div className="card empty">No saved drafts.</div>}
+      {drafts?.length === 0 && (
+        <div className="card empty">No saved drafts.</div>
+      )}
 
       {drafts && drafts.length > 0 && (
         <div className="card">
@@ -67,15 +82,38 @@ export default function DraftsPage() {
                       {draft.subject || "(no subject)"}
                     </Link>
                     <div className="muted" style={{ fontSize: "0.8rem" }}>
-                      {draft.message_type.replace("_", " ")} · {draft.attachments.length} attachment{draft.attachments.length === 1 ? "" : "s"}
+                      {draft.message_type.replace("_", " ")} ·{" "}
+                      {draft.attachments.length} attachment
+                      {draft.attachments.length === 1 ? "" : "s"}
                     </div>
                   </td>
-                  <td className="muted">{draft.to_recipients.join(", ") || "—"}</td>
-                  <td><span className={`pill ${draft.status === "failed" ? "off" : ""}`}>{draft.status}</span></td>
-                  <td className="muted">{new Date(draft.updated_at).toLocaleString()}</td>
+                  <td className="muted">
+                    {draft.to_recipients.join(", ") || "—"}
+                  </td>
+                  <td>
+                    <span
+                      className={`pill ${draft.status === "failed" ? "off" : ""}`}
+                    >
+                      {draft.status}
+                    </span>
+                  </td>
+                  <td className="muted">
+                    {new Date(draft.updated_at).toLocaleString()}
+                  </td>
                   <td style={{ display: "flex", gap: "0.4rem" }}>
-                    <Link className="btn secondary" href={`/app/compose?draft=${draft.id}`}>Open</Link>
-                    <button type="button" className="btn secondary" onClick={() => discard(draft.id)}>Discard</button>
+                    <Link
+                      className="btn secondary"
+                      href={`/app/compose?draft=${draft.id}`}
+                    >
+                      Open
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      onClick={() => discard(draft.id)}
+                    >
+                      Discard
+                    </button>
                   </td>
                 </tr>
               ))}

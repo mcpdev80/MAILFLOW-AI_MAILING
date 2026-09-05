@@ -142,10 +142,16 @@ export default function DashboardPage() {
                       : "never"}
                   </td>
                   <td style={{ display: "flex", gap: "0.4rem" }}>
-                    <Link className="btn secondary" href={`/app/compose?account=${a.id}`}>
+                    <Link
+                      className="btn secondary"
+                      href={`/app/compose?account=${a.id}`}
+                    >
                       Compose
                     </Link>
-                    <Link className="btn secondary" href={`/app/accounts/${a.id}/smtp`}>
+                    <Link
+                      className="btn secondary"
+                      href={`/app/accounts/${a.id}/smtp`}
+                    >
                       SMTP
                     </Link>
                     <button
