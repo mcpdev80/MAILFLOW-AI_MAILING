@@ -1,6 +1,10 @@
 /** MailFlow API DTOs (mirror of backend HTTP contracts). */
 
 export type ActionMode = "off" | "review" | "automatic";
+export type SmtpSecurity = "ssl" | "starttls" | "plain";
+export type MessageType = "new" | "reply" | "reply_all" | "forward";
+export type EditorMode = "rich_text" | "markdown";
+export type DraftStatus = "draft" | "sending" | "sent" | "failed" | "discarded";
 
 export interface EmailAccount {
   id: string;
@@ -15,6 +19,11 @@ export interface EmailAccount {
   inbox_folder: string;
   unclassified_folder: string;
   drafts_folder: string;
+  smtp_host: string | null;
+  smtp_port: number | null;
+  smtp_security: SmtpSecurity;
+  smtp_username: string | null;
+  has_smtp_password: boolean;
   interval_minutes: number;
   is_active: boolean;
   last_cycle_at: string | null;
@@ -38,6 +47,11 @@ export interface EmailAccountCreate {
   move_policy?: ActionMode;
   archive_policy?: ActionMode;
   action_confidence_threshold?: number;
+  smtp_host?: string | null;
+  smtp_port?: number | null;
+  smtp_security?: SmtpSecurity;
+  smtp_username?: string | null;
+  smtp_password?: string | null;
 }
 
 export type EmailAccountUpdate = Partial<
@@ -50,6 +64,10 @@ export type EmailAccountUpdate = Partial<
     | "inbox_folder"
     | "unclassified_folder"
     | "drafts_folder"
+    | "smtp_host"
+    | "smtp_port"
+    | "smtp_security"
+    | "smtp_username"
     | "interval_minutes"
     | "is_active"
     | "llm_provider_id"
@@ -57,7 +75,76 @@ export type EmailAccountUpdate = Partial<
     | "archive_policy"
     | "action_confidence_threshold"
   >
-> & { password?: string | null };
+> & { password?: string | null; smtp_password?: string | null };
+
+export interface DraftAttachment {
+  id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+}
+
+export interface MailDraft {
+  id: string;
+  org_id: string;
+  account_id: string;
+  owner_user_id: string | null;
+  message_type: MessageType;
+  in_reply_to: string | null;
+  references: string[];
+  to_recipients: string[];
+  cc_recipients: string[];
+  bcc_recipients: string[];
+  subject: string;
+  body_text: string;
+  body_html: string | null;
+  editor_mode: EditorMode;
+  status: DraftStatus;
+  send_attempts: number;
+  sent_message_id: string | null;
+  last_error: string | null;
+  attachments: DraftAttachment[];
+  created_at: string;
+  updated_at: string;
+  sent_at: string | null;
+}
+
+export interface DraftCreate {
+  account_id: string;
+  message_type?: MessageType;
+  in_reply_to?: string | null;
+  references?: string[];
+  to_recipients?: string[];
+  cc_recipients?: string[];
+  bcc_recipients?: string[];
+  subject?: string;
+  body_text?: string;
+  body_html?: string | null;
+  editor_mode?: EditorMode;
+}
+
+export type DraftUpdate = Partial<Omit<DraftCreate, "account_id">> & {
+  account_id?: string;
+};
+
+export interface DraftAttachmentCreate {
+  filename: string;
+  content_type: string;
+  content_base64: string;
+}
+
+export interface PreSendCheck {
+  warning_codes: string[];
+  can_send: boolean;
+}
+
+export interface SendResult {
+  draft_id: string;
+  status: DraftStatus;
+  message_id: string | null;
+  warning_codes: string[];
+}
 
 export interface SharedMailboxAccess {
   user_id: string;

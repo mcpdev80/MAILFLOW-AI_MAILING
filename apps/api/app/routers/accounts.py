@@ -90,6 +90,15 @@ async def create_account(
         inbox_folder=payload.inbox_folder,
         unclassified_folder=payload.unclassified_folder,
         drafts_folder=payload.drafts_folder,
+        smtp_host=payload.smtp_host,
+        smtp_port=payload.smtp_port,
+        smtp_security=payload.smtp_security,
+        smtp_username=payload.smtp_username,
+        encrypted_smtp_credentials=(
+            encrypt_secret({"password": payload.smtp_password})
+            if payload.smtp_password
+            else None
+        ),
         interval_minutes=payload.interval_minutes,
         llm_provider_id=payload.llm_provider_id,
         move_policy=payload.move_policy,
@@ -182,8 +191,11 @@ async def update_account(
     account = await get_account_for_management(account_id, identity, session)
     data = payload.model_dump(exclude_unset=True)
     password = data.pop("password", None)
+    smtp_password = data.pop("smtp_password", None)
     if password:
         account.encrypted_credentials = encrypt_secret({"password": password})
+    if smtp_password:
+        account.encrypted_smtp_credentials = encrypt_secret({"password": smtp_password})
     for field, value in data.items():
         setattr(account, field, value)
     await session.commit()

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.secret_storage import validate_stored_secrets
 
-EXPECTED_SCHEMA_REVISION = "020"
+EXPECTED_SCHEMA_REVISION = "021"
 
 
 class RestoreValidationError(RuntimeError):

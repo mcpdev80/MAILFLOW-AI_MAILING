@@ -22,6 +22,8 @@ def test_all_tables_registered():
         "backfill_failures",
         "bulk_proposals",
         "bulk_apply_jobs",
+        "outbound_drafts",
+        "outbound_draft_attachments",
     }
     assert expected == set(Base.metadata.tables.keys())
 

@@ -17,11 +17,17 @@ from app.models.llm_provider import LLMProvider
 class SecretRotationResult:
     mailbox_credentials: int = 0
     oauth_tokens: int = 0
+    smtp_credentials: int = 0
     llm_api_keys: int = 0
 
     @property
     def total(self) -> int:
-        return self.mailbox_credentials + self.oauth_tokens + self.llm_api_keys
+        return (
+            self.mailbox_credentials
+            + self.oauth_tokens
+            + self.smtp_credentials
+            + self.llm_api_keys
+        )
 
 
 def _account_query(org_id: UUID | None):
@@ -59,6 +65,9 @@ async def validate_stored_secrets(
         if account.encrypted_oauth:
             decrypt_secret(account.encrypted_oauth)
             validated += 1
+        if account.encrypted_smtp_credentials:
+            decrypt_secret(account.encrypted_smtp_credentials)
+            validated += 1
 
     providers = list((await session.execute(_provider_query(org_id))).scalars())
     for provider in providers:
@@ -76,6 +85,7 @@ async def rotate_stored_secrets(
     """Re-encrypt stored DB secrets with the current primary encryption key."""
     mailbox_credentials = 0
     oauth_tokens = 0
+    smtp_credentials = 0
     llm_api_keys = 0
 
     accounts = list((await session.execute(_account_query(org_id))).scalars())
@@ -86,6 +96,11 @@ async def rotate_stored_secrets(
         if account.encrypted_oauth:
             account.encrypted_oauth = rotate_secret(account.encrypted_oauth)
             oauth_tokens += 1
+        if account.encrypted_smtp_credentials:
+            account.encrypted_smtp_credentials = rotate_secret(
+                account.encrypted_smtp_credentials
+            )
+            smtp_credentials += 1
 
     providers = list((await session.execute(_provider_query(org_id))).scalars())
     for provider in providers:
@@ -98,5 +113,6 @@ async def rotate_stored_secrets(
     return SecretRotationResult(
         mailbox_credentials=mailbox_credentials,
         oauth_tokens=oauth_tokens,
+        smtp_credentials=smtp_credentials,
         llm_api_keys=llm_api_keys,
     )

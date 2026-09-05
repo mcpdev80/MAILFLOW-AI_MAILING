@@ -3,14 +3,21 @@ import { API_BASE } from "./config";
 import type {
   Cycle,
   CycleEnqueued,
+  DraftAttachment,
+  DraftAttachmentCreate,
+  DraftCreate,
+  DraftUpdate,
   EmailAccount,
   EmailAccountCreate,
   EmailAccountUpdate,
   LLMProvider,
   LLMProviderCreate,
   LLMProviderUpdate,
+  MailDraft,
   MailboxOwnershipUpdate,
   PlanStatus,
+  PreSendCheck,
+  SendResult,
   SharedMailboxAccess,
 } from "./types";
 
@@ -84,6 +91,36 @@ export const api = {
     }),
   listUnresolvedMailboxes: () =>
     request<EmailAccount[]>("/accounts/unresolved-mailboxes"),
+
+  // Outbound mail
+  listDrafts: (includeSent = false) =>
+    request<MailDraft[]>(`/mail/drafts?include_sent=${includeSent}`),
+  getDraft: (id: string) => request<MailDraft>(`/mail/drafts/${id}`),
+  createDraft: (payload: DraftCreate) =>
+    request<MailDraft>("/mail/drafts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateDraft: (id: string, payload: DraftUpdate) =>
+    request<MailDraft>(`/mail/drafts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  discardDraft: (id: string) =>
+    request<void>(`/mail/drafts/${id}`, { method: "DELETE" }),
+  addDraftAttachment: (id: string, payload: DraftAttachmentCreate) =>
+    request<DraftAttachment>(`/mail/drafts/${id}/attachments`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  removeDraftAttachment: (draftId: string, attachmentId: string) =>
+    request<void>(`/mail/drafts/${draftId}/attachments/${attachmentId}`, {
+      method: "DELETE",
+    }),
+  preSendCheck: (id: string) =>
+    request<PreSendCheck>(`/mail/drafts/${id}/pre-send`),
+  sendDraft: (id: string) =>
+    request<SendResult>(`/mail/drafts/${id}/send`, { method: "POST" }),
 
   // LLM providers
   listProviders: () => request<LLMProvider[]>("/llm-providers"),
