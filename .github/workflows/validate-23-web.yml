@@ -1,0 +1,44 @@
+name: Validate Issue 23 Web
+on:
+  push:
+    branches:
+      - feat/23-dashboard-search
+    paths:
+      - .github/workflows/validate-23-web.yml
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/23-dashboard-search
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install without native postinstall builds
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Format changed web files
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '^apps/web/.*\.(js|jsx|ts|tsx|json|jsonc)$' || true)
+          if (( ${#files[@]} )); then
+            pnpm biome check --write "${files[@]}"
+          fi
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Commit formatting
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git commit -m 'style(dashboard): format dashboard and search UI'
+            git push origin HEAD:feat/23-dashboard-search
+          fi
