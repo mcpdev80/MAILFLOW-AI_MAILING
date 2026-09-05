@@ -37,6 +37,8 @@ jobs:
           text = text.replace('if (aiAction && aiAction.startsWith("ai_reply"))', 'if (aiAction?.startsWith("ai_reply"))')
           text = text.replace(' className="aiResultBackdrop" role="presentation" onClick={() => setAiResult(null)}', ' className="aiResultBackdrop" role="presentation"')
           text = text.replace(' aria-label={aiResult.title} onClick={(event) => event.stopPropagation()}', ' aria-label={aiResult.title}')
+          text = text.replace('<section className="aiResultDialog" role="dialog" aria-modal="true" aria-label={aiResult.title}>', '<dialog open className="aiResultDialog" aria-label={aiResult.title}>')
+          text = text.replace('</section>\n        </div>', '</dialog>\n        </div>')
           mail.write_text(text)
 
           print_page = Path('apps/web/src/app/print/mail/page.tsx')
