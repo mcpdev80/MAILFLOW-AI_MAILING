@@ -32,6 +32,10 @@ def upgrade() -> None:
         "email_accounts",
         sa.Column("smtp_username", sa.String(length=255), nullable=True),
     )
+    op.add_column(
+        "email_accounts",
+        sa.Column("encrypted_smtp_credentials", sa.String(), nullable=True),
+    )
     op.create_check_constraint(
         "ck_email_accounts_smtp_security",
         "email_accounts",
@@ -164,6 +168,7 @@ def downgrade() -> None:
     op.drop_constraint(
         "ck_email_accounts_smtp_security", "email_accounts", type_="check"
     )
+    op.drop_column("email_accounts", "encrypted_smtp_credentials")
     op.drop_column("email_accounts", "smtp_username")
     op.drop_column("email_accounts", "smtp_security")
     op.drop_column("email_accounts", "smtp_port")
