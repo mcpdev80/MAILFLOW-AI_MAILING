@@ -2,19 +2,29 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from datetime import UTC, datetime
 from email.utils import make_msgid
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth import RequestIdentity, require_identity
 from app.database import get_session
-from app.mail_schemas import AttachmentOut, DraftCreate, DraftOut, DraftUpdate, PreSendCheck, SendResult
+from app.mail_schemas import (
+    AttachmentCreate,
+    AttachmentOut,
+    DraftCreate,
+    DraftOut,
+    DraftUpdate,
+    PreSendCheck,
+    SendResult,
+)
 from app.mailbox_access import access_condition, get_accessible_account
 from app.models.email_account import EmailAccount
 from app.models.outbound_draft import OutboundDraft, OutboundDraftAttachment
@@ -170,25 +180,26 @@ async def discard_draft(
 )
 async def add_attachment(
     draft_id: UUID,
-    file: UploadFile = File(...),
+    payload: AttachmentCreate,
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> OutboundDraftAttachment:
     draft = await _get_draft(draft_id, identity, session)
     _editable(draft)
-    content = await file.read(MAX_ATTACHMENT_BYTES + 1)
+    try:
+        content = base64.b64decode(payload.content_base64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="invalid_attachment_base64") from exc
     if len(content) > MAX_ATTACHMENT_BYTES:
         raise HTTPException(status_code=413, detail="attachment_too_large")
     current_total = sum(item.size_bytes for item in draft.attachments)
     if current_total + len(content) > MAX_TOTAL_ATTACHMENT_BYTES:
         raise HTTPException(status_code=413, detail="attachments_total_too_large")
-    filename = Path(file.filename or "attachment").name[:255]
-    if not filename:
-        filename = "attachment"
+    filename = Path(payload.filename).name[:255] or "attachment"
     attachment = OutboundDraftAttachment(
         draft_id=draft.id,
         filename=filename,
-        content_type=(file.content_type or "application/octet-stream")[:255],
+        content_type=payload.content_type[:255],
         size_bytes=len(content),
         content=content,
     )
@@ -210,7 +221,10 @@ async def remove_attachment(
 ) -> None:
     draft = await _get_draft(draft_id, identity, session)
     _editable(draft)
-    attachment = next((item for item in draft.attachments if item.id == attachment_id), None)
+    attachment = next(
+        (item for item in draft.attachments if item.id == attachment_id),
+        None,
+    )
     if attachment is None:
         raise HTTPException(status_code=404, detail="attachment_not_found")
     await session.delete(attachment)
@@ -225,7 +239,10 @@ async def check_before_send(
 ) -> PreSendCheck:
     draft = await _get_draft(draft_id, identity, session)
     warnings = pre_send_warnings(draft)
-    can_send = "missing_recipient" not in warnings and draft.status not in {"sending", "discarded"}
+    can_send = "missing_recipient" not in warnings and draft.status not in {
+        "sending",
+        "discarded",
+    }
     return PreSendCheck(warning_codes=warnings, can_send=can_send)
 
 
