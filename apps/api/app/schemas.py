@@ -62,6 +62,7 @@ class EmailAccountCreate(BaseModel):
     smtp_port: int | None = Field(default=None, ge=1, le=65535)
     smtp_security: SmtpSecurity = "starttls"
     smtp_username: str | None = Field(default=None, max_length=255)
+    smtp_password: str | None = Field(default=None, repr=False)
     interval_minutes: int = Field(default=5, ge=1, le=1440)
     provider_type: str = "imap"
     llm_provider_id: UUID | None = None
@@ -85,6 +86,7 @@ class EmailAccountUpdate(BaseModel):
     smtp_port: int | None = Field(default=None, ge=1, le=65535)
     smtp_security: SmtpSecurity | None = None
     smtp_username: str | None = Field(default=None, max_length=255)
+    smtp_password: str | None = Field(default=None, repr=False)
     interval_minutes: int | None = Field(default=None, ge=1, le=1440)
     is_active: bool | None = None
     llm_provider_id: UUID | None = None
@@ -110,6 +112,7 @@ class EmailAccountOut(ORMModel):
     smtp_port: int | None
     smtp_security: SmtpSecurity
     smtp_username: str | None
+    has_smtp_password: bool = False
     interval_minutes: int
     is_active: bool
     last_cycle_at: datetime | None
