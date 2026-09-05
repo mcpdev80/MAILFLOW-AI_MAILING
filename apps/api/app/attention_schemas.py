@@ -67,8 +67,27 @@ class ReviewItem(BaseModel):
     processed_at: datetime
 
 
+class OperationalReviewItem(BaseModel):
+    id: UUID
+    source_type: Literal["backfill_failure", "bulk_proposal", "mailbox_ownership"]
+    account_id: UUID
+    account_label: str
+    ownership_mode: str
+    title: str
+    reason: str
+    status: str
+    priority: int
+    created_at: datetime
+    job_id: UUID | None = None
+    uid: int | None = None
+    folder: str | None = None
+    retry_available: bool = False
+    management_url: str | None = None
+
+
 class ReviewInbox(BaseModel):
     items: list[ReviewItem]
+    operational: list[OperationalReviewItem] = Field(default_factory=list)
     counters: AttentionCounters
 
 
