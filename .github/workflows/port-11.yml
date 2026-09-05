@@ -17,12 +17,34 @@ jobs:
         with:
           ref: feat/11-decision-memory-management
           fetch-depth: 0
-      - name: Apply old PR client delta onto current main
+      - name: Apply DecisionMemory client delta onto current main
         shell: bash
         run: |
           git fetch origin c1722387bc206c13f6666a2418707523983b593d cec00f1ce984ab44ee214b0c40495335783441c7
-          git diff cec00f1ce984ab44ee214b0c40495335783441c7 c1722387bc206c13f6666a2418707523983b593d -- apps/web/src/lib/api.ts apps/web/src/lib/types.ts > /tmp/decision-memory.patch
-          git apply --3way /tmp/decision-memory.patch
+          git diff cec00f1ce984ab44ee214b0c40495335783441c7 c1722387bc206c13f6666a2418707523983b593d -- apps/web/src/lib/types.ts > /tmp/decision-memory-types.patch
+          git apply --3way /tmp/decision-memory-types.patch
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/web/src/lib/api.ts')
+          text = path.read_text()
+
+          import_anchor = '  CycleEnqueued,\n'
+          import_block = '  CycleEnqueued,\n  DecisionMemoryEntry,\n  DecisionMemoryWrite,\n'
+          if '  DecisionMemoryEntry,\n' not in text:
+              if text.count(import_anchor) != 1:
+                  raise SystemExit('DecisionMemory import anchor not unique')
+              text = text.replace(import_anchor, import_block, 1)
+
+          method_anchor = '''  listUnresolvedMailboxes: () =>\n    request<EmailAccount[]>("/accounts/unresolved-mailboxes"),\n\n'''
+          methods = '''  listUnresolvedMailboxes: () =>\n    request<EmailAccount[]>("/accounts/unresolved-mailboxes"),\n\n  // DecisionMemory\n  listDecisionMemory: (accountId: string, includeDisabled = true) =>\n    request<DecisionMemoryEntry[]>(\n      `/accounts/${accountId}/decision-memory?include_disabled=${includeDisabled}`,\n    ),\n  updateDecisionMemory: (\n    accountId: string,\n    entryId: string,\n    payload: DecisionMemoryWrite,\n  ) =>\n    request<DecisionMemoryEntry>(\n      `/accounts/${accountId}/decision-memory/${entryId}`,\n      {\n        method: "PUT",\n        body: JSON.stringify(payload),\n      },\n    ),\n  deleteDecisionMemory: (accountId: string, entryId: string) =>\n    request<void>(`/accounts/${accountId}/decision-memory/${entryId}`, {\n      method: "DELETE",\n    }),\n\n'''
+          if 'listDecisionMemory:' not in text:
+              if text.count(method_anchor) != 1:
+                  raise SystemExit('DecisionMemory method anchor not unique')
+              text = text.replace(method_anchor, methods, 1)
+
+          path.write_text(text)
+          PY
           git diff --check
       - name: Commit port
         shell: bash
