@@ -1,0 +1,46 @@
+name: Issue 64 One-shot Fix
+on:
+  push:
+    branches:
+      - feat/64-context-actions-dnd-print
+    paths:
+      - .github/workflows/fix-64.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/64-context-actions-dnd-print
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          python-version: '3.13'
+      - name: Apply exact CI fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/app/app/mail/page.tsx')
+          text = path.read_text()
+          old = 'preview.content'
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f'expected 2 {old!r} occurrences, found {count}')
+          path.write_text(text.replace(old, 'preview.text'))
+          PY
+          uvx ruff format apps/api/app/services/mail_actions.py
+          git diff --check
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/src/app/app/mail/page.tsx apps/api/app/services/mail_actions.py
+          git commit -m '[final-ci] fix: address issue 64 validation findings'
+          git push origin HEAD:feat/64-context-actions-dnd-print

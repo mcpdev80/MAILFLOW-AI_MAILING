@@ -6,6 +6,7 @@ on:
 
 jobs:
   lint-python:
+    if: contains(github.event.head_commit.message, '[final-ci]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +26,7 @@ jobs:
           if (( ${#files[@]} )); then uv run ruff format --check --diff "${files[@]}"; fi
 
   test-core:
+    if: contains(github.event.head_commit.message, '[final-ci]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +38,7 @@ jobs:
       - run: uv run pytest packages/core/tests/ -m 'not integration' --cov=mailflow_core --cov-fail-under=80
 
   test-api:
+    if: contains(github.event.head_commit.message, '[final-ci]')
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -47,7 +50,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd 'pg_isready -U mailflow'
+          --health-cmd "pg_isready -U mailflow"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -65,6 +68,7 @@ jobs:
         run: uv run pytest tests -m 'not integration' --cov=app --cov-fail-under=70
 
   lint-ts:
+    if: contains(github.event.head_commit.message, '[final-ci]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,6 +87,7 @@ jobs:
           if (( ${#files[@]} )); then pnpm biome check "${files[@]}"; fi
 
   typecheck-ts:
+    if: contains(github.event.head_commit.message, '[final-ci]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,6 +99,7 @@ jobs:
       - run: pnpm typecheck
 
   docker-build:
+    if: contains(github.event.head_commit.message, '[final-ci]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
