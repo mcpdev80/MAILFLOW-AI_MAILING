@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiError, api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import type { EmailAccount } from "@/lib/types";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -11,6 +12,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const load = useCallback(async () => {
     setError(null);
@@ -67,23 +69,23 @@ export default function DashboardPage() {
           gap: "0.75rem",
         }}
       >
-        <h1>Dashboard</h1>
+        <h1>{t("nav.dashboard")}</h1>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {accounts && accounts.length > 0 && (
             <>
               <Link className="btn" href="/app/compose">
-                Compose
+                {t("dashboard.compose")}
               </Link>
               <Link className="btn secondary" href="/app/drafts">
-                Drafts
+                {t("dashboard.drafts")}
               </Link>
             </>
           )}
           <Link className="btn secondary" href="/app/settings/security">
-            Security
+            {t("dashboard.security")}
           </Link>
           <Link className="btn secondary" href="/onboarding">
-            + Connect mailbox
+            {t("dashboard.connectMailbox")}
           </Link>
         </div>
       </div>
@@ -91,16 +93,16 @@ export default function DashboardPage() {
       {error && <div className="alert error">{error}</div>}
       {notice && <div className="alert ok">{notice}</div>}
 
-      {accounts === null && <p className="muted">Loading…</p>}
+      {accounts === null && <p className="muted">{t("common.loading")}</p>}
 
       {accounts !== null &&
         accounts.length === 0 &&
         managedAccounts.length === 0 &&
         !error && (
           <div className="card empty">
-            <p>No mailboxes connected yet.</p>
+            <p>{t("dashboard.noMailboxes")}</p>
             <Link className="btn" href="/onboarding">
-              Connect your first mailbox
+              {t("dashboard.connectFirst")}
             </Link>
           </div>
         )}
@@ -110,11 +112,11 @@ export default function DashboardPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Mailbox</th>
-                <th>Privacy</th>
-                <th>Status</th>
-                <th>Every</th>
-                <th>Last cycle</th>
+                <th>{t("dashboard.mailbox")}</th>
+                <th>{t("dashboard.privacy")}</th>
+                <th>{t("dashboard.status")}</th>
+                <th>{t("dashboard.every")}</th>
+                <th>{t("dashboard.lastCycle")}</th>
                 <th />
               </tr>
             </thead>
@@ -132,21 +134,21 @@ export default function DashboardPage() {
                   </td>
                   <td>
                     <span className={`pill ${a.is_active ? "ok" : "off"}`}>
-                      {a.is_active ? "active" : "paused"}
+                      {a.is_active ? t("common.active") : t("common.paused")}
                     </span>
                   </td>
                   <td>{a.interval_minutes} min</td>
                   <td className="muted">
                     {a.last_cycle_at
                       ? new Date(a.last_cycle_at).toLocaleString()
-                      : "never"}
+                      : t("dashboard.never")}
                   </td>
                   <td style={{ display: "flex", gap: "0.4rem" }}>
                     <Link
                       className="btn secondary"
                       href={`/app/compose?account=${a.id}`}
                     >
-                      Compose
+                      {t("dashboard.compose")}
                     </Link>
                     <Link
                       className="btn secondary"
@@ -160,7 +162,9 @@ export default function DashboardPage() {
                       disabled={runningId === a.id}
                       onClick={() => runNow(a.id)}
                     >
-                      {runningId === a.id ? "Running…" : "Run now"}
+                      {runningId === a.id
+                        ? t("dashboard.running")
+                        : t("dashboard.runNow")}
                     </button>
                   </td>
                 </tr>
@@ -172,16 +176,13 @@ export default function DashboardPage() {
 
       {managedAccounts.length > 0 && (
         <div className="card">
-          <h3>Shared mailboxes you manage</h3>
-          <p className="muted">
-            These mailboxes are not visible to you unless you are also
-            explicitly granted mailbox access.
-          </p>
+          <h3>{t("dashboard.managedTitle")}</h3>
+          <p className="muted">{t("dashboard.managedBody")}</p>
           <table className="table">
             <thead>
               <tr>
-                <th>Mailbox</th>
-                <th>Access</th>
+                <th>{t("dashboard.mailbox")}</th>
+                <th>{t("dashboard.status")}</th>
                 <th />
               </tr>
             </thead>
@@ -195,14 +196,14 @@ export default function DashboardPage() {
                     </div>
                   </td>
                   <td>
-                    <span className="pill">manage only</span>
+                    <span className="pill">{t("dashboard.manageOnly")}</span>
                   </td>
                   <td>
                     <Link
                       className="btn secondary"
                       href={`/app/accounts/${account.id}`}
                     >
-                      Manage access
+                      {t("dashboard.manageAccess")}
                     </Link>
                   </td>
                 </tr>
