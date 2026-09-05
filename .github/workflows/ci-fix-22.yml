@@ -1,0 +1,53 @@
+name: CI Fix Issue 22
+
+on:
+  push:
+    branches:
+      - feat/22-review-notifications-summary-prod
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: "${{ !startsWith(github.event.head_commit.message, 'style: format issue 22') }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          python-version: "3.13"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: uv sync --all-packages
+      - run: pnpm install --frozen-lockfile
+      - name: Format changed files
+        shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t py < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
+          if (( ${#py[@]} )); then
+            uv run ruff check --fix "${py[@]}"
+            uv run ruff format "${py[@]}"
+          fi
+          mapfile -t web < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '^apps/web/.*\.(js|jsx|ts|tsx|json|jsonc)$' || true)
+          if (( ${#web[@]} )); then
+            pnpm biome check --write "${web[@]}"
+          fi
+      - name: Commit formatting
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No formatting changes"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/api apps/web
+          git commit -m 'style: format issue 22 attention center'
+          git push
