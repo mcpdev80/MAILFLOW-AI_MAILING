@@ -33,6 +33,14 @@ class MailboxFolderView(BaseModel):
     selectable: bool
 
 
+class MailboxCounter(BaseModel):
+    account_id: UUID
+    account_address: str
+    folder: str
+    total: int
+    unread: int
+
+
 class InboxMessage(BaseModel):
     account_id: UUID
     account_address: str
@@ -55,6 +63,8 @@ class InboxMessage(BaseModel):
 
 class UnifiedInbox(BaseModel):
     messages: list[InboxMessage]
+    counters: list[MailboxCounter] = Field(default_factory=list)
+    total_unread: int = 0
     next_before_uid_by_account: dict[str, int] = Field(default_factory=dict)
 
 
@@ -63,6 +73,12 @@ class MessageDetail(InboxMessage):
     safe_html: str | None = None
     in_reply_to: str | None = None
     references: list[str] = Field(default_factory=list)
+
+
+class ThreadView(BaseModel):
+    account_id: UUID
+    thread_id: str
+    messages: list[MessageDetail]
 
 
 MailActionName = Literal[
