@@ -69,10 +69,15 @@ export default function DashboardPage() {
       >
         <h1>Dashboard</h1>
         <div style={{ display: "flex", gap: "0.5rem" }}>
+          {accounts && accounts.length > 0 && (
+            <Link className="btn" href="/app/compose">
+              Compose
+            </Link>
+          )}
           <Link className="btn secondary" href="/app/settings/security">
             Security
           </Link>
-          <Link className="btn" href="/onboarding">
+          <Link className="btn secondary" href="/onboarding">
             + Connect mailbox
           </Link>
         </div>
@@ -131,7 +136,13 @@ export default function DashboardPage() {
                       ? new Date(a.last_cycle_at).toLocaleString()
                       : "never"}
                   </td>
-                  <td>
+                  <td style={{ display: "flex", gap: "0.4rem" }}>
+                    <Link className="btn secondary" href={`/app/compose?account=${a.id}`}>
+                      Compose
+                    </Link>
+                    <Link className="btn secondary" href={`/app/accounts/${a.id}/smtp`}>
+                      SMTP
+                    </Link>
                     <button
                       type="button"
                       className="btn secondary"
