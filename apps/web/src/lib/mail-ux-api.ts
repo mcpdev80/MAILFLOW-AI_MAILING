@@ -23,7 +23,9 @@ export async function undoMailMove(
   const text = await response.text();
   const body = text ? JSON.parse(text) : undefined;
   if (!response.ok) {
-    throw new Error((body?.detail as string | undefined) ?? response.statusText);
+    throw new Error(
+      (body?.detail as string | undefined) ?? response.statusText,
+    );
   }
   return body as MailActionResult;
 }
