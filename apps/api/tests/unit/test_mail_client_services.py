@@ -140,7 +140,10 @@ async def test_mailbox_metadata(monkeypatch, account):
         (MailActionRequest(action="archive"), ("archive", "INBOX", 7)),
         (MailActionRequest(action="trash"), ("trash", "INBOX", 7)),
         (MailActionRequest(action="spam"), ("spam", "INBOX", 7)),
-        (MailActionRequest(action="add_tags", tags=["work"]), ("add_tags", 7, ("work",))),
+        (
+            MailActionRequest(action="add_tags", tags=["work"]),
+            ("add_tags", 7, ("work",)),
+        ),
         (
             MailActionRequest(action="remove_tags", tags=["work"]),
             ("remove_tags", "INBOX", 7, ("work",)),
@@ -241,7 +244,9 @@ def test_date_key_handles_valid_invalid_and_empty():
 
 
 def test_message_mapping_helpers(account):
-    attachment = AttachmentInfo("2", "invoice.pdf", "application/pdf", 1234, "attachment")
+    attachment = AttachmentInfo(
+        "2", "invoice.pdf", "application/pdf", 1234, "attachment"
+    )
     state = MailboxMessage(
         uid=9,
         folder="INBOX",
@@ -282,7 +287,9 @@ def test_message_mapping_helpers(account):
 
 @pytest.mark.asyncio
 async def test_build_provider_password_credentials(monkeypatch, account):
-    monkeypatch.setattr(mail_client, "decrypt_secret", lambda value: {"password": "secret"})
+    monkeypatch.setattr(
+        mail_client, "decrypt_secret", lambda value: {"password": "secret"}
+    )
     provider = await mail_client._build_provider(account)
     assert provider._host == "imap.example.com"
     assert provider._password == "secret"
@@ -294,7 +301,9 @@ async def test_build_provider_oauth(monkeypatch, account):
     account.provider_type = "gmail"
     account.encrypted_oauth = b"oauth"
     account.encrypted_credentials = None
-    monkeypatch.setattr(mail_client, "decrypt_secret", lambda value: {"refresh_token": "refresh"})
+    monkeypatch.setattr(
+        mail_client, "decrypt_secret", lambda value: {"refresh_token": "refresh"}
+    )
     monkeypatch.setattr(
         mail_client.oauth,
         "access_token_from_refresh",

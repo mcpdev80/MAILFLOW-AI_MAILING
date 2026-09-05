@@ -39,7 +39,9 @@ function subjectWithPrefix(subject: string, prefix: "Re:" | "Fwd:"): string {
   return `${prefix} ${cleaned}`.trim();
 }
 
-function messageKey(message: Pick<InboxMessage, "account_id" | "folder" | "uid">): string {
+function messageKey(
+  message: Pick<InboxMessage, "account_id" | "folder" | "uid">,
+): string {
   return `${message.account_id}:${message.folder}:${message.uid}`;
 }
 
@@ -99,7 +101,9 @@ export default function MailPage() {
       .listAccounts()
       .then(setAccounts)
       .catch((err) =>
-        setError(err instanceof ApiError ? err.message : "Could not load mailboxes"),
+        setError(
+          err instanceof ApiError ? err.message : "Could not load mailboxes",
+        ),
       );
   }, []);
 
@@ -116,14 +120,20 @@ export default function MailPage() {
       .mailboxMetadata(selectedAccountId)
       .then((value) => {
         setMetadata(value);
-        const inboxFolder = value.folders.find((item) => item.role === "inbox")?.name;
+        const inboxFolder = value.folders.find(
+          (item) => item.role === "inbox",
+        )?.name;
         setFolder((current) => current ?? inboxFolder ?? null);
         setMoveFolder(
           value.folders.find((item) => item.role === "archive")?.name ?? "",
         );
       })
       .catch((err) =>
-        setError(err instanceof ApiError ? err.message : "Could not load mailbox metadata"),
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Could not load mailbox metadata",
+        ),
       );
   }, [selectedAccountId]);
 
@@ -132,7 +142,10 @@ export default function MailPage() {
   }, [loadInbox]);
 
   const unreadByAccount = useMemo(
-    () => new Map((inbox?.counters ?? []).map((item) => [item.account_id, item.unread])),
+    () =>
+      new Map(
+        (inbox?.counters ?? []).map((item) => [item.account_id, item.unread]),
+      ),
     [inbox],
   );
 
@@ -140,7 +153,9 @@ export default function MailPage() {
     if (metadata && selectedAccountId === accountId) return metadata;
     const value = await api.mailboxMetadata(accountId);
     setMetadata(value);
-    setMoveFolder(value.folders.find((item) => item.role === "archive")?.name ?? "");
+    setMoveFolder(
+      value.folders.find((item) => item.role === "archive")?.name ?? "",
+    );
     return value;
   }
 
@@ -164,10 +179,13 @@ export default function MailPage() {
                 ...current,
                 total_unread: Math.max(0, current.total_unread - 1),
                 messages: current.messages.map((item) =>
-                  messageKey(item) === messageKey(detail) ? { ...item, seen: true } : item,
+                  messageKey(item) === messageKey(detail)
+                    ? { ...item, seen: true }
+                    : item,
                 ),
                 counters: current.counters.map((item) =>
-                  item.account_id === detail.account_id && item.folder === detail.folder
+                  item.account_id === detail.account_id &&
+                  item.folder === detail.folder
                     ? { ...item, unread: Math.max(0, item.unread - 1) }
                     : item,
                 ),
@@ -177,12 +195,16 @@ export default function MailPage() {
       }
       setSelected(resolved);
       if (resolved.thread_id) {
-        setThread(await api.threadDetail(resolved.account_id, resolved.thread_id));
+        setThread(
+          await api.threadDetail(resolved.account_id, resolved.thread_id),
+        );
       } else {
         setThread(null);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not open message");
+      setError(
+        err instanceof ApiError ? err.message : "Could not open message",
+      );
     } finally {
       setMessageLoading(false);
     }
@@ -190,8 +212,16 @@ export default function MailPage() {
 
   async function runAction(payload: MailActionRequest) {
     if (!selected) return;
-    if (payload.action === "trash" && !window.confirm("Move this message to Trash?")) return;
-    if (payload.action === "spam" && !window.confirm("Move this message to Spam/Junk?")) return;
+    if (
+      payload.action === "trash" &&
+      !window.confirm("Move this message to Trash?")
+    )
+      return;
+    if (
+      payload.action === "spam" &&
+      !window.confirm("Move this message to Spam/Junk?")
+    )
+      return;
     setActionLoading(true);
     setError(null);
     try {
@@ -201,7 +231,10 @@ export default function MailPage() {
         selected.uid,
         payload,
       );
-      if (result.destination_folder && result.destination_folder !== selected.folder) {
+      if (
+        result.destination_folder &&
+        result.destination_folder !== selected.folder
+      ) {
         setSelected(null);
         setThread(null);
         await loadInbox();
@@ -263,25 +296,37 @@ export default function MailPage() {
         references,
         to_recipients: toRecipients,
         cc_recipients: ccRecipients,
-        subject: subjectWithPrefix(selected.subject, type === "forward" ? "Fwd:" : "Re:"),
+        subject: subjectWithPrefix(
+          selected.subject,
+          type === "forward" ? "Fwd:" : "Re:",
+        ),
         body_text: bodyText,
         editor_mode: "rich_text",
       });
       router.push(`/app/compose?draft=${encodeURIComponent(draft.id)}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not create reply draft");
+      setError(
+        err instanceof ApiError ? err.message : "Could not create reply draft",
+      );
       setActionLoading(false);
     }
   }
 
   function promptTag(action: "add_tags" | "remove_tags") {
-    const value = window.prompt(action === "add_tags" ? "Tag to add" : "Tag to remove");
+    const value = window.prompt(
+      action === "add_tags" ? "Tag to add" : "Tag to remove",
+    );
     if (value?.trim()) runAction({ action, tags: [value.trim()] });
   }
 
-  const visibleMessages = thread?.messages?.length ? thread.messages : selected ? [selected] : [];
+  const visibleMessages = thread?.messages?.length
+    ? thread.messages
+    : selected
+      ? [selected]
+      : [];
   const capabilities = metadata?.capabilities;
-  const selectableFolders = metadata?.folders.filter((item) => item.selectable) ?? [];
+  const selectableFolders =
+    metadata?.folders.filter((item) => item.selectable) ?? [];
 
   return (
     <main className="mailApp">
@@ -354,7 +399,12 @@ export default function MailPage() {
               <strong>{selectedAccountId ? "Mailbox" : "Unified inbox"}</strong>
               <span>{inbox?.messages.length ?? 0} loaded</span>
             </div>
-            <button type="button" className="iconButton" onClick={loadInbox} title="Refresh">
+            <button
+              type="button"
+              className="iconButton"
+              onClick={loadInbox}
+              title="Refresh"
+            >
               ↻
             </button>
           </div>
@@ -381,8 +431,12 @@ export default function MailPage() {
                     {message.subject || "(no subject)"}
                   </span>
                   <span className="rowMeta">
-                    <span className="accountPill">{message.account_address}</span>
-                    {message.attachments.length > 0 && <span>▧ {message.attachments.length}</span>}
+                    <span className="accountPill">
+                      {message.account_address}
+                    </span>
+                    {message.attachments.length > 0 && (
+                      <span>▧ {message.attachments.length}</span>
+                    )}
                     {message.thread_id && <span>thread</span>}
                   </span>
                 </button>
@@ -404,49 +458,95 @@ export default function MailPage() {
               <div className="detailHeader">
                 <div className="detailHeading">
                   <h1>{selected.subject || "(no subject)"}</h1>
-                  <span className="accountPill">{selected.account_address}</span>
+                  <span className="accountPill">
+                    {selected.account_address}
+                  </span>
                 </div>
                 <div className="actionRow">
-                  <button className="btn secondary" type="button" onClick={() => createReply("reply")}>
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    onClick={() => createReply("reply")}
+                  >
                     Reply
                   </button>
-                  <button className="btn secondary" type="button" onClick={() => createReply("reply_all")}>
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    onClick={() => createReply("reply_all")}
+                  >
                     Reply all
                   </button>
-                  <button className="btn secondary" type="button" onClick={() => createReply("forward")}>
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    onClick={() => createReply("forward")}
+                  >
                     Forward
                   </button>
                 </div>
                 <div className="actionRow compactActions">
                   {capabilities?.read_state && (
-                    <button type="button" onClick={() => runAction({ action: selected.seen ? "mark_unread" : "mark_read" })} disabled={actionLoading}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        runAction({
+                          action: selected.seen ? "mark_unread" : "mark_read",
+                        })
+                      }
+                      disabled={actionLoading}
+                    >
                       {selected.seen ? "Mark unread" : "Mark read"}
                     </button>
                   )}
                   {capabilities?.flag && (
-                    <button type="button" onClick={() => runAction({ action: selected.flagged ? "unflag" : "flag" })} disabled={actionLoading}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        runAction({
+                          action: selected.flagged ? "unflag" : "flag",
+                        })
+                      }
+                      disabled={actionLoading}
+                    >
                       {selected.flagged ? "Unflag" : "Flag"}
                     </button>
                   )}
                   {capabilities?.archive && (
-                    <button type="button" onClick={() => runAction({ action: "archive" })} disabled={actionLoading}>
+                    <button
+                      type="button"
+                      onClick={() => runAction({ action: "archive" })}
+                      disabled={actionLoading}
+                    >
                       Archive
                     </button>
                   )}
                   {capabilities?.spam && (
-                    <button type="button" onClick={() => runAction({ action: "spam" })} disabled={actionLoading}>
+                    <button
+                      type="button"
+                      onClick={() => runAction({ action: "spam" })}
+                      disabled={actionLoading}
+                    >
                       Spam
                     </button>
                   )}
                   {capabilities?.trash && (
-                    <button className="danger" type="button" onClick={() => runAction({ action: "trash" })} disabled={actionLoading}>
+                    <button
+                      className="danger"
+                      type="button"
+                      onClick={() => runAction({ action: "trash" })}
+                      disabled={actionLoading}
+                    >
                       Trash
                     </button>
                   )}
                 </div>
                 {capabilities?.move && (
                   <div className="moveRow">
-                    <select value={moveFolder} onChange={(event) => setMoveFolder(event.target.value)}>
+                    <select
+                      value={moveFolder}
+                      onChange={(event) => setMoveFolder(event.target.value)}
+                    >
                       <option value="">Move to…</option>
                       {selectableFolders
                         .filter((item) => item.name !== selected.folder)
@@ -459,14 +559,29 @@ export default function MailPage() {
                     <button
                       type="button"
                       disabled={!moveFolder || actionLoading}
-                      onClick={() => runAction({ action: "move", destination_folder: moveFolder })}
+                      onClick={() =>
+                        runAction({
+                          action: "move",
+                          destination_folder: moveFolder,
+                        })
+                      }
                     >
                       Move
                     </button>
                     {capabilities.tags && (
                       <>
-                        <button type="button" onClick={() => promptTag("add_tags")}>+ Tag</button>
-                        <button type="button" onClick={() => promptTag("remove_tags")}>− Tag</button>
+                        <button
+                          type="button"
+                          onClick={() => promptTag("add_tags")}
+                        >
+                          + Tag
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => promptTag("remove_tags")}
+                        >
+                          − Tag
+                        </button>
                       </>
                     )}
                   </div>
@@ -480,21 +595,27 @@ export default function MailPage() {
                       <div>
                         <strong>{message.from_email}</strong>
                         <div className="recipientMeta">
-                          To: {message.to_emails.join(", ") || selected.account_address}
-                          {message.cc_emails.length > 0 && ` · CC: ${message.cc_emails.join(", ")}`}
+                          To:{" "}
+                          {message.to_emails.join(", ") ||
+                            selected.account_address}
+                          {message.cc_emails.length > 0 &&
+                            ` · CC: ${message.cc_emails.join(", ")}`}
                         </div>
                       </div>
                       <span>{message.date ?? ""}</span>
                     </header>
 
                     {message.safe_html ? (
-                      <div
-                        className="mailBody"
-                        // The API strips active content, remote images, styles and unsafe attributes.
-                        dangerouslySetInnerHTML={{ __html: message.safe_html }}
+                      <iframe
+                        className="mailBodyFrame"
+                        sandbox=""
+                        srcDoc={message.safe_html}
+                        title={`Message from ${message.from_email}`}
                       />
                     ) : (
-                      <pre className="plainBody">{message.body_text || "(empty message)"}</pre>
+                      <pre className="plainBody">
+                        {message.body_text || "(empty message)"}
+                      </pre>
                     )}
 
                     {message.attachments.length > 0 && (

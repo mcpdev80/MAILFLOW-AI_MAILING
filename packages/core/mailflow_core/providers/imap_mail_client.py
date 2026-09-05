@@ -18,9 +18,7 @@ from mailflow_core.providers.imap_generic import (
     _first_fetch_bytes,
 )
 
-_SYSTEM_FLAGS = frozenset(
-    {"\\seen", "\\answered", "\\flagged", "\\deleted", "\\draft", "\\recent"}
-)
+_SYSTEM_FLAGS = frozenset({"\\seen", "\\answered", "\\flagged", "\\deleted", "\\draft", "\\recent"})
 _ROLE_FLAGS = {
     "\\inbox": "inbox",
     "\\sent": "sent",
@@ -40,9 +38,10 @@ def _flag_text(value: object) -> str:
 
 
 def _safe_keyword(tag: str) -> str:
-    return "MailFlow-" + "".join(
-        ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in str(tag)
-    )[:80]
+    return (
+        "MailFlow-"
+        + "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in str(tag))[:80]
+    )
 
 
 class ImapMailClientProvider(ImapGenericProvider):
@@ -101,9 +100,7 @@ class ImapMailClientProvider(ImapGenericProvider):
         refs = tuple(part for part in (msg.get("References", "") or "").split() if part)
         attachments = _attachment_metadata(data.get(b"BODYSTRUCTURE"))
         self._attachment_metadata_cache[uid] = attachments
-        keywords = tuple(
-            sorted(flag for flag in flags if flag.lower() not in _SYSTEM_FLAGS)
-        )
+        keywords = tuple(sorted(flag for flag in flags if flag.lower() not in _SYSTEM_FLAGS))
         return MailboxMessage(
             uid=uid,
             folder=folder,
@@ -163,7 +160,9 @@ class ImapMailClientProvider(ImapGenericProvider):
         body_text, body_html = self._extract_message_body(raw)
         return replace(parsed, body_text=body_text, body_html=body_html)
 
-    def find_message(self, message_id: str, folders: list[str] | None = None) -> tuple[str, int] | None:
+    def find_message(
+        self, message_id: str, folders: list[str] | None = None
+    ) -> tuple[str, int] | None:
         if not message_id:
             return None
         candidates = folders or [item.name for item in self.list_folders() if item.selectable]
