@@ -195,9 +195,7 @@ async def update_account(
     if password:
         account.encrypted_credentials = encrypt_secret({"password": password})
     if smtp_password:
-        account.encrypted_smtp_credentials = encrypt_secret(
-            {"password": smtp_password}
-        )
+        account.encrypted_smtp_credentials = encrypt_secret({"password": smtp_password})
     for field, value in data.items():
         setattr(account, field, value)
     await session.commit()
