@@ -26,6 +26,7 @@ from app.services.attention import (
     mark_notification_read,
     update_preferences,
 )
+from app.services.attention_jobs import materialize_operational_notifications
 
 router = APIRouter(prefix="/attention", tags=["attention"])
 
@@ -55,19 +56,18 @@ async def review_inbox(
     )
 
 
-@router.patch("/review/{item_id}", response_model=ReviewItem | None)
+@router.patch("/review/{item_id}", response_model=ReviewItem)
 async def update_review_item(
     item_id: UUID,
     payload: ReviewCorrection,
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
-) -> ReviewItem | None:
+) -> ReviewItem | Response:
     item = await correct_review_item(session, identity, item_id, payload)
     if item is None:
-        # A resolved item intentionally disappears from the review queue. A
-        # missing item and a resolved item are both represented by 204 to avoid
-        # leaking whether an inaccessible UUID exists in another mailbox.
-        return Response(status_code=status.HTTP_204_NO_CONTENT)  # type: ignore[return-value]
+        # Resolved and inaccessible/missing UUIDs both disappear without exposing
+        # whether another user's review item exists.
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     return item
 
 
@@ -78,6 +78,8 @@ async def notification_center(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> NotificationCenter:
+    preferences = await get_preferences(session, identity)
+    await materialize_operational_notifications(session, identity, preferences)
     return await list_notifications(
         session,
         identity,
