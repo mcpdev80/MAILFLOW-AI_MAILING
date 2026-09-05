@@ -25,6 +25,7 @@ def _account(**overrides):
         "smtp_security": "starttls",
         "smtp_username": None,
         "encrypted_credentials": None,
+        "encrypted_smtp_credentials": None,
         "encrypted_oauth": None,
     }
     values.update(overrides)
@@ -155,6 +156,24 @@ def test_smtp_config_uses_generic_encrypted_password(monkeypatch) -> None:
     assert config.username == "sender@example.com"
     assert config.password == "secret"
     assert config.oauth_access_token is None
+
+
+def test_smtp_config_prefers_separate_smtp_password(monkeypatch) -> None:
+    seen: list[str] = []
+
+    def decrypt(value: str) -> dict[str, str]:
+        seen.append(value)
+        return {"password": "smtp-secret"}
+
+    monkeypatch.setattr(outbound_mail, "decrypt_secret", decrypt)
+    config = smtp_config_for_account(
+        _account(
+            encrypted_credentials="imap-encrypted",
+            encrypted_smtp_credentials="smtp-encrypted",
+        )
+    )
+    assert seen == ["smtp-encrypted"]
+    assert config.password == "smtp-secret"
 
 
 def test_smtp_config_uses_provider_default_and_oauth(monkeypatch) -> None:
