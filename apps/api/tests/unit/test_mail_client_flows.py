@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -162,7 +163,7 @@ async def test_read_message_returns_sanitized_detail(
     monkeypatch, account, message_pair
 ):
     state, full = message_pair
-    full.body_html = "<p>safe</p><script>alert(1)</script>"
+    full = replace(full, body_html="<p>safe</p><script>alert(1)</script>")
     provider = _Provider(state, full)
 
     async def accessible(*_args, **_kwargs):
