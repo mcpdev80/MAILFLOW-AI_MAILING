@@ -14,6 +14,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 const ALLOWED_PREFIXES = new Set([
   "accounts",
+  "attention",
   "llm-providers",
   "mail",
   "mail-client",

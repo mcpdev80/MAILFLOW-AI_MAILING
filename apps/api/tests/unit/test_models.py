@@ -24,6 +24,8 @@ def test_all_tables_registered():
         "bulk_apply_jobs",
         "outbound_drafts",
         "outbound_draft_attachments",
+        "notification_preferences",
+        "notification_events",
     }
     assert expected == set(Base.metadata.tables.keys())
 

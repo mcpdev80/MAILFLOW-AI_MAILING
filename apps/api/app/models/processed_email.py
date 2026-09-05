@@ -90,6 +90,9 @@ class ProcessedEmail(Base):
     review_required: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    attention_dismissed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     suspicious_content: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
