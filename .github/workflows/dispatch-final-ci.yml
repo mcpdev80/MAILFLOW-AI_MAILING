@@ -1,0 +1,19 @@
+name: Dispatch final CI
+on:
+  push:
+    branches:
+      - feat/23-dashboard-search
+    paths:
+      - .github/workflows/dispatch-final-ci.yml
+permissions:
+  actions: write
+  contents: read
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch normal CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run ci.yml --ref feat/23-dashboard-search
