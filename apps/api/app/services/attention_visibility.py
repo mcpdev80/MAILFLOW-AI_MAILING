@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.attention_schemas import AttentionCounters, DailySummary
+from app.attention_schemas import AttentionCounters, DailySummary, NotificationCenter
 from app.auth import RequestIdentity
 from app.mailbox_access import access_condition, get_accessible_account
 from app.models.attention import NotificationEvent
@@ -115,6 +115,29 @@ async def dismiss_message_review(
     return True
 
 
+async def filter_notification_center(
+    session: AsyncSession,
+    identity: RequestIdentity,
+    center: NotificationCenter,
+) -> NotificationCenter:
+    dismissed = await dismissed_message_ids(session, identity)
+    if dismissed:
+        center.notifications = [
+            item
+            for item in center.notifications
+            if not (
+                item.metadata.get("message_id") in {str(value) for value in dismissed}
+                or item.id in dismissed
+            )
+        ]
+    unread = sum(1 for item in center.notifications if item.read_at is None)
+    center.unread = unread
+    center.counters = await active_counters(
+        session, identity, unread_notifications=unread
+    )
+    return center
+
+
 async def filter_daily_summary(
     session: AsyncSession,
     identity: RequestIdentity,
@@ -130,6 +153,9 @@ async def filter_daily_summary(
         ]
         summary.awaiting_review = [
             item for item in summary.awaiting_review if item.message_id not in dismissed
+        ]
+        summary.important_new = [
+            item for item in summary.important_new if item.message_id not in dismissed
         ]
         summary.failures = [
             item for item in summary.failures if item.message_id not in dismissed
