@@ -47,7 +47,6 @@ def upgrade() -> None:
         sa.Column("body_text", sa.Text(), nullable=False, server_default=""),
         sa.Column("body_html", sa.Text(), nullable=True),
         sa.Column("editor_mode", sa.String(length=16), nullable=False, server_default="rich_text"),
-        sa.Column("attachments", postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'[]'::jsonb")),
         sa.Column("status", sa.String(length=16), nullable=False, server_default="draft"),
         sa.Column("send_attempts", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("sent_message_id", sa.String(length=998), nullable=True),
@@ -65,8 +64,24 @@ def upgrade() -> None:
     op.create_index("ix_outbound_drafts_account_status", "outbound_drafts", ["account_id", "status"])
     op.create_index("ix_outbound_drafts_owner_updated", "outbound_drafts", ["owner_user_id", "updated_at"])
 
+    op.create_table(
+        "outbound_draft_attachments",
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("draft_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("filename", sa.String(length=255), nullable=False),
+        sa.Column("content_type", sa.String(length=255), nullable=False),
+        sa.Column("size_bytes", sa.Integer(), nullable=False),
+        sa.Column("content", sa.LargeBinary(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(["draft_id"], ["outbound_drafts.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index("ix_outbound_draft_attachments_draft", "outbound_draft_attachments", ["draft_id"])
+
 
 def downgrade() -> None:
+    op.drop_index("ix_outbound_draft_attachments_draft", table_name="outbound_draft_attachments")
+    op.drop_table("outbound_draft_attachments")
     op.drop_index("ix_outbound_drafts_owner_updated", table_name="outbound_drafts")
     op.drop_index("ix_outbound_drafts_account_status", table_name="outbound_drafts")
     op.drop_table("outbound_drafts")
