@@ -76,14 +76,14 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
-      OAUTH_REDIRECT_BASE: ${OAUTH_REDIRECT_BASE:-https://localhost}
-      OAUTH_SUCCESS_REDIRECT: ${OAUTH_SUCCESS_REDIRECT:-https://localhost/app/dashboard}
+      OAUTH_REDIRECT_BASE: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      OAUTH_SUCCESS_REDIRECT: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/dashboard
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
       STRIPE_PRICE_TEAM: ${STRIPE_PRICE_TEAM:-}
-      BILLING_SUCCESS_URL: ${BILLING_SUCCESS_URL:-https://localhost/app/billing?status=success}
-      BILLING_CANCEL_URL: ${BILLING_CANCEL_URL:-https://localhost/app/billing?status=cancel}
+      BILLING_SUCCESS_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/billing?status=success
+      BILLING_CANCEL_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/billing?status=cancel
       LOG_FORMAT: ${LOG_FORMAT:-json}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-production}
@@ -154,7 +154,7 @@ services:
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
       DATABASE_URL: postgresql://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://localhost}
+      BETTER_AUTH_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
       PASSKEY_RP_NAME: ${PASSKEY_RP_NAME:-MailFlow}
       PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
       PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}
