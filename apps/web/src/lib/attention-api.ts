@@ -36,8 +36,27 @@ export interface ReviewItem {
   processed_at: string;
 }
 
+export interface OperationalReviewItem {
+  id: string;
+  source_type: "backfill_failure" | "bulk_proposal" | "mailbox_ownership";
+  account_id: string;
+  account_label: string;
+  ownership_mode: string;
+  title: string;
+  reason: string;
+  status: string;
+  priority: number;
+  created_at: string;
+  job_id: string | null;
+  uid: number | null;
+  folder: string | null;
+  retry_available: boolean;
+  management_url: string | null;
+}
+
 export interface ReviewInbox {
   items: ReviewItem[];
+  operational: OperationalReviewItem[];
   counters: AttentionCounters;
 }
 
@@ -130,6 +149,11 @@ export const attentionApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  retryBackfillFailure: (accountId: string, jobId: string, failureId: string) =>
+    request<unknown>(
+      `/accounts/${accountId}/backfill/${jobId}/failures/${failureId}/retry`,
+      { method: "POST" },
+    ),
   notifications: (includeResolved = false) =>
     request<NotificationCenter>(
       `/attention/notifications?include_resolved=${includeResolved}`,
