@@ -20,6 +20,7 @@ from app.routers.metrics import router as metrics_router
 from app.routers.oauth import router as oauth_router
 from app.routers.rules import router as rules_router
 from app.routers.structure import router as structure_router
+from app.routers.user_preferences import router as user_preferences_router
 from app.routers.workload import router as workload_router
 from app.routers.writing import router as writing_router
 
@@ -42,6 +43,7 @@ __all__ = [
     "oauth_router",
     "rules_router",
     "structure_router",
+    "user_preferences_router",
     "workload_router",
     "writing_router",
 ]

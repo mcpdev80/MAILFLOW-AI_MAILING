@@ -27,6 +27,8 @@ import type {
   SharedMailboxAccess,
   ThreadView,
   UnifiedInbox,
+  UserPreferences,
+  UserPreferencesUpdate,
   WritingPreview,
   WritingRequest,
 } from "./types";
@@ -111,6 +113,14 @@ export const api = {
     }),
   listUnresolvedMailboxes: () =>
     request<EmailAccount[]>("/accounts/unresolved-mailboxes"),
+
+  // User preferences
+  getUserPreferences: () => request<UserPreferences>("/user/preferences"),
+  updateUserPreferences: (payload: UserPreferencesUpdate) =>
+    request<UserPreferences>("/user/preferences", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
 
   // DecisionMemory
   listDecisionMemory: (accountId: string, includeDisabled = true) =>
