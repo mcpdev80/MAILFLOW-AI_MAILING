@@ -65,18 +65,26 @@ class ImapMailClientProvider(ImapGenericProvider):
         result: list[MailboxFolder] = []
         for raw_flags, delimiter, name in self._client.list_folders():
             flags = {_flag_text(flag).lower() for flag in raw_flags}
+            folder_name = _flag_text(name)
             role = next((_ROLE_FLAGS[flag] for flag in flags if flag in _ROLE_FLAGS), None)
-            if str(name).upper() == "INBOX":
+            if folder_name.upper() == "INBOX":
                 role = "inbox"
             result.append(
                 MailboxFolder(
-                    name=str(name),
+                    name=folder_name,
                     delimiter=_flag_text(delimiter or self._separator),
                     role=role,
                     selectable="\\noselect" not in flags,
                 )
             )
         return result
+
+    def folder_counts(self, folder: str) -> tuple[int, int]:
+        """Return authoritative total/unseen counts for one selectable folder."""
+        self._client.select_folder(folder, readonly=True)
+        total = len(self._client.search(["ALL"]))
+        unseen = len(self._client.search(["UNSEEN"]))
+        return total, unseen
 
     def _special_folder(self, role: str) -> str | None:
         for folder in self.list_folders():
@@ -123,10 +131,12 @@ class ImapMailClientProvider(ImapGenericProvider):
     ) -> list[MailboxMessage]:
         if limit <= 0 or limit > 200:
             raise ValueError("limit must be between 1 and 200")
+        if before_uid is not None and before_uid <= 1:
+            return []
         self.set_source_folder(folder)
         self._client.select_folder(folder, readonly=True)
         self._check_uidvalidity(folder)
-        criteria = ["UID", f"1:{max(before_uid - 1, 0)}"] if before_uid else ["ALL"]
+        criteria = ["UID", f"1:{before_uid - 1}"] if before_uid else ["ALL"]
         uids = [int(uid) for uid in self._client.search(criteria)]
         selected = sorted(uids, reverse=True)[:limit]
         if not selected:
