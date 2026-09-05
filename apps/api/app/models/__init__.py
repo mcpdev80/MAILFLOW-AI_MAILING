@@ -16,6 +16,7 @@ from app.models.processed_email import ProcessedEmail
 from app.models.rules import DomainRule, InternalDomain, KeywordRule
 from app.models.stripe_event import StripeEvent
 from app.models.thread_summary import ThreadSummary
+from app.models.user_preference import UserPreference
 
 __all__ = [
     "Base",
@@ -40,4 +41,5 @@ __all__ = [
     "ProcessedEmail",
     "StripeEvent",
     "ThreadSummary",
+    "UserPreference",
 ]

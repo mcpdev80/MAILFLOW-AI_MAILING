@@ -35,6 +35,7 @@ from app.routers import (
     oauth_router,
     rules_router,
     structure_router,
+    user_preferences_router,
     workload_router,
     writing_router,
 )
@@ -79,6 +80,7 @@ app.include_router(mail_client_router)
 app.include_router(writing_router)
 app.include_router(rules_router)
 app.include_router(structure_router)
+app.include_router(user_preferences_router)
 app.include_router(decision_memory_router)
 app.include_router(cycles_router)
 app.include_router(inference_health_router)

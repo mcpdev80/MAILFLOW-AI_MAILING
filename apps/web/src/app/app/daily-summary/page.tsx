@@ -5,6 +5,7 @@ import {
   type DailySummaryItem,
   attentionApi,
 } from "@/lib/attention-api";
+import { enumLabel, useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -12,6 +13,7 @@ function SummarySection({
   title,
   items,
 }: { title: string; items: DailySummaryItem[] }) {
+  const { t } = useI18n();
   if (items.length === 0) return null;
   return (
     <section className="card">
@@ -25,7 +27,7 @@ function SummarySection({
               paddingBottom: "0.65rem",
             }}
           >
-            <strong>{item.subject || "(No subject)"}</strong>
+            <strong>{item.subject || t("review.noSubject")}</strong>
             <div className="muted">
               {item.from_email} · {item.account_label}
             </div>
@@ -37,11 +39,17 @@ function SummarySection({
                 marginTop: "0.3rem",
               }}
             >
-              <span className="pill">{item.category}</span>
-              <span className="pill">{item.importance}</span>
-              <span className="pill">{item.urgency}</span>
+              <span className="pill">
+                {enumLabel(t, "category", item.category)}
+              </span>
+              <span className="pill">
+                {enumLabel(t, "importance", item.importance)}
+              </span>
+              <span className="pill">
+                {enumLabel(t, "urgency", item.urgency)}
+              </span>
               {item.action_required === "yes" && (
-                <span className="pill">action required</span>
+                <span className="pill">{t("review.actionRequired")}</span>
               )}
             </div>
             {item.reason && <p style={{ marginBottom: 0 }}>{item.reason}</p>}
@@ -55,6 +63,7 @@ function SummarySection({
 export default function DailySummaryPage() {
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const load = useCallback(async () => {
     try {
@@ -82,24 +91,21 @@ export default function DailySummaryPage() {
         }}
       >
         <div>
-          <h1>Daily summary</h1>
-          <p className="muted">
-            Deterministic digest from persisted Mailflow state — no extra LLM
-            pass.
-          </p>
+          <h1>{t("nav.dailySummary")}</h1>
+          <p className="muted">{t("summary.description")}</p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <Link className="btn secondary" href="/app/review">
-            Review
+            {t("nav.review")}
           </Link>
           <Link className="btn secondary" href="/app/notifications">
-            Notifications
+            {t("nav.notifications")}
           </Link>
         </div>
       </div>
 
       {error && <div className="alert error">{error}</div>}
-      {!summary && !error && <p className="muted">Loading…</p>}
+      {!summary && !error && <p className="muted">{t("common.loading")}</p>}
 
       {summary && (
         <>
@@ -111,36 +117,46 @@ export default function DailySummaryPage() {
               marginBottom: "1rem",
             }}
           >
-            <span className="pill">urgent {summary.counters.urgent}</span>
             <span className="pill">
-              action {summary.counters.action_required}
+              {t("summary.urgent")} {summary.counters.urgent}
             </span>
             <span className="pill">
-              review {summary.counters.review_needed}
+              {t("summary.action")} {summary.counters.action_required}
             </span>
-            <span className="pill">security {summary.counters.security}</span>
-            <span className="pill">failures {summary.counters.failures}</span>
+            <span className="pill">
+              {t("nav.review")} {summary.counters.review_needed}
+            </span>
+            <span className="pill">
+              {t("summary.security")} {summary.counters.security}
+            </span>
+            <span className="pill">
+              {t("review.failures")} {summary.counters.failures}
+            </span>
           </div>
           <div className="muted" style={{ marginBottom: "1rem" }}>
-            Since {new Date(summary.since).toLocaleString()} · generated{" "}
+            {t("summary.since")} {new Date(summary.since).toLocaleString()} ·{" "}
+            {t("summary.generated")}{" "}
             {new Date(summary.generated_at).toLocaleString()}
           </div>
           <div style={{ display: "grid", gap: "1rem" }}>
-            <SummarySection title="Urgent" items={summary.urgent} />
             <SummarySection
-              title="Action required"
+              title={t("summary.urgent")}
+              items={summary.urgent}
+            />
+            <SummarySection
+              title={t("summary.action")}
               items={summary.action_required}
             />
             <SummarySection
-              title="Awaiting review"
+              title={t("summary.review")}
               items={summary.awaiting_review}
             />
             <SummarySection
-              title="Important new mail"
+              title={t("summary.important")}
               items={summary.important_new}
             />
             <SummarySection
-              title="Failures / blocked actions"
+              title={t("summary.failures")}
               items={summary.failures}
             />
           </div>
@@ -148,9 +164,7 @@ export default function DailySummaryPage() {
             summary.action_required.length === 0 &&
             summary.awaiting_review.length === 0 &&
             summary.failures.length === 0 && (
-              <div className="card empty">
-                No actionable items in this period.
-              </div>
+              <div className="card empty">{t("summary.empty")}</div>
             )}
         </>
       )}

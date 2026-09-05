@@ -1,7 +1,9 @@
 "use client";
 
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { ApiError, api } from "@/lib/api";
 import { authClient, useSession } from "@/lib/auth-client";
+import { useI18n } from "@/lib/i18n";
 import type { LLMProvider } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -28,6 +30,7 @@ type AccountForm = {
 export default function OnboardingPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const { t } = useI18n();
   const [step, setStep] = useState<Step>("llm");
   const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -193,9 +196,9 @@ export default function OnboardingPage() {
 
   const mailboxOwnershipFields = session?.user?.id ? (
     <div className="card" style={{ marginTop: "1rem" }}>
-      <h3>Mailbox privacy</h3>
+      <h3>{t("onboarding.mailboxPrivacy")}</h3>
       <div className="field">
-        <label htmlFor="ownership-mode">Who should have access?</label>
+        <label htmlFor="ownership-mode">{t("onboarding.whoAccess")}</label>
         <select
           id="ownership-mode"
           value={acct.ownership_mode}
@@ -208,16 +211,16 @@ export default function OnboardingPage() {
             }));
           }}
         >
-          <option value="private">Private — only me</option>
+          <option value="private">{t("onboarding.privateOnlyMe")}</option>
           {canCreateShared && (
-            <option value="shared">Shared — selected members</option>
+            <option value="shared">{t("onboarding.sharedSelected")}</option>
           )}
         </select>
       </div>
 
       {acct.ownership_mode === "shared" && canCreateShared && (
         <div className="field">
-          <span>Members with mailbox access</span>
+          <span>{t("onboarding.membersAccess")}</span>
           <div style={{ display: "grid", gap: "0.45rem", marginTop: "0.4rem" }}>
             {members.map((member) => {
               const userId = memberUserId(member);
@@ -241,8 +244,7 @@ export default function OnboardingPage() {
             })}
           </div>
           <p className="muted" style={{ fontSize: "0.8rem", marginBottom: 0 }}>
-            Organization admins do not automatically get mailbox access. Only
-            the selected members can see this mailbox.
+            {t("onboarding.sharedNotice")}
           </p>
         </div>
       )}
@@ -251,7 +253,18 @@ export default function OnboardingPage() {
 
   return (
     <main className="container">
-      <h1>Get started</h1>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "1rem",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <h1>{t("onboarding.title")}</h1>
+        <LanguageSwitcher />
+      </div>
       <p className="muted">
         Step {step === "llm" ? "1" : step === "account" ? "2" : "✓"} of 2
       </p>
@@ -260,7 +273,7 @@ export default function OnboardingPage() {
 
       {step === "llm" && (
         <form className="card" onSubmit={submitLlm}>
-          <h3>1. Connect an LLM provider</h3>
+          <h3>{t("onboarding.llm.title")}</h3>
           <div className="field">
             <label htmlFor="llm-label">Label</label>
             <input
@@ -343,7 +356,7 @@ export default function OnboardingPage() {
           {mailboxOwnershipFields}
 
           <div className="card">
-            <h3>2. Connect a mailbox</h3>
+            <h3>{t("onboarding.account.title")}</h3>
             <p className="muted">
               Use one-click sign-in (recommended) or enter IMAP details below.
             </p>
@@ -459,7 +472,8 @@ export default function OnboardingPage() {
 
       {step === "done" && (
         <div className="alert ok">
-          Mailbox connected. Redirecting to your dashboard…
+          <strong>{t("onboarding.done.title")}</strong> —{" "}
+          {t("onboarding.done.body")}
         </div>
       )}
     </main>

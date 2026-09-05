@@ -26,6 +26,7 @@ def test_all_tables_registered():
         "outbound_draft_attachments",
         "notification_preferences",
         "notification_events",
+        "user_preferences",
     }
     assert expected == set(Base.metadata.tables.keys())
 

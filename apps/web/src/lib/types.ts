@@ -359,6 +359,17 @@ export interface Cycle {
   finalized_at: string | null;
 }
 
+export type UserLocale = "de" | "en" | "es";
+
+export interface UserPreferences {
+  locale: UserLocale;
+  locale_configured: boolean;
+}
+
+export interface UserPreferencesUpdate {
+  locale: UserLocale;
+}
+
 export interface CycleEnqueued {
   account_id: string;
   enqueued: boolean;

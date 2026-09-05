@@ -7,6 +7,7 @@ import {
   type ReviewItem,
   attentionApi,
 } from "@/lib/attention-api";
+import { enumLabel, useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -51,11 +52,12 @@ function ReviewEditor({
     item.destination_folder,
   );
   const [remember, setRemember] = useState(true);
+  const { t } = useI18n();
 
   return (
     <details style={{ marginTop: "0.9rem" }}>
       <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-        Correct classification
+        {t("review.correct")}
       </summary>
       <div
         style={{
@@ -66,20 +68,20 @@ function ReviewEditor({
         }}
       >
         <label>
-          <span className="muted">Category</span>
+          <span className="muted">{t("review.category")}</span>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
             {categories.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {enumLabel(t, "category", value)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span className="muted">Subcategory</span>
+          <span className="muted">{t("review.subcategory")}</span>
           <input
             value={subcategory}
             maxLength={255}
@@ -87,43 +89,43 @@ function ReviewEditor({
           />
         </label>
         <label>
-          <span className="muted">Importance</span>
+          <span className="muted">{t("review.importance")}</span>
           <select
             value={importance}
             onChange={(e) => setImportance(e.target.value)}
           >
             {importanceValues.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {enumLabel(t, "importance", value)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span className="muted">Urgency</span>
+          <span className="muted">{t("review.urgency")}</span>
           <select value={urgency} onChange={(e) => setUrgency(e.target.value)}>
             {urgencyValues.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {enumLabel(t, "urgency", value)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span className="muted">Action required</span>
+          <span className="muted">{t("review.actionRequired")}</span>
           <select
             value={actionRequired}
             onChange={(e) => setActionRequired(e.target.value)}
           >
             {actionValues.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {enumLabel(t, "action_required", value)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span className="muted">Destination</span>
+          <span className="muted">{t("review.destination")}</span>
           <input
             value={destinationFolder}
             maxLength={255}
@@ -144,7 +146,7 @@ function ReviewEditor({
           checked={remember}
           onChange={(e) => setRemember(e.target.checked)}
         />
-        Remember this correction in DecisionMemory
+        {t("review.remember")}
       </label>
       <button
         className="btn"
@@ -163,7 +165,7 @@ function ReviewEditor({
           })
         }
       >
-        Save correction
+        {t("review.saveCorrection")}
       </button>
     </details>
   );
@@ -178,6 +180,7 @@ function OperationalCard({
   busy: boolean;
   onRetry: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   return (
     <article className="card">
       <div
@@ -195,7 +198,9 @@ function OperationalCard({
           </div>
           <h3 style={{ marginBottom: "0.25rem" }}>{item.title}</h3>
         </div>
-        <strong>Priority {item.priority}</strong>
+        <strong>
+          {t("review.priority")} {item.priority}
+        </strong>
       </div>
       <p>{item.reason}</p>
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -206,12 +211,12 @@ function OperationalCard({
             disabled={busy}
             onClick={onRetry}
           >
-            Retry
+            {t("review.retry")}
           </button>
         )}
         {item.management_url && (
           <Link className="btn secondary" href={item.management_url}>
-            Open management
+            {t("review.openManagement")}
           </Link>
         )}
       </div>
@@ -223,6 +228,7 @@ export default function ReviewPage() {
   const [data, setData] = useState<ReviewInbox | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const load = useCallback(async () => {
     try {
@@ -286,21 +292,18 @@ export default function ReviewPage() {
         }}
       >
         <div>
-          <h1>Review</h1>
-          <p className="muted">
-            Only exceptions and actionable items across your authorized
-            mailboxes.
-          </p>
+          <h1>{t("review.title")}</h1>
+          <p className="muted">{t("review.description")}</p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <Link className="btn secondary" href="/app/notifications">
-            Notifications
+            {t("nav.notifications")}
           </Link>
           <Link className="btn secondary" href="/app/daily-summary">
-            Daily summary
+            {t("nav.dailySummary")}
           </Link>
           <Link className="btn secondary" href="/app/mail">
-            Mail
+            {t("nav.mail")}
           </Link>
         </div>
       </div>
@@ -315,23 +318,32 @@ export default function ReviewPage() {
             marginBottom: "1rem",
           }}
         >
-          <Counter label="Review" value={data.counters.review_needed} />
-          <Counter label="Urgent" value={data.counters.urgent} />
           <Counter
-            label="Action required"
+            label={t("review.title")}
+            value={data.counters.review_needed}
+          />
+          <Counter label={t("review.urgent")} value={data.counters.urgent} />
+          <Counter
+            label={t("review.actionRequired")}
             value={data.counters.action_required}
           />
-          <Counter label="Security" value={data.counters.security} />
-          <Counter label="Failures" value={data.counters.failures} />
+          <Counter
+            label={t("review.security")}
+            value={data.counters.security}
+          />
+          <Counter
+            label={t("review.failures")}
+            value={data.counters.failures}
+          />
         </div>
       )}
 
-      {!data && !error && <p className="muted">Loading…</p>}
-      {isEmpty && <div className="card empty">Nothing needs review.</div>}
+      {!data && !error && <p className="muted">{t("common.loading")}</p>}
+      {isEmpty && <div className="card empty">{t("review.empty")}</div>}
 
       {data && data.operational.length > 0 && (
         <section style={{ marginBottom: "1.25rem" }}>
-          <h2>Operational exceptions</h2>
+          <h2>{t("review.operational")}</h2>
           <div style={{ display: "grid", gap: "0.75rem" }}>
             {data.operational.map((item) => (
               <OperationalCard
@@ -345,7 +357,7 @@ export default function ReviewPage() {
         </section>
       )}
 
-      {data && data.items.length > 0 && <h2>Message review</h2>}
+      {data && data.items.length > 0 && <h2>{t("review.messages")}</h2>}
       <div style={{ display: "grid", gap: "0.75rem" }}>
         {data?.items.map((item) => (
           <article className="card" key={item.id}>
@@ -364,15 +376,17 @@ export default function ReviewPage() {
                   <span className="pill">{item.account_label}</span>
                   <span className="pill">{item.ownership_mode}</span>
                   {item.suspicious_content && (
-                    <span className="pill off">security</span>
+                    <span className="pill off">{t("review.security")}</span>
                   )}
                 </div>
                 <h3 style={{ marginBottom: "0.25rem" }}>
-                  {item.subject || "(No subject)"}
+                  {item.subject || t("review.noSubject")}
                 </h3>
                 <div className="muted">{item.from_email}</div>
               </div>
-              <strong>Priority {item.priority}</strong>
+              <strong>
+                {t("review.priority")} {item.priority}
+              </strong>
             </div>
             <p>{item.reason}</p>
             <div
@@ -380,13 +394,23 @@ export default function ReviewPage() {
               style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}
             >
               <span>
-                {item.category}
+                {enumLabel(t, "category", item.category)}
                 {item.subcategory ? ` / ${item.subcategory}` : ""}
               </span>
-              <span>importance: {item.importance}</span>
-              <span>urgency: {item.urgency}</span>
-              <span>action: {item.action_required}</span>
-              <span>confidence: {Math.round(item.confidence * 100)}%</span>
+              <span>
+                {t("review.importance")}:{" "}
+                {enumLabel(t, "importance", item.importance)}
+              </span>
+              <span>
+                {t("review.urgency")}: {enumLabel(t, "urgency", item.urgency)}
+              </span>
+              <span>
+                {t("review.actionRequired")}:{" "}
+                {enumLabel(t, "action_required", item.action_required)}
+              </span>
+              <span>
+                {t("review.confidence")}: {Math.round(item.confidence * 100)}%
+              </span>
             </div>
 
             <ReviewEditor
@@ -416,7 +440,7 @@ export default function ReviewPage() {
                       })
                     }
                   >
-                    Approve routing
+                    {t("review.approveRouting")}
                   </button>
                   <button
                     className="btn secondary"
@@ -429,7 +453,7 @@ export default function ReviewPage() {
                       })
                     }
                   >
-                    Reject routing
+                    {t("review.rejectRouting")}
                   </button>
                 </>
               )}
@@ -439,13 +463,13 @@ export default function ReviewPage() {
                 disabled={busy === item.id}
                 onClick={() => apply(item, { dismiss: true, remember: false })}
               >
-                Dismiss
+                {t("review.dismiss")}
               </button>
               <Link
                 className="btn secondary"
                 href={`/app/mail?account=${encodeURIComponent(item.account_id)}&folder=${encodeURIComponent(item.folder)}&uid=${item.uid}`}
               >
-                Open message
+                {t("review.openMessage")}
               </Link>
             </div>
           </article>
