@@ -1,1 +1,0 @@
-Trigger full issue #58 validation after structured thread insight implementation.
