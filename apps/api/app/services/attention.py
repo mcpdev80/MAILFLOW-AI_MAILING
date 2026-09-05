@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from mailflow_core.types import ClassificationResult
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.attention_schemas import (
@@ -60,9 +60,17 @@ def _review_reason(row: ProcessedEmail) -> tuple[str, int, str]:
     if row.action_required == "yes":
         return "action_required", 85, row.reason or "Action required"
     if _is_failure(row):
-        return "action_failure", 75, row.mailbox_action_reason or "Mailbox action failed or was blocked"
+        return (
+            "action_failure",
+            75,
+            row.mailbox_action_reason or "Mailbox action failed or was blocked",
+        )
     if row.action_review_required:
-        return "routing_review", 70, row.mailbox_action_reason or "Proposed mailbox action needs approval"
+        return (
+            "routing_review",
+            70,
+            row.mailbox_action_reason or "Proposed mailbox action needs approval",
+        )
     if row.needs_more_context:
         return "unresolved", 60, row.reason or "Classification needs more context"
     if row.review_required or row.confidence < REVIEW_CONFIDENCE_THRESHOLD:
@@ -120,7 +128,9 @@ async def _authorized_rows(
     return list(rows.all())
 
 
-def _counters(rows: list[tuple[ProcessedEmail, EmailAccount]], unread: int = 0) -> AttentionCounters:
+def _counters(
+    rows: list[tuple[ProcessedEmail, EmailAccount]], unread: int = 0
+) -> AttentionCounters:
     return AttentionCounters(
         urgent=sum(1 for row, _ in rows if row.urgency in {"immediate", "today"}),
         action_required=sum(1 for row, _ in rows if row.action_required == "yes"),
@@ -166,13 +176,22 @@ async def correct_review_item(
     item_id: UUID,
     payload: ReviewCorrection,
 ) -> ReviewItem | None:
-    row = await session.scalar(select(ProcessedEmail).where(ProcessedEmail.id == item_id))
+    row = await session.scalar(
+        select(ProcessedEmail).where(ProcessedEmail.id == item_id)
+    )
     if row is None:
         return None
     account = await get_accessible_account(row.account_id, identity, session)
 
     changed_classification = False
-    for field in ("category", "subcategory", "importance", "urgency", "action_required", "destination_folder"):
+    for field in (
+        "category",
+        "subcategory",
+        "importance",
+        "urgency",
+        "action_required",
+        "destination_folder",
+    ):
         value = getattr(payload, field)
         if value is not None and getattr(row, field) != value:
             setattr(row, field, value)
@@ -257,7 +276,9 @@ async def correct_review_item(
     return _review_item(row, account)
 
 
-async def get_preferences(session: AsyncSession, identity: RequestIdentity) -> NotificationPreferenceView:
+async def get_preferences(
+    session: AsyncSession, identity: RequestIdentity
+) -> NotificationPreferenceView:
     pref = await session.scalar(
         select(NotificationPreference).where(
             NotificationPreference.org_id == identity.org.id,
@@ -289,7 +310,9 @@ async def update_preferences(
         )
     )
     if pref is None:
-        pref = NotificationPreference(org_id=identity.org.id, user_key=actor_key(identity))
+        pref = NotificationPreference(
+            org_id=identity.org.id, user_key=actor_key(identity)
+        )
         session.add(pref)
     for field, value in payload.model_dump().items():
         setattr(pref, field, value)
@@ -298,20 +321,56 @@ async def update_preferences(
     return payload
 
 
-def _notification_specs(row: ProcessedEmail, pref: NotificationPreferenceView) -> list[tuple[str, str, str, str]]:
+def _notification_specs(
+    row: ProcessedEmail, pref: NotificationPreferenceView
+) -> list[tuple[str, str, str, str]]:
     specs: list[tuple[str, str, str, str]] = []
     if row.suspicious_content and pref.security_review_enabled:
-        specs.append(("security_review", "critical", "Security review required", row.subject or "Suspicious message"))
-    elif (row.review_required or row.action_review_required) and pref.security_review_enabled:
-        specs.append(("review_required", "warning", "Review required", row.subject or "Message needs review"))
-    if pref.urgent_enabled and (row.urgency in {"immediate", "today"} or row.action_required == "yes"):
-        specs.append(("urgent_action", "warning", "Action needed", row.subject or "Urgent message"))
+        specs.append(
+            (
+                "security_review",
+                "critical",
+                "Security review required",
+                row.subject or "Suspicious message",
+            )
+        )
+    elif (
+        row.review_required or row.action_review_required
+    ) and pref.security_review_enabled:
+        specs.append(
+            (
+                "review_required",
+                "warning",
+                "Review required",
+                row.subject or "Message needs review",
+            )
+        )
+    if pref.urgent_enabled and (
+        row.urgency in {"immediate", "today"} or row.action_required == "yes"
+    ):
+        specs.append(
+            (
+                "urgent_action",
+                "warning",
+                "Action needed",
+                row.subject or "Urgent message",
+            )
+        )
     if pref.security_review_enabled and _is_failure(row):
-        specs.append(("action_failure", "warning", "Mailbox action failed", row.subject or "Action failed"))
+        specs.append(
+            (
+                "action_failure",
+                "warning",
+                "Mailbox action failed",
+                row.subject or "Action failed",
+            )
+        )
     return specs
 
 
-async def materialize_notifications(session: AsyncSession, identity: RequestIdentity) -> None:
+async def materialize_notifications(
+    session: AsyncSession, identity: RequestIdentity
+) -> None:
     pref = await get_preferences(session, identity)
     since = datetime.now(tz=UTC) - timedelta(days=7)
     rows = await _authorized_rows(session, identity, since=since)
@@ -341,7 +400,11 @@ async def materialize_notifications(session: AsyncSession, identity: RequestIden
                     title=title,
                     body=body[:500],
                     dedupe_key=key,
-                    metadata_json={"uid": row.uid, "folder": row.folder, "thread_id": row.thread_id},
+                    metadata_json={
+                        "uid": row.uid,
+                        "folder": row.folder,
+                        "thread_id": row.thread_id,
+                    },
                 )
             )
             existing.add(key)
@@ -362,7 +425,13 @@ async def list_notifications(
     )
     if not include_resolved:
         stmt = stmt.where(NotificationEvent.resolved_at.is_(None))
-    events = list((await session.execute(stmt.order_by(NotificationEvent.created_at.desc()).limit(limit))).scalars())
+    events = list(
+        (
+            await session.execute(
+                stmt.order_by(NotificationEvent.created_at.desc()).limit(limit)
+            )
+        ).scalars()
+    )
     unread = sum(1 for event in events if event.read_at is None)
     rows = await _authorized_rows(session, identity)
     views = [
@@ -380,7 +449,9 @@ async def list_notifications(
         )
         for event in events
     ]
-    return NotificationCenter(notifications=views, unread=unread, counters=_counters(rows, unread))
+    return NotificationCenter(
+        notifications=views, unread=unread, counters=_counters(rows, unread)
+    )
 
 
 async def mark_notification_read(
@@ -429,9 +500,27 @@ async def build_daily_summary(
         generated_at=now,
         since=since,
         counters=_counters(rows),
-        urgent=[_summary_item(row, account) for row, account in rows if row.urgency in {"immediate", "today"}][:20],
-        action_required=[_summary_item(row, account) for row, account in rows if row.action_required == "yes"][:20],
-        awaiting_review=[_summary_item(row, account) for row, account in rows if _needs_attention(row)][:20],
-        important_new=[_summary_item(row, account) for row, account in rows if row.importance in {"critical", "high"}][:20],
-        failures=[_summary_item(row, account) for row, account in rows if _is_failure(row)][:20],
+        urgent=[
+            _summary_item(row, account)
+            for row, account in rows
+            if row.urgency in {"immediate", "today"}
+        ][:20],
+        action_required=[
+            _summary_item(row, account)
+            for row, account in rows
+            if row.action_required == "yes"
+        ][:20],
+        awaiting_review=[
+            _summary_item(row, account)
+            for row, account in rows
+            if _needs_attention(row)
+        ][:20],
+        important_new=[
+            _summary_item(row, account)
+            for row, account in rows
+            if row.importance in {"critical", "high"}
+        ][:20],
+        failures=[
+            _summary_item(row, account) for row, account in rows if _is_failure(row)
+        ][:20],
     )

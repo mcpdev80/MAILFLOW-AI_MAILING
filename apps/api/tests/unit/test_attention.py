@@ -162,7 +162,9 @@ async def test_normal_high_confidence_mail_creates_no_review_noise(session):
     session.add(_message(account.id, cycle_id, uid=30, review=False))
     await session.commit()
 
-    identity = RequestIdentity(org=org, user_id="quiet-user", auth_org_id="auth-org", role="member")
+    identity = RequestIdentity(
+        org=org, user_id="quiet-user", auth_org_id="auth-org", role="member"
+    )
     inbox = await attention.list_review_items(session, identity)
     assert inbox.items == []
     await attention.materialize_notifications(session, identity)

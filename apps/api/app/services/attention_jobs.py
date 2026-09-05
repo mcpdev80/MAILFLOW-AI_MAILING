@@ -59,8 +59,13 @@ async def materialize_operational_notifications(
                     account_id=account.id,
                     event_type=f"backfill_{job.state}",
                     severity="warning" if failed else "info",
-                    title="Historical backfill failed" if failed else "Historical backfill completed",
-                    body=(job.last_error or f"{account.username}: {job.processed} processed")[:500],
+                    title="Historical backfill failed"
+                    if failed
+                    else "Historical backfill completed",
+                    body=(
+                        job.last_error
+                        or f"{account.username}: {job.processed} processed"
+                    )[:500],
                     dedupe_key=key,
                     metadata_json={"job_id": str(job.id), "folder": job.folder},
                 )
@@ -88,10 +93,17 @@ async def materialize_operational_notifications(
                     org_id=identity.org.id,
                     user_key=actor_key(identity),
                     account_id=account.id,
-                    event_type="bulk_apply_problem" if has_problem else "bulk_apply_completed",
+                    event_type="bulk_apply_problem"
+                    if has_problem
+                    else "bulk_apply_completed",
                     severity="warning" if has_problem else "info",
-                    title="Bulk apply needs attention" if has_problem else "Bulk apply completed",
-                    body=(job.last_error or f"{account.username}: {job.applied} applied, {job.skipped} skipped, {job.failed} failed")[:500],
+                    title="Bulk apply needs attention"
+                    if has_problem
+                    else "Bulk apply completed",
+                    body=(
+                        job.last_error
+                        or f"{account.username}: {job.applied} applied, {job.skipped} skipped, {job.failed} failed"
+                    )[:500],
                     dedupe_key=key,
                     metadata_json={"job_id": str(job.id)},
                 )
@@ -115,7 +127,9 @@ async def materialize_operational_notifications(
             if key in existing:
                 continue
             details = event.details or {}
-            safe_detail = str(details.get("reason") or details.get("error") or event.event)
+            safe_detail = str(
+                details.get("reason") or details.get("error") or event.event
+            )
             session.add(
                 NotificationEvent(
                     org_id=identity.org.id,

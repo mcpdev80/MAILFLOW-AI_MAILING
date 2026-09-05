@@ -33,7 +33,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           flexWrap: "wrap",
         }}
       >
-        <Link href="/app/dashboard"><strong>Mailflow</strong></Link>
+        <Link href="/app/dashboard">
+          <strong>Mailflow</strong>
+        </Link>
         <Link href="/app/dashboard">Dashboard</Link>
         <Link href="/app/mail">Mail</Link>
         <Link href="/app/review">Review</Link>
