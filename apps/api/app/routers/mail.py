@@ -189,7 +189,9 @@ async def add_attachment(
     try:
         content = base64.b64decode(payload.content_base64, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise HTTPException(status_code=422, detail="invalid_attachment_base64") from exc
+        raise HTTPException(
+            status_code=422, detail="invalid_attachment_base64"
+        ) from exc
     if len(content) > MAX_ATTACHMENT_BYTES:
         raise HTTPException(status_code=413, detail="attachment_too_large")
     current_total = sum(item.size_bytes for item in draft.attachments)

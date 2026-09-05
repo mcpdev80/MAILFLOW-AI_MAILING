@@ -65,7 +65,9 @@ class DraftUpdate(BaseModel):
 
     @field_validator("to_recipients", "cc_recipients", "bcc_recipients")
     @classmethod
-    def normalize_optional_recipients(cls, values: list[str] | None) -> list[str] | None:
+    def normalize_optional_recipients(
+        cls, values: list[str] | None
+    ) -> list[str] | None:
         return None if values is None else _clean_recipients(values)
 
 
