@@ -1,0 +1,263 @@
+name: Wire Issue 7 Localization
+on:
+  push:
+    branches:
+      - feat/7-localization
+    paths:
+      - .github/workflows/wire-7.yml
+
+permissions:
+  contents: write
+
+jobs:
+  wire-and-validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: mailflow
+          POSTGRES_PASSWORD: mailflow
+          POSTGRES_DB: mailflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mailflow"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/7-localization
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          python-version: '3.13'
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Wire backend and web preference API
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  if new in text:
+                      return
+                  raise SystemExit(f'anchor missing in {path}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'apps/api/app/models/__init__.py',
+              'from app.models.thread_summary import ThreadSummary\n',
+              'from app.models.thread_summary import ThreadSummary\nfrom app.models.user_preference import UserPreference\n',
+          )
+          replace_once(
+              'apps/api/app/models/__init__.py',
+              '    "ThreadSummary",\n]',
+              '    "ThreadSummary",\n    "UserPreference",\n]',
+          )
+
+          replace_once(
+              'apps/api/app/routers/__init__.py',
+              'from app.routers.structure import router as structure_router\n',
+              'from app.routers.structure import router as structure_router\nfrom app.routers.user_preferences import router as user_preferences_router\n',
+          )
+          replace_once(
+              'apps/api/app/routers/__init__.py',
+              '    "structure_router",\n',
+              '    "structure_router",\n    "user_preferences_router",\n',
+          )
+
+          replace_once(
+              'apps/api/app/main.py',
+              '    structure_router,\n',
+              '    structure_router,\n    user_preferences_router,\n',
+          )
+          replace_once(
+              'apps/api/app/main.py',
+              'app.include_router(structure_router)\n',
+              'app.include_router(structure_router)\napp.include_router(user_preferences_router)\n',
+          )
+
+          replace_once(
+              'apps/api/app/restore_validation.py',
+              'EXPECTED_SCHEMA_REVISION = "021"',
+              'EXPECTED_SCHEMA_REVISION = "023"',
+          )
+
+          types = Path('apps/web/src/lib/types.ts')
+          text = types.read_text()
+          if 'export type UserLocale = "de" | "en" | "es";' not in text:
+              anchor = 'export interface CycleEnqueued {\n'
+              pos = text.find(anchor)
+              if pos < 0:
+                  raise SystemExit('types anchor missing')
+              block = '''export type UserLocale = "de" | "en" | "es";\n\nexport interface UserPreferences {\n  locale: UserLocale;\n  locale_configured: boolean;\n}\n\nexport interface UserPreferencesUpdate {\n  locale: UserLocale;\n}\n\n'''
+              text = text[:pos] + block + text[pos:]
+              types.write_text(text)
+
+          api = Path('apps/web/src/lib/api.ts')
+          text = api.read_text()
+          if '  UserPreferences,\n' not in text:
+              text = text.replace(
+                  '  UnifiedInbox,\n',
+                  '  UnifiedInbox,\n  UserPreferences,\n  UserPreferencesUpdate,\n',
+                  1,
+              )
+          if 'getUserPreferences:' not in text:
+              anchor = '''  listUnresolvedMailboxes: () =>\n    request<EmailAccount[]>("/accounts/unresolved-mailboxes"),\n\n'''
+              methods = anchor + '''  // User preferences\n  getUserPreferences: () => request<UserPreferences>("/user/preferences"),\n  updateUserPreferences: (payload: UserPreferencesUpdate) =>\n    request<UserPreferences>("/user/preferences", {\n      method: "PUT",\n      body: JSON.stringify(payload),\n    }),\n\n'''
+              if anchor not in text:
+                  raise SystemExit('api method anchor missing')
+              text = text.replace(anchor, methods, 1)
+          api.write_text(text)
+          PY
+
+      - name: Wire root and authenticated navigation
+        shell: bash
+        run: |
+          cat > apps/web/src/app/layout.tsx <<'EOF'
+          import { GlobalNav } from "@/components/global-nav";
+          import { I18nProvider } from "@/lib/i18n";
+          import type { Metadata } from "next";
+          import "./globals.css";
+
+          export const metadata: Metadata = {
+            title: "MailFlow",
+            description: "Open source AI email assistant",
+          };
+
+          export default function RootLayout({
+            children,
+          }: {
+            children: React.ReactNode;
+          }) {
+            return (
+              <html lang="en">
+                <body>
+                  <I18nProvider>
+                    <GlobalNav />
+                    {children}
+                  </I18nProvider>
+                </body>
+              </html>
+            );
+          }
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/app/app/layout.tsx')
+          text = path.read_text()
+          if 'useI18n' not in text:
+              text = text.replace(
+                  'import { attentionApi } from "@/lib/attention-api";\n',
+                  'import { attentionApi } from "@/lib/attention-api";\nimport { useI18n } from "@/lib/i18n";\n',
+                  1,
+              )
+              text = text.replace(
+                  '  const [unread, setUnread] = useState(0);\n',
+                  '  const [unread, setUnread] = useState(0);\n  const { t } = useI18n();\n',
+                  1,
+              )
+              replacements = {
+                  '>Dashboard</Link>': '>{t("nav.dashboard")}</Link>',
+                  '>Mail</Link>': '>{t("nav.mail")}</Link>',
+                  '>Review</Link>': '>{t("nav.review")}</Link>',
+                  '          Notifications{unread > 0 ? ` (${unread})` : ""}\n': '          {t("nav.notifications")}{unread > 0 ? ` (${unread})` : ""}\n',
+                  '>Daily summary</Link>': '>{t("nav.dailySummary")}</Link>',
+              }
+              for old, new in replacements.items():
+                  if old not in text:
+                      raise SystemExit(f'app layout anchor missing: {old}')
+                  text = text.replace(old, new, 1)
+              text = text.replace(
+                  '        <Link href="/app/daily-summary">{t("nav.dailySummary")}</Link>\n',
+                  '        <Link href="/app/daily-summary">{t("nav.dailySummary")}</Link>\n        <Link href="/app/settings/preferences">{t("nav.settings")}</Link>\n',
+                  1,
+              )
+              path.write_text(text)
+          PY
+
+      - name: Localize onboarding essentials
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/app/onboarding/page.tsx')
+          text = path.read_text()
+          if 'LanguageSwitcher' not in text:
+              text = text.replace(
+                  'import { ApiError, api } from "@/lib/api";\n',
+                  'import { LanguageSwitcher } from "@/components/language-switcher";\nimport { ApiError, api } from "@/lib/api";\nimport { useI18n } from "@/lib/i18n";\n',
+                  1,
+              )
+              text = text.replace(
+                  '  const { data: session } = useSession();\n',
+                  '  const { data: session } = useSession();\n  const { t } = useI18n();\n',
+                  1,
+              )
+              replacements = {
+                  '<h3>Mailbox privacy</h3>': '<h3>{t("onboarding.mailboxPrivacy")}</h3>',
+                  '<label htmlFor="ownership-mode">Who should have access?</label>': '<label htmlFor="ownership-mode">{t("onboarding.whoAccess")}</label>',
+                  '<option value="private">Private — only me</option>': '<option value="private">{t("onboarding.privateOnlyMe")}</option>',
+                  '<option value="shared">Shared — selected members</option>': '<option value="shared">{t("onboarding.sharedSelected")}</option>',
+                  '<span>Members with mailbox access</span>': '<span>{t("onboarding.membersAccess")}</span>',
+                  '<h1>Get started</h1>': '<div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}><h1>{t("onboarding.title")}</h1><LanguageSwitcher /></div>',
+                  '<h3>1. Connect an LLM provider</h3>': '<h3>{t("onboarding.llm.title")}</h3>',
+                  '<h3>2. Connect a mailbox</h3>': '<h3>{t("onboarding.account.title")}</h3>',
+              }
+              for old, new in replacements.items():
+                  if old not in text:
+                      raise SystemExit(f'onboarding anchor missing: {old[:60]}')
+                  text = text.replace(old, new, 1)
+              old_notice = '''            Organization admins do not automatically get mailbox access. Only\n            the selected members can see this mailbox.\n'''
+              if old_notice not in text:
+                  raise SystemExit('shared notice anchor missing')
+              text = text.replace(old_notice, '            {t("onboarding.sharedNotice")}\n', 1)
+              old_done = '''        <div className="alert ok">\n          Mailbox connected. Redirecting to your dashboard…\n        </div>'''
+              if old_done not in text:
+                  raise SystemExit('done anchor missing')
+              text = text.replace(
+                  old_done,
+                  '''        <div className="alert ok">\n          <strong>{t("onboarding.done.title")}</strong> — {t("onboarding.done.body")}\n        </div>''',
+                  1,
+              )
+              path.write_text(text)
+          PY
+
+      - run: uv sync --all-packages
+      - run: pnpm install --frozen-lockfile
+
+      - name: Format and validate backend
+        shell: bash
+        run: |
+          uv run ruff format apps/api/alembic/versions/023_user_preferences.py apps/api/app/models/user_preference.py apps/api/app/user_preferences_schemas.py apps/api/app/services/user_preferences.py apps/api/app/routers/user_preferences.py apps/api/app/models/__init__.py apps/api/app/routers/__init__.py apps/api/app/main.py apps/api/app/restore_validation.py apps/api/tests/unit/test_user_preferences.py
+          uv run ruff check apps/api/alembic/versions/023_user_preferences.py apps/api/app/models/user_preference.py apps/api/app/user_preferences_schemas.py apps/api/app/services/user_preferences.py apps/api/app/routers/user_preferences.py apps/api/app/models/__init__.py apps/api/app/routers/__init__.py apps/api/app/main.py apps/api/app/restore_validation.py apps/api/tests/unit/test_user_preferences.py
+          cd apps/api
+          uv run pytest tests/unit/test_user_preferences.py
+
+      - name: Format and validate web
+        shell: bash
+        run: |
+          pnpm biome check --write apps/web/src/lib/i18n.tsx apps/web/src/components/language-switcher.tsx apps/web/src/components/global-nav.tsx apps/web/src/app/layout.tsx apps/web/src/app/app/layout.tsx apps/web/src/app/onboarding/page.tsx apps/web/src/app/app/settings/preferences/page.tsx apps/web/src/lib/api.ts apps/web/src/lib/types.ts
+          pnpm typecheck
+          git diff --check
+
+      - name: Commit wired localization
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/api apps/web
+          git commit -m 'feat(i18n): wire locale preferences and localized navigation'
+          git push origin HEAD:feat/7-localization
