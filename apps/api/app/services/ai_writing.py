@@ -110,7 +110,9 @@ async def _load_reply_context(
     access_token: str | None = None
     try:
         if account.provider_type in {"gmail", "microsoft"} and account.encrypted_oauth:
-            refresh_token = str(decrypt_secret(account.encrypted_oauth)["refresh_token"])
+            refresh_token = str(
+                decrypt_secret(account.encrypted_oauth)["refresh_token"]
+            )
             access_token = await asyncio.to_thread(
                 oauth.access_token_from_refresh,
                 account.provider_type,
@@ -158,13 +160,17 @@ async def _load_reply_context(
         access_token = None
 
 
-def _prompt(draft: OutboundDraft, request: WritingRequest, context: WritingContext) -> list[dict]:
+def _prompt(
+    draft: OutboundDraft, request: WritingRequest, context: WritingContext
+) -> list[dict]:
     target = request.selected_text if request.scope == "selection" else draft.body_text
     trusted = [f"Writing action: {_ACTIONS[request.action]}"]
     if request.target_language:
         trusted.append(f"Target language: {request.target_language.strip()[:80]}")
     if request.instruction:
-        trusted.append(f"Trusted user instruction: {request.instruction.strip()[:2_000]}")
+        trusted.append(
+            f"Trusted user instruction: {request.instruction.strip()[:2_000]}"
+        )
 
     untrusted: list[str] = []
     if context.thread_summary:
@@ -182,9 +188,7 @@ def _prompt(draft: OutboundDraft, request: WritingRequest, context: WritingConte
             "END_UNTRUSTED_CURRENT_MESSAGE"
         )
     untrusted.append(
-        "BEGIN_USER_DRAFT_TEXT\n"
-        f"{(target or '')[:20_000]}\n"
-        "END_USER_DRAFT_TEXT"
+        f"BEGIN_USER_DRAFT_TEXT\n{(target or '')[:20_000]}\nEND_USER_DRAFT_TEXT"
     )
     untrusted.append(
         "BEGIN_DRAFT_METADATA\n"
@@ -204,9 +208,9 @@ async def generate_writing_preview(
     draft: OutboundDraft,
     request: WritingRequest,
 ) -> tuple[str, WritingContext]:
-    account, _account_config, llm_provider = await AccountRepository(session).get_full_config(
-        draft.account_id
-    )
+    account, _account_config, llm_provider = await AccountRepository(
+        session
+    ).get_full_config(draft.account_id)
     client = build_llm_client(
         llm_provider,
         for_generation=True,
@@ -218,7 +222,9 @@ async def generate_writing_preview(
 
     context = await _load_reply_context(session, draft, account)
     try:
-        result = await asyncio.to_thread(client._call_default, _prompt(draft, request, context))
+        result = await asyncio.to_thread(
+            client._call_default, _prompt(draft, request, context)
+        )
     except Exception as exc:
         raise AIWritingError("generation_failed") from exc
     text = result.strip()

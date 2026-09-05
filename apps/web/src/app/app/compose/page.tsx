@@ -252,12 +252,15 @@ export default function ComposePage() {
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) return "";
       const range = selection.getRangeAt(0);
-      if (!richEditorRef.current?.contains(range.commonAncestorContainer)) return "";
+      if (!richEditorRef.current?.contains(range.commonAncestorContainer))
+        return "";
       return selection.toString().trim();
     }
     const active = document.activeElement;
     if (!(active instanceof HTMLTextAreaElement)) return "";
-    return active.value.slice(active.selectionStart, active.selectionEnd).trim();
+    return active.value
+      .slice(active.selectionStart, active.selectionEnd)
+      .trim();
   }
 
   async function runAI() {
@@ -538,7 +541,9 @@ export default function ComposePage() {
               <span className="aiLabel">AI</span>
               <select
                 value={aiAction}
-                onChange={(event) => setAiAction(event.target.value as WritingAction)}
+                onChange={(event) =>
+                  setAiAction(event.target.value as WritingAction)
+                }
                 aria-label="AI writing action"
               >
                 {AI_ACTIONS.map((item) => (
@@ -549,7 +554,9 @@ export default function ComposePage() {
               </select>
               <select
                 value={aiScope}
-                onChange={(event) => setAiScope(event.target.value as WritingScope)}
+                onChange={(event) =>
+                  setAiScope(event.target.value as WritingScope)
+                }
                 aria-label="AI writing scope"
               >
                 <option value="full">Entire draft</option>
@@ -587,7 +594,8 @@ export default function ComposePage() {
               <div className="aiPreviewHeader">
                 <strong>AI suggestion</strong>
                 <span className="muted">
-                  {aiPreview.used_thread_context || aiPreview.used_current_message
+                  {aiPreview.used_thread_context ||
+                  aiPreview.used_current_message
                     ? "Thread context used"
                     : "Draft context only"}
                 </span>
@@ -606,7 +614,8 @@ export default function ComposePage() {
                 </button>
               </div>
               <p className="muted aiNotice">
-                AI output is never sent automatically. Review the draft before sending.
+                AI output is never sent automatically. Review the draft before
+                sending.
               </p>
             </div>
           )}
@@ -635,19 +644,39 @@ export default function ComposePage() {
           {editorMode === "rich_text" ? (
             <div className="editorShell">
               <div className="editorToolbar" aria-label="Formatting">
-                <button type="button" onClick={() => format("bold")} title="Bold">
+                <button
+                  type="button"
+                  onClick={() => format("bold")}
+                  title="Bold"
+                >
                   <strong>B</strong>
                 </button>
-                <button type="button" onClick={() => format("italic")} title="Italic">
+                <button
+                  type="button"
+                  onClick={() => format("italic")}
+                  title="Italic"
+                >
                   <em>I</em>
                 </button>
-                <button type="button" onClick={() => format("underline")} title="Underline">
+                <button
+                  type="button"
+                  onClick={() => format("underline")}
+                  title="Underline"
+                >
                   <u>U</u>
                 </button>
-                <button type="button" onClick={() => format("insertUnorderedList")} title="Bullet list">
+                <button
+                  type="button"
+                  onClick={() => format("insertUnorderedList")}
+                  title="Bullet list"
+                >
                   • List
                 </button>
-                <button type="button" onClick={() => format("insertOrderedList")} title="Numbered list">
+                <button
+                  type="button"
+                  onClick={() => format("insertOrderedList")}
+                  title="Numbered list"
+                >
                   1. List
                 </button>
               </div>
@@ -675,7 +704,9 @@ export default function ComposePage() {
               <div className="attachmentChip" key={attachment.id}>
                 <span>▧</span>
                 <span>{attachment.filename}</span>
-                <span className="muted">{formatBytes(attachment.size_bytes)}</span>
+                <span className="muted">
+                  {formatBytes(attachment.size_bytes)}
+                </span>
                 {draft.status !== "sent" && (
                   <button
                     type="button"
@@ -691,7 +722,13 @@ export default function ComposePage() {
             {draft.status !== "sent" && (
               <label className="btn secondary attachmentButton">
                 {uploading ? "Adding…" : "Attach files"}
-                <input type="file" multiple hidden disabled={uploading} onChange={addAttachment} />
+                <input
+                  type="file"
+                  multiple
+                  hidden
+                  disabled={uploading}
+                  onChange={addAttachment}
+                />
               </label>
             )}
           </div>
@@ -699,25 +736,47 @@ export default function ComposePage() {
           <div className="composeFooter">
             <div className="composeFooterActions">
               {draft.status !== "sent" && (
-                <button type="button" className="btn" onClick={send} disabled={sending || uploading}>
-                  {sending ? "Sending…" : draft.status === "failed" ? "Retry send" : "Send"}
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={send}
+                  disabled={sending || uploading}
+                >
+                  {sending
+                    ? "Sending…"
+                    : draft.status === "failed"
+                      ? "Retry send"
+                      : "Send"}
                 </button>
               )}
               {draft.status !== "sent" && (
-                <button type="button" className="btn secondary" onClick={persist} disabled={saveState === "saving"}>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={persist}
+                  disabled={saveState === "saving"}
+                >
                   Save draft
                 </button>
               )}
             </div>
             {draft.status !== "sent" && (
-              <button type="button" className="textButton dangerText" onClick={discard}>
+              <button
+                type="button"
+                className="textButton dangerText"
+                onClick={discard}
+              >
                 Discard
               </button>
             )}
             {draft.status === "sent" && <span className="pill ok">Sent</span>}
           </div>
 
-          {draft.last_error && <div className="alert error">Last send error: {draft.last_error}</div>}
+          {draft.last_error && (
+            <div className="alert error">
+              Last send error: {draft.last_error}
+            </div>
+          )}
         </section>
       )}
 
