@@ -64,7 +64,9 @@ async def list_operational_review_items(
     ).all()
     for proposal, account in proposal_rows:
         snapshot = dict(proposal.edited_snapshot or proposal.original_snapshot or {})
-        reason = proposal.last_error or str(snapshot.get("reason") or "Bulk proposal needs review")
+        reason = proposal.last_error or str(
+            snapshot.get("reason") or "Bulk proposal needs review"
+        )
         items.append(
             OperationalReviewItem(
                 id=proposal.id,
