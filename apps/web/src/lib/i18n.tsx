@@ -10,7 +10,15 @@ import {
   useMemo,
   useState,
 } from "react";
+import { de } from "./locales/de";
+import { deSearch } from "./locales/de-search";
+import { en } from "./locales/en";
+import { enSearch } from "./locales/en-search";
+import { es } from "./locales/es";
+import { esSearch } from "./locales/es-search";
+import type { TranslationKey } from "./locales/types";
 
+export type { TranslationKey } from "./locales/types";
 export type Locale = "de" | "en" | "es";
 
 export const LOCALES: readonly Locale[] = ["de", "en", "es"];
@@ -20,15 +28,11 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   es: "Español",
 };
 
-import { de } from "./locales/de";
-import { en } from "./locales/en";
-import { es } from "./locales/es";
-import type { TranslationKey } from "./locales/types";
-
+const fallback = { ...en, ...enSearch };
 const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
-  de,
-  en,
-  es,
+  de: { ...de, ...deSearch },
+  en: fallback,
+  es: { ...es, ...esSearch },
 };
 
 export function detectBrowserLocale(languages?: readonly string[]): Locale {
@@ -107,7 +111,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     () => ({
       locale,
       ready,
-      t: (key) => catalogs[locale][key] ?? en[key],
+      t: (key) => catalogs[locale][key] ?? fallback[key],
       setLocale,
     }),
     [locale, ready, setLocale],
