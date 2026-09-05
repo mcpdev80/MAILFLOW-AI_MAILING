@@ -6,6 +6,7 @@ services:
     image: caddy:2-alpine
     environment:
       MAILFLOW_DOMAIN: ${MAILFLOW_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
@@ -68,15 +69,12 @@ services:
       AUTH_MODE: ${AUTH_MODE:-single}
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
       LOG_FORMAT: ${LOG_FORMAT:-json}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.0}
-      SSL_CERT_FILE: ${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}
-      REQUESTS_CA_BUNDLE: ${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
-    volumes:
-      - ${MAILFLOW_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:${MAILFLOW_CA_TARGET:-/etc/ssl/certs/mailflow-custom-ca.pem}:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,10 +107,6 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.0}
-      SSL_CERT_FILE: ${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}
-      REQUESTS_CA_BUNDLE: ${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
-    volumes:
-      - ${MAILFLOW_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:${MAILFLOW_CA_TARGET:-/etc/ssl/certs/mailflow-custom-ca.pem}:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -141,9 +135,6 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://${MAILFLOW_DOMAIN:-localhost}}
       WEB_SECRET_KEY: ${WEB_SECRET_KEY:-}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
-      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-/etc/ssl/certs/mailflow-custom-ca.pem}
-    volumes:
-      - ${MAILFLOW_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}:${MAILFLOW_CA_TARGET:-/etc/ssl/certs/mailflow-custom-ca.pem}:ro
     depends_on:
       api:
         condition: service_healthy
