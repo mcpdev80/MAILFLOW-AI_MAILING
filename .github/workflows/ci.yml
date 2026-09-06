@@ -120,7 +120,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install Chromium
         working-directory: apps/web
-        run: pnpm dlx playwright@1.63.0 install --with-deps chromium
+        run: pnpm dlx @playwright/test@1.63.0 install --with-deps chromium
       - name: Run browser tests
         working-directory: apps/web
         run: pnpm test:e2e
