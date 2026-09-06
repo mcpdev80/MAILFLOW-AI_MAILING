@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$HOME"
 
 REPO_URL="https://github.com/mcpdev80/MAILFLOW-AI_MAILING.git"
-BRANCH="main"
+BRANCH="test-mvp"
 INSTALL_DIR_DEFAULT="$HOME/mailflow"
 COMPOSE_FILE="infrastructure/docker-compose.yml"
 TLS_COMPOSE_FILE="infrastructure/docker-compose.custom-tls.yml"

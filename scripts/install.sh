@@ -5,7 +5,7 @@ set -euo pipefail
 # Start from a stable directory so readline/tab completion and path hooks can resolve cwd.
 cd "$HOME"
 
-BRANCH="main"
+BRANCH="test-mvp"
 RAW_BASE="https://raw.githubusercontent.com/mcpdev80/MAILFLOW-AI_MAILING/$BRANCH/scripts"
 DEFAULT_INSTALL="$HOME/mailflow"
 
