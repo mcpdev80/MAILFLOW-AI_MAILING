@@ -20,6 +20,7 @@ import { deMailActions } from "./locales/de-mail-actions";
 import { deMembers } from "./locales/de-members";
 import { deModelSettings } from "./locales/de-model-settings";
 import { deNotifications } from "./locales/de-notifications";
+import { deOnboarding } from "./locales/de-onboarding";
 import { deSearch } from "./locales/de-search";
 import { deSecurity } from "./locales/de-security";
 import { deSettings } from "./locales/de-settings";
@@ -34,6 +35,7 @@ import { enMailActions } from "./locales/en-mail-actions";
 import { enMembers } from "./locales/en-members";
 import { enModelSettings } from "./locales/en-model-settings";
 import { enNotifications } from "./locales/en-notifications";
+import { enOnboarding } from "./locales/en-onboarding";
 import { enSearch } from "./locales/en-search";
 import { enSecurity } from "./locales/en-security";
 import { enSettings } from "./locales/en-settings";
@@ -48,6 +50,7 @@ import { esMailActions } from "./locales/es-mail-actions";
 import { esMembers } from "./locales/es-members";
 import { esModelSettings } from "./locales/es-model-settings";
 import { esNotifications } from "./locales/es-notifications";
+import { esOnboarding } from "./locales/es-onboarding";
 import { esSearch } from "./locales/es-search";
 import { esSecurity } from "./locales/es-security";
 import { esSettings } from "./locales/es-settings";
@@ -75,6 +78,7 @@ const fallback = {
   ...enMembers,
   ...enModelSettings,
   ...enNotifications,
+  ...enOnboarding,
   ...enSearch,
   ...enSecurity,
   ...enSettings,
@@ -92,6 +96,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...deMembers,
     ...deModelSettings,
     ...deNotifications,
+    ...deOnboarding,
     ...deSearch,
     ...deSecurity,
     ...deSettings,
@@ -109,6 +114,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...esMembers,
     ...esModelSettings,
     ...esNotifications,
+    ...esOnboarding,
     ...esSearch,
     ...esSecurity,
     ...esSettings,
