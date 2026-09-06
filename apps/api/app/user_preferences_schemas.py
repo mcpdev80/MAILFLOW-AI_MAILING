@@ -10,6 +10,7 @@ Density = Literal["comfortable", "compact"]
 WorkspaceLayout = Literal[
     "classic", "vertical", "focus", "compact", "wide", "custom"
 ]
+SidePanelAlignment = Literal["left", "right"]
 WorkspacePanel = Literal["accounts", "folders", "message_list", "message_content"]
 WorkspaceDock = Literal["left", "center", "right"]
 
@@ -46,6 +47,7 @@ class UserPreferencesView(BaseModel):
     theme: Theme = "system"
     density: Density = "comfortable"
     workspace_layout: WorkspaceLayout = "classic"
+    side_panel_alignment: SidePanelAlignment = "left"
     workspace_custom_config: WorkspaceCustomConfig | None = None
 
 
@@ -54,4 +56,5 @@ class UserPreferencesUpdate(BaseModel):
     theme: Theme | None = None
     density: Density | None = None
     workspace_layout: WorkspaceLayout | None = None
+    side_panel_alignment: SidePanelAlignment | None = None
     workspace_custom_config: WorkspaceCustomConfig | None = None
