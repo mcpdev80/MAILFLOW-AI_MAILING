@@ -17,7 +17,12 @@ from app.models.processed_email import ProcessedEmail
 from app.services.dashboard_common import classification_source
 
 
-def _append_text_predicates(predicates: list, query: str | None, sender: str | None) -> None:
+def _append_text_predicates(
+    predicates: list,
+    query: str | None,
+    sender: str | None,
+    subject: str | None,
+) -> None:
     if query:
         needle = f"%{query.strip()}%"
         predicates.append(
@@ -25,6 +30,8 @@ def _append_text_predicates(predicates: list, query: str | None, sender: str | N
         )
     if sender:
         predicates.append(ProcessedEmail.from_email.ilike(f"%{sender.strip()}%"))
+    if subject:
+        predicates.append(ProcessedEmail.subject.ilike(f"%{subject.strip()}%"))
 
 
 def _append_date_predicates(
@@ -109,7 +116,12 @@ def _build_predicates(identity: RequestIdentity, filters: dict[str, object | Non
     account_id = filters.get("account_id")
     if account_id is not None:
         predicates.append(EmailAccount.id == account_id)
-    _append_text_predicates(predicates, filters.get("query"), filters.get("sender"))
+    _append_text_predicates(
+        predicates,
+        filters.get("query"),
+        filters.get("sender"),
+        filters.get("subject"),
+    )
     _append_date_predicates(predicates, filters.get("date_from"), filters.get("date_to"))
     _append_exact_predicates(predicates, filters)
     _append_boolean_predicates(
@@ -155,6 +167,7 @@ async def search_messages(
     *,
     query: str | None = None,
     sender: str | None = None,
+    subject: str | None = None,
     account_id: UUID | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -182,7 +195,11 @@ async def search_messages(
         EmailAccount.__table__, ProcessedEmail.account_id == EmailAccount.id
     )
     total = int(
-        (await session.scalar(select(func.count(ProcessedEmail.id)).select_from(joined).where(*predicates)))
+        (
+            await session.scalar(
+                select(func.count(ProcessedEmail.id)).select_from(joined).where(*predicates)
+            )
+        )
         or 0
     )
     rows = (
