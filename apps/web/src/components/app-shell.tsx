@@ -42,7 +42,7 @@ function useShellState(): ShellState {
           healthy:
             health.status === "fulfilled" &&
             health.value.status === "ok" &&
-            health.value.db === "ok",
+            health.value.db === "up",
           reviewCount: review.status === "fulfilled" ? review.value.counters.review_needed : null,
           notificationCount:
             notifications.status === "fulfilled" ? notifications.value.unread : null,
