@@ -29,8 +29,8 @@ test("mail workspace opens a message and exposes thread content", async ({ page 
 
 test("composer persists and sends only through explicit user action", async ({ page }) => {
   await page.goto("/app/compose?draft=draft-1");
-  await expect(page.getByDisplayValue("Draft subject")).toBeVisible();
-  await expect(page.getByDisplayValue("Draft body")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Subject" })).toHaveValue("Draft subject");
+  await expect(page.getByRole("textbox", { name: "Message body" })).toHaveValue("Draft body");
 
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText(/Sent/).first()).toBeVisible();
