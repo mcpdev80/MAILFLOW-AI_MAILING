@@ -75,17 +75,17 @@ function ModelForm({ controller }: { controller: ModelSettingsController }) {
       </label>
       <RoleSection
         controller={controller}
-        role="fast"
+        modelRole="fast"
         title={t("models.fast")}
       />
       <RoleSection
         controller={controller}
-        role="deep"
+        modelRole="deep"
         title={t("models.deep")}
       />
       <RoleSection
         controller={controller}
-        role="generation"
+        modelRole="generation"
         title={t("models.generation")}
       />
       <button className="btn" type="submit" disabled={controller.busy}>
@@ -99,20 +99,20 @@ type Role = "fast" | "deep" | "generation";
 
 function RoleSection({
   controller,
-  role,
+  modelRole,
   title,
-}: { controller: ModelSettingsController; role: Role; title: string }) {
+}: { controller: ModelSettingsController; modelRole: Role; title: string }) {
   const { t } = useI18n();
-  const keys = roleKeys(role);
+  const keys = roleKeys(modelRole);
   const provider = controller.provider;
   const configured =
-    role === "fast"
+    modelRole === "fast"
       ? provider?.has_fast_api_key
-      : role === "deep"
+      : modelRole === "deep"
         ? provider?.has_deep_api_key
         : provider?.has_generation_api_key;
   const modelPlaceholder =
-    role === "generation"
+    modelRole === "generation"
       ? provider?.default_generation_model
       : provider?.default_classification_model;
   return (

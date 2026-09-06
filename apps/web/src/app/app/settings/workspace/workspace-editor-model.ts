@@ -46,7 +46,9 @@ export function normalizeWorkspaceConfig(
     ...value,
     panels: workspacePanels.map((name) => {
       const stored = storedByPanel.get(name);
-      const fallback = defaults.panels.find((item) => item.panel === name)!;
+      const fallback = defaults.panels.find((item) => item.panel === name);
+      if (!fallback)
+        throw new Error(`Missing default workspace panel: ${name}`);
       return stored ? { ...fallback, ...stored } : fallback;
     }),
   };

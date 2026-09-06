@@ -6,9 +6,9 @@ import {
 } from "@/components/settings-shell";
 import { useI18n } from "@/lib/i18n";
 import {
+  type StructureDraft,
   readStructureDraft,
   saveStructureDraft,
-  type StructureDraft,
 } from "@/lib/structure-setup";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";

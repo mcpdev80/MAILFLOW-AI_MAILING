@@ -74,7 +74,7 @@ async function conditionalPasskey(): Promise<boolean> {
 function redirectTarget(): string {
   if (typeof window === "undefined") return "/app/dashboard";
   const requested = new URLSearchParams(window.location.search).get("redirect");
-  return requested && requested.startsWith("/") && !requested.startsWith("//")
+  return requested?.startsWith("/") && !requested.startsWith("//")
     ? requested
     : "/app/dashboard";
 }

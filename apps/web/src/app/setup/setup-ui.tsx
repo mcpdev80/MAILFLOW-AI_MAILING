@@ -1,10 +1,10 @@
 "use client";
 
+import { WizardShell, wizardStyles as s } from "@/components/wizard-shell";
 import { api } from "@/lib/api";
-import { getBootstrapStatus, type BootstrapStatus } from "@/lib/bootstrap-api";
+import { type BootstrapStatus, getBootstrapStatus } from "@/lib/bootstrap-api";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { WizardShell, wizardStyles as s } from "@/components/wizard-shell";
 
 type ProviderForm = {
   label: string;

@@ -6,12 +6,12 @@ import {
 } from "@/components/settings-shell";
 import { useI18n } from "@/lib/i18n";
 import {
+  type StructureApplyResult,
+  type StructureDraft,
   applyStructure,
   clearStructureDraft,
   readStructureDraft,
   saveStructureDraft,
-  type StructureApplyResult,
-  type StructureDraft,
 } from "@/lib/structure-setup";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";

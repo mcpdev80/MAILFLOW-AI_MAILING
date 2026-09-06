@@ -7,11 +7,11 @@ import {
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import {
+  type StructureDraft,
+  type StructureProposal,
   loadStructureProposal,
   proposalToDraft,
   saveStructureDraft,
-  type StructureDraft,
-  type StructureProposal,
 } from "@/lib/structure-setup";
 import type { EmailAccount } from "@/lib/types";
 import { useRouter } from "next/navigation";

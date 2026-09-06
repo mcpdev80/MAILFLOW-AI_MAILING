@@ -7,10 +7,10 @@ import {
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import {
-  rulesApi,
   type DomainRule,
   type InternalDomain,
   type KeywordRule,
+  rulesApi,
 } from "@/lib/rules-api";
 import type { EmailAccount } from "@/lib/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
