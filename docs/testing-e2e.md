@@ -4,19 +4,28 @@ Mailflow uses Playwright for deterministic browser-level testing of the web UI.
 
 ## Commands
 
+From the repository root:
+
+```bash
+pnpm test:e2e
+```
+
 From `apps/web`:
 
 ```bash
+pnpm test:e2e:setup
 pnpm test:e2e
 pnpm test:e2e:headed
 pnpm test:e2e:ui
 ```
 
-The scripts pin Playwright to a specific version through `pnpm dlx`. This keeps the repository lockfile unchanged while the E2E layer is introduced. CI installs the matching Chromium runtime before executing the suite.
+`test:e2e:setup` installs the pinned Chromium runtime once for local development. The test scripts install the small isolated runner package under `apps/web/e2e/node_modules` when needed.
+
+Playwright is intentionally isolated in `apps/web/e2e/package.json` with the exact `@playwright/test` version `1.63.0`. It is not part of the application dependency graph and does not alter the production pnpm lockfile. CI installs that isolated package and the matching Chromium runtime before executing the suite.
 
 ## What belongs in E2E tests
 
-Use Playwright for user-visible behavior across routing, state, forms and API boundaries. Current core coverage includes:
+Use Playwright for user-visible behavior across routing, state, forms and API boundaries. Current coverage includes:
 
 - Login and signup surfaces.
 - Application shell and system status.
@@ -25,6 +34,10 @@ Use Playwright for user-visible behavior across routing, state, forms and API bo
 - Composer persistence and explicit send flow.
 - Review Inbox.
 - Appearance/workspace preferences.
+- Drafts, notifications and daily summary.
+- Billing and model-role settings.
+- Workspace editor and onboarding.
+- Mailbox index-to-detail navigation.
 - Mobile-width smoke coverage.
 
 Extend the suite whenever a new Figma-backed production surface or interaction is implemented.
@@ -52,7 +65,7 @@ Shared structural test IDs currently include:
 
 Production UI must never ship demo mail, users, folders or KPI values. Deterministic fixture data is allowed only inside `apps/web/e2e/`.
 
-The E2E API fixture intercepts the same `/api/mf/*` contracts used by production code. Tests therefore exercise the real frontend controllers and state transitions without requiring external IMAP, SMTP, LLM or OAuth services.
+The E2E API fixtures intercept the same `/api/mf/*` contracts used by production code. Tests therefore exercise the real frontend controllers and state transitions without requiring external IMAP, SMTP, LLM or OAuth services.
 
 When an API contract changes, update both the typed frontend contract and the Playwright fixture in the same change.
 
