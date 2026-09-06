@@ -12,12 +12,21 @@ export function useSignupPage() {
   const [organization, setOrganization] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = useCallback(async () => {
-    setBusy(true);
     setError(null);
+    if (password.length < 8) {
+      setError("Password must contain at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setBusy(true);
     const signUp = await authClient.signUp.email({ email, password, name });
     if (signUp.error) {
       setError(signUp.error.message ?? t("auth.signup.accountFailed"));
@@ -35,7 +44,7 @@ export function useSignupPage() {
       return;
     }
     router.push("/onboarding");
-  }, [email, name, organization, password, router, t]);
+  }, [confirmPassword, email, name, organization, password, router, t]);
 
   return {
     name,
@@ -46,6 +55,8 @@ export function useSignupPage() {
     setEmail,
     password,
     setPassword,
+    confirmPassword,
+    setConfirmPassword,
     error,
     busy,
     submit,
