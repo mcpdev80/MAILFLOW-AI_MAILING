@@ -19,6 +19,24 @@ show_diagnostics() {
 get_env() {
   awk -F= -v k="$1" '$1==k {sub(/^[^=]*=/, ""); print; exit}' "$2"
 }
+public_host() {
+  local value="$1" authority
+  authority="${value#*://}"
+  authority="${authority%%/*}"
+  printf '%s' "${authority%%:*}"
+}
+public_port() {
+  local value="$1" authority
+  authority="${value#*://}"
+  authority="${authority%%/*}"
+  if [[ "$authority" == *:* ]]; then
+    printf '%s' "${authority##*:}"
+  elif [[ "$value" == https://* ]]; then
+    printf '443'
+  else
+    printf '80'
+  fi
+}
 show_success() {
   local language public_url
   language="$(get_env MAILFLOW_BOOTSTRAP_LANGUAGE "$ENV_FILE")"
@@ -75,6 +93,7 @@ git pull --ff-only origin "$BRANCH"
 
 ENV_FILE="$INSTALL_DIR/.env"
 TLS_MODE="$(get_env MAILFLOW_TLS_MODE "$ENV_FILE")"
+PUBLIC_URL="$(get_env MAILFLOW_PUBLIC_URL "$ENV_FILE")"
 COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")
 [ "$TLS_MODE" != "custom" ] || COMPOSE_ARGS+=(-f "$TLS_COMPOSE_FILE")
 
@@ -92,7 +111,37 @@ fi
 
 ready=0
 for _ in $(seq 1 30); do
+  api_ok=0
+  worker_ok=0
+  web_ok=0
+  edge_ok=0
+
   if docker compose "${COMPOSE_ARGS[@]}" exec -T api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)" >/dev/null 2>&1; then
+    api_ok=1
+  fi
+
+  if [ "$(docker inspect -f '{{.State.Status}}' infrastructure-worker-1 2>/dev/null || true)" = "running" ]; then
+    sleep 1
+    if [ "$(docker inspect -f '{{.State.Status}}' infrastructure-worker-1 2>/dev/null || true)" = "running" ]; then
+      worker_ok=1
+    fi
+  fi
+
+  if docker compose "${COMPOSE_ARGS[@]}" exec -T edge wget -q -O /dev/null -T 5 http://web:3000/ >/dev/null 2>&1; then
+    web_ok=1
+  fi
+
+  if [ -n "$PUBLIC_URL" ]; then
+    host="$(public_host "$PUBLIC_URL")"
+    port="$(public_port "$PUBLIC_URL")"
+    if [ "$TLS_MODE" = "custom" ]; then
+      curl -fsS --connect-timeout 5 --resolve "$host:$port:127.0.0.1" "$PUBLIC_URL" >/dev/null 2>&1 && edge_ok=1
+    else
+      curl -kfsS --connect-timeout 5 --resolve "$host:$port:127.0.0.1" "$PUBLIC_URL" >/dev/null 2>&1 && edge_ok=1
+    fi
+  fi
+
+  if [ "$api_ok" -eq 1 ] && [ "$worker_ok" -eq 1 ] && [ "$web_ok" -eq 1 ] && [ "$edge_ok" -eq 1 ]; then
     ready=1
     break
   fi
@@ -101,7 +150,7 @@ done
 
 if [ "$ready" -ne 1 ]; then
   show_diagnostics
-  fail "Mailflow started, but the API did not become healthy."
+  fail "Mailflow started, but the complete stack did not become healthy."
 fi
 
 show_success
