@@ -168,7 +168,7 @@ class AttachmentLibraryRepository:
                 access_condition(identity),
             )
             .group_by(AttachmentDocument.id, AttachmentPlacement.id)
-            .order_by(AttachmentDocument.created_at.desc())
+            .order_by(func.max(AttachmentSource.created_at).desc())
             .limit(limit)
             .offset(offset)
         )
@@ -192,7 +192,7 @@ class AttachmentLibraryRepository:
             pattern = f"%{query.strip()}%"
             statement = statement.where(
                 or_(
-                    AttachmentDocument.canonical_filename.ilike(pattern),
+                    AttachmentSource.source_filename.ilike(pattern),
                     AttachmentDocument.extracted_text.ilike(pattern),
                     AttachmentSource.from_email.ilike(pattern),
                     AttachmentSource.subject.ilike(pattern),
@@ -282,7 +282,7 @@ class AttachmentLibraryRepository:
                 },
             )
         )
-        placement = (
+        return (
             await self.session.execute(
                 select(AttachmentPlacement).where(
                     AttachmentPlacement.document_id == document_id,
@@ -290,7 +290,6 @@ class AttachmentLibraryRepository:
                 )
             )
         ).scalar_one()
-        return placement
 
     async def list_folders(self, identity: RequestIdentity) -> list[AttachmentFolder]:
         scope = attachment_owner_scope(identity)
