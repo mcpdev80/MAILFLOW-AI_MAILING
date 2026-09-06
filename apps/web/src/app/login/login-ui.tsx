@@ -14,54 +14,63 @@ export function LoginUi({ state }: { state: LoginState }) {
     void state.signInWithPassword();
   }
   return (
-    <main className="container">
-      <h1>{t("auth.login.title")}</h1>
-      {state.error && <div className="alert error">{state.error}</div>}
-      <section className="card">
+    <main className="auth-shell">
+      <section className="auth-panel">
+        <div className="auth-brand">MailFlow</div>
+        <div className="auth-copy">
+          <h1>{t("auth.login.title")}</h1>
+          <p className="muted">{t("auth.login.passwordHint")}</p>
+        </div>
+
+        {state.error && <div className="alert error">{state.error}</div>}
+
+        <form onSubmit={submit} className="auth-form">
+          <label className="field" htmlFor="email">
+            <span>{t("auth.login.email")}</span>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email webauthn"
+              required
+              value={state.email}
+              onChange={(event) => state.setEmail(event.target.value)}
+            />
+          </label>
+          <label className="field" htmlFor="password">
+            <span>{t("auth.login.password")}</span>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password webauthn"
+              required
+              value={state.password}
+              onChange={(event) => state.setPassword(event.target.value)}
+            />
+          </label>
+          <button type="submit" className="btn btn-lg auth-primary" disabled={state.busy}>
+            {state.busy
+              ? t("auth.login.signingIn")
+              : t("auth.login.passwordAction")}
+          </button>
+        </form>
+
+        <div className="auth-divider"><span>Passkey</span></div>
+
         <button
           type="button"
-          className="btn"
+          className="btn secondary btn-lg auth-primary"
           disabled={state.busy}
           onClick={() => void state.signInWithPasskey()}
         >
           {t("auth.login.passkey")}
         </button>
-        <p className="muted">{t("auth.login.passkeyHint")}</p>
+        <p className="auth-hint muted">{t("auth.login.passkeyHint")}</p>
+
+        <p className="auth-switch muted">
+          {t("auth.login.noAccount")}{" "}
+          <Link href="/signup">{t("auth.login.create")}</Link>
+        </p>
       </section>
-      <form onSubmit={submit} className="card">
-        <p className="muted">{t("auth.login.passwordHint")}</p>
-        <label className="field" htmlFor="email">
-          <span>{t("auth.login.email")}</span>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email webauthn"
-            required
-            value={state.email}
-            onChange={(event) => state.setEmail(event.target.value)}
-          />
-        </label>
-        <label className="field" htmlFor="password">
-          <span>{t("auth.login.password")}</span>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password webauthn"
-            required
-            value={state.password}
-            onChange={(event) => state.setPassword(event.target.value)}
-          />
-        </label>
-        <button type="submit" className="btn" disabled={state.busy}>
-          {state.busy
-            ? t("auth.login.signingIn")
-            : t("auth.login.passwordAction")}
-        </button>
-      </form>
-      <p className="muted">
-        {t("auth.login.noAccount")}{" "}
-        <Link href="/signup">{t("auth.login.create")}</Link>
-      </p>
     </main>
   );
 }
