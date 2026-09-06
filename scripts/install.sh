@@ -54,6 +54,33 @@ set_env() {
   fi
 }
 
+public_host() {
+  local url="$1" host
+  host="${url#*://}"
+  host="${host%%/*}"
+  host="${host%%:*}"
+  printf '%s' "$host"
+}
+
+validate_custom_tls() {
+  local cert="$1" key="$2" host="$3" cert_pub key_pub
+
+  [ -r "$cert" ] || fail "Certificate file is not readable: $cert"
+  [ -r "$key" ] || fail "Private-key file is not readable: $key"
+
+  openssl x509 -in "$cert" -noout >/dev/null 2>&1 || fail "Certificate is not a valid PEM X.509 certificate: $cert"
+  openssl pkey -in "$key" -noout >/dev/null 2>&1 || fail "Private key is not a valid or readable PEM private key: $key"
+  openssl x509 -in "$cert" -checkend 0 -noout >/dev/null 2>&1 || fail "Certificate is expired or not yet valid: $cert"
+
+  cert_pub="$(openssl x509 -in "$cert" -pubkey -noout | openssl pkey -pubin -outform DER 2>/dev/null | openssl dgst -sha256 | awk '{print $NF}')"
+  key_pub="$(openssl pkey -in "$key" -pubout -outform DER 2>/dev/null | openssl dgst -sha256 | awk '{print $NF}')"
+  [ -n "$cert_pub" ] && [ "$cert_pub" = "$key_pub" ] || fail "Certificate and private key do not match."
+
+  if [ -n "$host" ] && [ "$host" != "localhost" ]; then
+    openssl x509 -in "$cert" -noout -checkhost "$host" >/dev/null 2>&1 || fail "Certificate is not valid for host: $host"
+  fi
+}
+
 say "Mailflow guided installer"
 printf '%s\n' "As little as possible, as much as necessary."
 
@@ -65,6 +92,7 @@ docker info >/dev/null 2>&1 || fail "Docker is installed but not reachable. Star
 
 INSTALL_DIR="$(prompt "Install directory" "$INSTALL_DIR_DEFAULT")"
 PUBLIC_URL="$(prompt "Public URL for this installation" "https://localhost")"
+HOST="$(public_host "$PUBLIC_URL")"
 TLS_MODE="$(choose_tls)"
 
 case "$TLS_MODE" in
@@ -75,8 +103,9 @@ case "$TLS_MODE" in
     TLS_MODE="custom"
     TLS_CERT_FILE="$(prompt "Certificate/full-chain file" "/etc/ssl/mailflow/fullchain.pem")"
     TLS_KEY_FILE="$(prompt "Private-key file" "/etc/ssl/mailflow/privkey.pem")"
-    [ -r "$TLS_CERT_FILE" ] || fail "Certificate file is not readable: $TLS_CERT_FILE"
-    [ -r "$TLS_KEY_FILE" ] || fail "Private-key file is not readable: $TLS_KEY_FILE"
+    say "Validating custom TLS certificate"
+    validate_custom_tls "$TLS_CERT_FILE" "$TLS_KEY_FILE" "$HOST"
+    printf '%s\n' "TLS certificate: valid, current, host-matched, and key-matched."
     ;;
   *)
     fail "Invalid TLS choice. Use 1 or 2."
@@ -124,25 +153,11 @@ else
   set_env TLS_KEY_FILE "" .env
 fi
 
-case "$PUBLIC_URL" in
-  https://localhost|http://localhost)
-    set_env BETTER_AUTH_URL "$PUBLIC_URL" .env
-    set_env NEXT_PUBLIC_APP_URL "$PUBLIC_URL" .env
-    set_env PASSKEY_RP_ID "localhost" .env
-    set_env PASSKEY_ORIGIN "$PUBLIC_URL" .env
-    set_env CORS_ORIGINS "$PUBLIC_URL" .env
-    ;;
-  *)
-    host="${PUBLIC_URL#*://}"
-    host="${host%%/*}"
-    host="${host%%:*}"
-    set_env BETTER_AUTH_URL "$PUBLIC_URL" .env
-    set_env NEXT_PUBLIC_APP_URL "$PUBLIC_URL" .env
-    set_env PASSKEY_RP_ID "$host" .env
-    set_env PASSKEY_ORIGIN "$PUBLIC_URL" .env
-    set_env CORS_ORIGINS "$PUBLIC_URL" .env
-    ;;
-esac
+set_env BETTER_AUTH_URL "$PUBLIC_URL" .env
+set_env NEXT_PUBLIC_APP_URL "$PUBLIC_URL" .env
+set_env PASSKEY_RP_ID "$HOST" .env
+set_env PASSKEY_ORIGIN "$PUBLIC_URL" .env
+set_env CORS_ORIGINS "$PUBLIC_URL" .env
 
 COMPOSE_ARGS=(-f "$COMPOSE_FILE")
 if [ "$TLS_MODE" = "custom" ]; then
@@ -169,11 +184,16 @@ for _ in $(seq 1 30); do
 done
 
 if [ "$ready" -eq 1 ]; then
+  if [ "$TLS_MODE" = "custom" ]; then
+    say "Verifying HTTPS with the configured certificate"
+    curl -fsS --resolve "$HOST:443:127.0.0.1" "$PUBLIC_URL" >/dev/null 2>&1 || fail "Mailflow is running, but HTTPS verification with the configured certificate failed. Check the certificate chain, hostname and edge logs."
+  fi
+
   printf '\nMailflow is ready.\n\nOpen: %s\n\n' "$PUBLIC_URL"
   if [ "$TLS_MODE" = "automatic" ]; then
     printf '%s\n' "TLS: automatic certificate management enabled."
   else
-    printf '%s\n' "TLS: custom certificate enabled."
+    printf '%s\n' "TLS: custom certificate validated and HTTPS verified."
   fi
   printf '%s\n' "Next: create your first user in the browser and continue with the in-app onboarding."
 else
