@@ -1,6 +1,14 @@
 import type { TranslationKey } from "./types";
 
 export const esOnboarding: Partial<Record<TranslationKey, string>> = {
+  "onboarding.bootstrap.title": "Instalación detectada",
+  "onboarding.bootstrap.description":
+    "Estos ajustes ya fueron definidos por la instalación y no es necesario introducirlos de nuevo.",
+  "onboarding.bootstrap.publicUrl": "URL pública",
+  "onboarding.bootstrap.tls": "TLS",
+  "onboarding.bootstrap.language": "Idioma",
+  "onboarding.bootstrap.source": "Origen",
+  "onboarding.bootstrap.configured": "Ya configurado",
   "onboarding.providerLabel": "Etiqueta",
   "onboarding.providerType": "Tipo",
   "onboarding.baseUrl": "URL base",
