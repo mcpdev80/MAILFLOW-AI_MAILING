@@ -16,17 +16,6 @@ async function installSession(page) {
   ]);
 }
 
-function observeMailActions(page) {
-  const actions = [];
-  page.on("request", (request) => {
-    const url = new URL(request.url());
-    if (request.method() === "POST" && url.pathname === mailActionPath) {
-      actions.push(request.postDataJSON());
-    }
-  });
-  return actions;
-}
-
 async function useCustomMailLayout(page) {
   await page.route("**/api/mf/user/preferences", async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
@@ -75,6 +64,10 @@ async function useCustomMailLayout(page) {
   });
 }
 
+function isMailActionRequest(request) {
+  return new URL(request.url()).pathname === mailActionPath;
+}
+
 test.beforeEach(async ({ page }) => {
   await installSession(page);
   await installMockApi(page);
@@ -118,7 +111,10 @@ test("opening an unread message marks it read and decrements unread counters", a
   page,
 }) => {
   await useCustomMailLayout(page);
-  const actions = observeMailActions(page);
+  const actions = [];
+  page.on("request", (request) => {
+    if (isMailActionRequest(request)) actions.push(request.postDataJSON());
+  });
 
   await page.goto("/app/mail");
 
@@ -154,7 +150,7 @@ test("opening an unread message marks it read and decrements unread counters", a
 test("opening an already read message does not mark it read again", async ({
   page,
 }) => {
-  const actions = observeMailActions(page);
+  let actionCalls = 0;
 
   await page.route("**/api/mf/mail-client/inbox**", async (route) => {
     return route.fulfill({
@@ -198,8 +194,9 @@ test("opening an already read message does not mark it read again", async ({
   });
 
   await page.route(
-    /\/api\/mf\/mail-client\/accounts\/acct-1\/messages\/42(?:\?.*)?$/,
+    "**/api/mf/mail-client/accounts/acct-1/messages/42**",
     async (route) => {
+      if (isMailActionRequest(route.request())) return route.fallback();
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -229,6 +226,9 @@ test("opening an already read message does not mark it read again", async ({
       });
     },
   );
+  page.on("request", (request) => {
+    if (isMailActionRequest(request)) actionCalls += 1;
+  });
 
   await page.goto("/app/mail");
   const messageRow = page
@@ -240,7 +240,118 @@ test("opening an already read message does not mark it read again", async ({
   await expect(
     page.getByText("The project update is ready for review."),
   ).toBeVisible();
-  expect(actions).toEqual([]);
+  expect(actionCalls).toBe(0);
+});
+
+test("reply creates a threaded draft and sends only after explicit user action", async ({
+  page,
+}) => {
+  let createPayload = null;
+  let sendCalls = 0;
+  let replyDraft = null;
+
+  await page.route("**/api/mf/mail/drafts", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    createPayload = route.request().postDataJSON();
+    replyDraft = {
+      id: "reply-draft-1",
+      org_id: "org-1",
+      owner_user_id: "user-1",
+      bcc_recipients: [],
+      status: "draft",
+      send_attempts: 0,
+      sent_message_id: null,
+      last_error: null,
+      attachments: [],
+      created_at: "2026-09-06T10:00:00Z",
+      updated_at: "2026-09-06T10:00:00Z",
+      sent_at: null,
+      body_html: null,
+      ...createPayload,
+    };
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(replyDraft),
+    });
+  });
+
+  await page.route("**/api/mf/mail/drafts/reply-draft-1**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith("/pre-send")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ warning_codes: [], can_send: true }),
+      });
+    }
+    if (path.endsWith("/send")) {
+      sendCalls += 1;
+      replyDraft = {
+        ...replyDraft,
+        status: "sent",
+        sent_message_id: "<reply-sent@example.test>",
+        sent_at: "2026-09-06T10:01:00Z",
+      };
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          draft_id: replyDraft.id,
+          status: "sent",
+          message_id: replyDraft.sent_message_id,
+          warning_codes: [],
+        }),
+      });
+    }
+    if (request.method() === "PATCH") {
+      replyDraft = { ...replyDraft, ...request.postDataJSON() };
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(replyDraft),
+      });
+    }
+    if (request.method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(replyDraft),
+      });
+    }
+    return route.fallback();
+  });
+
+  await page.goto("/app/mail");
+  await page.getByText("Project update", { exact: true }).first().click();
+  await expect(
+    page.getByText("The project update is ready for review."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Reply", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/app\/compose\?draft=reply-draft-1/);
+  await expect(page.getByRole("heading", { name: "Reply" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "To" })).toHaveValue(
+    "sender@example.test",
+  );
+  await expect(page.getByRole("textbox", { name: "Subject" })).toHaveValue(
+    "Re: Project update",
+  );
+  expect(createPayload).toMatchObject({
+    account_id: "acct-1",
+    message_type: "reply",
+    in_reply_to: "<message-42@example.test>",
+    references: ["<message-42@example.test>"],
+    to_recipients: ["sender@example.test"],
+    cc_recipients: [],
+    subject: "Re: Project update",
+  });
+  expect(sendCalls).toBe(0);
+
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText(/Sent/).first()).toBeVisible();
+  expect(sendCalls).toBe(1);
 });
 
 test("composer persists and sends only through explicit user action", async ({
