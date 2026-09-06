@@ -1,5 +1,6 @@
 import type { en } from "./en";
 import type { enDashboard } from "./en-dashboard";
+import type { enDecision } from "./en-decision";
 import type { enMail } from "./en-mail";
 import type { enMailActions } from "./en-mail-actions";
 import type { enNotifications } from "./en-notifications";
@@ -10,6 +11,7 @@ import type { enShell } from "./en-shell";
 export type TranslationKey =
   | keyof typeof en
   | keyof typeof enDashboard
+  | keyof typeof enDecision
   | keyof typeof enMail
   | keyof typeof enMailActions
   | keyof typeof enNotifications
