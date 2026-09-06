@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiError, api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import type { ActionMode, EmailAccount } from "@/lib/types";
 import { useEffect, useState } from "react";
 
@@ -11,13 +12,10 @@ type Props = {
 };
 
 export function ActionPolicyCard({ account, canManage, onSaved }: Props) {
+  const { t } = useI18n();
   const [movePolicy, setMovePolicy] = useState<ActionMode>(account.move_policy);
-  const [archivePolicy, setArchivePolicy] = useState<ActionMode>(
-    account.archive_policy,
-  );
-  const [threshold, setThreshold] = useState(
-    account.action_confidence_threshold,
-  );
+  const [archivePolicy, setArchivePolicy] = useState<ActionMode>(account.archive_policy);
+  const [threshold, setThreshold] = useState(account.action_confidence_threshold);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -41,84 +39,53 @@ export function ActionPolicyCard({ account, canManage, onSaved }: Props) {
         action_confidence_threshold: threshold,
       });
       onSaved(updated);
-      setNotice("Mailbox action policy updated.");
+      setNotice(t("account.actions.saved"));
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Could not update action policy",
-      );
+      setError(err instanceof ApiError ? err.message : t("account.actions.failed"));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="card" style={{ marginBottom: "1.25rem" }}>
-      <h3>Mailbox actions</h3>
-      <p className="muted">
-        Classification is automatic. Moves and archives are applied only after
-        the mailbox safety policy allows them. Delete and send always require an
-        explicit user action.
-      </p>
-
+    <section className="card" style={{ marginBottom: 20 }}>
+      <h2 style={{ marginTop: 0 }}>{t("account.actions.title")}</h2>
+      <p className="muted">{t("account.actions.description")}</p>
       {error && <div className="alert error">{error}</div>}
       {notice && <div className="alert ok">{notice}</div>}
-
-      <div className="field">
-        <label htmlFor="move-policy">Move classified mail</label>
-        <select
-          id="move-policy"
-          value={movePolicy}
-          onChange={(event) => setMovePolicy(event.target.value as ActionMode)}
-        >
-          <option value="automatic">Automatic when safe</option>
-          <option value="review">Always review first</option>
-          <option value="off">Off</option>
-        </select>
-      </div>
-
-      <div className="field">
-        <label htmlFor="archive-policy">Archive actions</label>
-        <select
-          id="archive-policy"
-          value={archivePolicy}
-          onChange={(event) =>
-            setArchivePolicy(event.target.value as ActionMode)
-          }
-        >
-          <option value="off">Off</option>
-          <option value="review">Always review first</option>
-          <option value="automatic">Automatic when safe</option>
-        </select>
-      </div>
-
-      <div className="field">
-        <label htmlFor="action-confidence">
-          Minimum confidence for automatic actions
-        </label>
-        <input
-          id="action-confidence"
-          type="number"
-          min="0"
-          max="1"
-          step="0.01"
-          value={threshold}
-          onChange={(event) => {
-            const value = Number(event.target.value);
-            if (Number.isFinite(value)) setThreshold(value);
-          }}
-        />
-      </div>
-
-      <button
-        type="button"
-        className="btn secondary"
-        disabled={busy || threshold < 0 || threshold > 1}
-        onClick={save}
-      >
-        {busy ? "Saving…" : "Save action policy"}
+      <PolicySelect id="move-policy" label={t("account.actions.move")} value={movePolicy} onChange={setMovePolicy} />
+      <PolicySelect id="archive-policy" label={t("account.actions.archive")} value={archivePolicy} onChange={setArchivePolicy} />
+      <ConfidenceField value={threshold} onChange={setThreshold} />
+      <button className="btn secondary" type="button" disabled={busy || threshold < 0 || threshold > 1} onClick={() => void save()}>
+        {busy ? t("account.actions.saving") : t("account.actions.save")}
       </button>
-    </div>
+    </section>
+  );
+}
+
+function PolicySelect({ id, label, value, onChange }: { id: string; label: string; value: ActionMode; onChange: (value: ActionMode) => void }) {
+  const { t } = useI18n();
+  return (
+    <label className="field" htmlFor={id}>
+      <span>{label}</span>
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value as ActionMode)}>
+        <option value="automatic">{t("account.actions.automatic")}</option>
+        <option value="review">{t("account.actions.review")}</option>
+        <option value="off">{t("account.actions.off")}</option>
+      </select>
+    </label>
+  );
+}
+
+function ConfidenceField({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  const { t } = useI18n();
+  return (
+    <label className="field" htmlFor="action-confidence">
+      <span>{t("account.actions.confidence")}</span>
+      <input id="action-confidence" type="number" min="0" max="1" step="0.01" value={value} onChange={(event) => {
+        const next = Number(event.target.value);
+        if (Number.isFinite(next)) onChange(next);
+      }} />
+    </label>
   );
 }
