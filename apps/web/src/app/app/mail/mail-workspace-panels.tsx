@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n";
+import type { InboxMessage } from "@/lib/types";
 import { useMemo, useState } from "react";
 import styles from "./mail-workspace.module.css";
 import { displayMailDate, messageKey } from "./mail-workspace-utils";
@@ -93,7 +94,7 @@ export function MessageListPane({ state }: { state: WorkspaceState }) {
   );
 }
 
-function MessageRow({ state, message }: { state: WorkspaceState; message: WorkspaceState["inbox"] extends infer T ? NonNullable<T> extends { messages: infer M extends unknown[] } ? M[number] : never : never }) {
+function MessageRow({ state, message }: { state: WorkspaceState; message: InboxMessage }) {
   const { t } = useI18n();
   const key = messageKey(message);
   return (
@@ -113,19 +114,19 @@ function MessageRow({ state, message }: { state: WorkspaceState; message: Worksp
   );
 }
 
-function startMessageDrag(event: React.DragEvent, state: WorkspaceState, message: Parameters<WorkspaceState["selectionForDrag"]>[0]) {
+function startMessageDrag(event: React.DragEvent, state: WorkspaceState, message: InboxMessage) {
   const selected = state.selectionForDrag(message);
   state.setDragMessages(selected);
   event.dataTransfer.effectAllowed = "move";
   event.dataTransfer.setData("text/plain", selected.map(messageKey).join(","));
 }
 
-function openRowMenu(event: React.MouseEvent, state: WorkspaceState, message: Parameters<WorkspaceState["openMessage"]>[0]) {
+function openRowMenu(event: React.MouseEvent, state: WorkspaceState, message: InboxMessage) {
   event.preventDefault();
   void state.openContextMenuAt(message, { x: Math.min(event.clientX, window.innerWidth - 240), y: Math.min(event.clientY, window.innerHeight - 280) });
 }
 
-function filterMessages(messages: NonNullable<WorkspaceState["inbox"]>["messages"], query: string) {
+function filterMessages(messages: InboxMessage[], query: string) {
   const needle = query.trim().toLowerCase();
   if (!needle) return messages;
   return messages.filter((message) => `${message.from_email} ${message.subject}`.toLowerCase().includes(needle));
