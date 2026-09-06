@@ -1,7 +1,6 @@
 "use client";
 
 import { WizardShell, wizardStyles as w } from "@/components/wizard-shell";
-import type { FormEvent } from "react";
 import styles from "./onboarding.module.css";
 import {
   type OnboardingController,
