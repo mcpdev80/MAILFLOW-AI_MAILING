@@ -55,6 +55,16 @@ choose_tls() {
   printf '%s' "${value:-1}"
 }
 
+detect_system_language() {
+  local locale="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+  locale="${locale,,}"
+  case "$locale" in
+    de*|*de_de*) printf 'de' ;;
+    es*|*es_es*) printf 'es' ;;
+    *) printf 'en' ;;
+  esac
+}
+
 resolve_path() {
   local value="$1" base="$2"
   case "$value" in
@@ -233,6 +243,7 @@ choose_url_from_certificate() {
   fi
 }
 
+INSTALL_LANGUAGE="$(detect_system_language)"
 say "Mailflow guided installer"
 printf '%s\n' "As little as possible, as much as necessary."
 need git "git is required. Please install git and run this command again."
@@ -263,7 +274,7 @@ case "$TLS_MODE" in
   *) fail "Invalid TLS choice. Use 1 or 2." ;;
 esac
 
-printf '\nValidated configuration:\n  Install directory:  %s\n  Public URL:         %s\n' "$INSTALL_DIR" "$PUBLIC_URL"
+printf '\nValidated configuration:\n  Install directory:  %s\n  Public URL:         %s\n  Language:           %s\n' "$INSTALL_DIR" "$PUBLIC_URL" "$INSTALL_LANGUAGE"
 if [ "$TLS_MODE" = "custom" ]; then printf '  Certificate folder: %s\n' "$TLS_SOURCE_DIR"; else printf '  TLS:                automatic\n'; fi
 
 if [ -d "$INSTALL_DIR/.git" ]; then
@@ -278,6 +289,9 @@ ensure_env_secret BETTER_AUTH_SECRET secret_hex "$ENV_FILE"
 ensure_env_secret WEB_SECRET_KEY secret_hex "$ENV_FILE"
 ensure_env_secret INTERNAL_API_SECRET secret_hex "$ENV_FILE"
 ensure_env_secret POSTGRES_PASSWORD secret_hex "$ENV_FILE"
+set_env MAILFLOW_DEPLOYMENT_SOURCE "cli" "$ENV_FILE"
+set_env MAILFLOW_BOOTSTRAP_LANGUAGE "$INSTALL_LANGUAGE" "$ENV_FILE"
+set_env MAILFLOW_TLS_MODE "$TLS_MODE" "$ENV_FILE"
 set_env MAILFLOW_PUBLIC_URL "$PUBLIC_URL" "$ENV_FILE"
 set_env AUTH_MODE "single" "$ENV_FILE"; set_env WEB_AUTH "on" "$ENV_FILE"; set_env API_INTERNAL_URL "http://api:8000" "$ENV_FILE"; set_env API_DOCS_ENABLED "false" "$ENV_FILE"; set_env WORKER_MAX_EMAILS_PER_CYCLE "10" "$ENV_FILE"
 if [ "$TLS_MODE" = "custom" ]; then
