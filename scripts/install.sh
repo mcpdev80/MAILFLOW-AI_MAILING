@@ -73,7 +73,7 @@ if is_mailflow_install "$DEFAULT_INSTALL"; then
       git -C "$DEFAULT_INSTALL" fetch origin "$BRANCH"
       git -C "$DEFAULT_INSTALL" checkout "$BRANCH"
       git -C "$DEFAULT_INSTALL" pull --ff-only origin "$BRANCH"
-      exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
+      MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
       ;;
     2)
       printf '\n%s\n' "$(msg new_hint)"
