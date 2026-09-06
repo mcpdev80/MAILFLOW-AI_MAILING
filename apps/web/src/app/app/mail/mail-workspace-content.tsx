@@ -87,7 +87,7 @@ function ActionToolbar({
             void state.runActionFor(selected, { action: "archive" })
           }
         >
-          {t("mailActions.archive")}
+          {t("mail.action.archive")}
         </button>
       )}
       {capabilities?.move && <MoveControls state={state} />}
@@ -97,7 +97,7 @@ function ActionToolbar({
           className={styles.toolbarButton}
           onClick={() => addTag(state, t("mail.tagPrompt"))}
         >
-          {t("mailActions.organize")}
+          {t("mail.group.organize")}
         </button>
       )}
       {capabilities?.trash && (
