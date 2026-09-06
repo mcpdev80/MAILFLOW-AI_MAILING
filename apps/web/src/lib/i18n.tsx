@@ -27,6 +27,7 @@ import { deModelSettings } from "./locales/de-model-settings";
 import { deNotifications } from "./locales/de-notifications";
 import { deOnboarding } from "./locales/de-onboarding";
 import { deOperations } from "./locales/de-operations";
+import { deRules } from "./locales/de-rules";
 import { deSearch } from "./locales/de-search";
 import { deSecurity } from "./locales/de-security";
 import { deSettings } from "./locales/de-settings";
@@ -48,6 +49,7 @@ import { enModelSettings } from "./locales/en-model-settings";
 import { enNotifications } from "./locales/en-notifications";
 import { enOnboarding } from "./locales/en-onboarding";
 import { enOperations } from "./locales/en-operations";
+import { enRules } from "./locales/en-rules";
 import { enSearch } from "./locales/en-search";
 import { enSecurity } from "./locales/en-security";
 import { enSettings } from "./locales/en-settings";
@@ -69,6 +71,7 @@ import { esModelSettings } from "./locales/es-model-settings";
 import { esNotifications } from "./locales/es-notifications";
 import { esOnboarding } from "./locales/es-onboarding";
 import { esOperations } from "./locales/es-operations";
+import { esRules } from "./locales/es-rules";
 import { esSearch } from "./locales/es-search";
 import { esSecurity } from "./locales/es-security";
 import { esSettings } from "./locales/es-settings";
@@ -103,6 +106,7 @@ const fallback = {
   ...enNotifications,
   ...enOnboarding,
   ...enOperations,
+  ...enRules,
   ...enSearch,
   ...enSecurity,
   ...enSettings,
@@ -127,6 +131,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...deNotifications,
     ...deOnboarding,
     ...deOperations,
+    ...deRules,
     ...deSearch,
     ...deSecurity,
     ...deSettings,
@@ -151,6 +156,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...esNotifications,
     ...esOnboarding,
     ...esOperations,
+    ...esRules,
     ...esSearch,
     ...esSecurity,
     ...esSettings,
