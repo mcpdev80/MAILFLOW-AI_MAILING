@@ -2,6 +2,7 @@
 
 import { api } from "@/lib/api";
 import { attentionApi } from "@/lib/attention-api";
+import { useAppearance } from "@/lib/appearance-preferences";
 import { useSession } from "@/lib/auth-client";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import Link from "next/link";
@@ -110,7 +111,7 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
   );
 }
 
-function StatusHeader({ state }: { state: ShellState }) {
+function StatusPill({ state }: { state: ShellState }) {
   const { t } = useI18n();
   const statusText =
     state.healthy == null
@@ -119,16 +120,21 @@ function StatusHeader({ state }: { state: ShellState }) {
         ? t("shell.operational")
         : t("shell.degraded");
   return (
+    <div className={styles.statusWrap}>
+      <span className={styles.statusLabel}>{t("shell.systemStatus")}:</span>
+      <span className={`${styles.status} ${state.healthy === false ? styles.statusDegraded : ""}`}>
+        <span className={styles.statusDot} aria-hidden="true" />
+        {statusText}
+      </span>
+    </div>
+  );
+}
+
+function Header({ state, showStatus }: { state: ShellState; showStatus: boolean }) {
+  const { t } = useI18n();
+  return (
     <header className={styles.header}>
-      <div className={styles.statusWrap}>
-        <span className={styles.statusLabel}>{t("shell.systemStatus")}:</span>
-        <span
-          className={`${styles.status} ${state.healthy === false ? styles.statusDegraded : ""}`}
-        >
-          <span className={styles.statusDot} aria-hidden="true" />
-          {statusText}
-        </span>
-      </div>
+      {showStatus ? <StatusPill state={state} /> : <span />}
       <div className={styles.headerActions}>
         <Link
           href="/app/notifications"
@@ -147,12 +153,22 @@ function StatusHeader({ state }: { state: ShellState }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const state = useShellState();
+  const appearance = useAppearance();
+  const statusPosition =
+    appearance.workspaceLayout === "custom"
+      ? appearance.workspaceCustomConfig?.system_status_position ?? "top"
+      : "top";
   return (
     <div className={styles.shell}>
       <Sidebar reviewCount={state.reviewCount} />
       <div className={styles.content}>
-        <StatusHeader state={state} />
+        <Header state={state} showStatus={statusPosition === "top"} />
         <div className={styles.main}>{children}</div>
+        {statusPosition === "bottom" && (
+          <footer className={styles.statusFooter}>
+            <StatusPill state={state} />
+          </footer>
+        )}
       </div>
     </div>
   );
