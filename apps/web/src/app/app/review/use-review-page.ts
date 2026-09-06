@@ -27,35 +27,39 @@ export function useReviewPage() {
     void load();
   }, [load]);
 
-  const apply = useCallback(
-    async (item: ReviewItem, payload: ReviewCorrection) => {
-      await runBusy(item.id, () => attentionApi.correctReview(item.id, payload));
+  const runBusy = useCallback(
+    async (id: string, action: () => Promise<unknown>) => {
+      setBusy(id);
+      setError(null);
+      try {
+        await action();
+        await load();
+      } catch (err) {
+        setError(messageOf(err));
+      } finally {
+        setBusy(null);
+      }
     },
     [load],
+  );
+
+  const apply = useCallback(
+    (item: ReviewItem, payload: ReviewCorrection) =>
+      runBusy(item.id, () => attentionApi.correctReview(item.id, payload)),
+    [runBusy],
   );
 
   const retry = useCallback(
-    async (item: OperationalReviewItem) => {
-      if (item.source_type !== "backfill_failure" || !item.job_id) return;
-      await runBusy(item.id, () =>
+    (item: OperationalReviewItem) => {
+      if (item.source_type !== "backfill_failure" || !item.job_id) {
+        return Promise.resolve();
+      }
+      return runBusy(item.id, () =>
         attentionApi.retryBackfillFailure(item.account_id, item.job_id!, item.id),
       );
     },
-    [load],
+    [runBusy],
   );
-
-  async function runBusy(id: string, action: () => Promise<unknown>) {
-    setBusy(id);
-    setError(null);
-    try {
-      await action();
-      await load();
-    } catch (err) {
-      setError(messageOf(err));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   const isEmpty = useMemo(
     () => data !== null && data.items.length === 0 && data.operational.length === 0,
