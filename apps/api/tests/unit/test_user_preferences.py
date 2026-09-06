@@ -50,6 +50,7 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
     assert initial.theme == "system"
     assert initial.density == "comfortable"
     assert initial.workspace_layout == "classic"
+    assert initial.side_panel_alignment == "left"
     assert initial.workspace_custom_config is None
 
     saved = await update_user_preferences(
@@ -60,6 +61,7 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
             theme="dark",
             density="compact",
             workspace_layout="custom",
+            side_panel_alignment="right",
             workspace_custom_config=_custom_layout(),
         ),
     )
@@ -68,6 +70,7 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
     assert saved.theme == "dark"
     assert saved.density == "compact"
     assert saved.workspace_layout == "custom"
+    assert saved.side_panel_alignment == "right"
     assert saved.workspace_custom_config is not None
     assert saved.workspace_custom_config.panels[2].panel == "message_list"
     assert saved.workspace_custom_config.message_content_overlay is True
@@ -77,6 +80,7 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
     assert loaded_b.locale_configured is False
     assert loaded_b.theme == "system"
     assert loaded_b.workspace_layout == "classic"
+    assert loaded_b.side_panel_alignment == "left"
     assert loaded_b.workspace_custom_config is None
 
 
@@ -89,7 +93,11 @@ async def test_partial_workspace_update_preserves_locale(session) -> None:
     updated = await update_user_preferences(
         session,
         identity,
-        UserPreferencesUpdate(theme="light", workspace_layout="vertical"),
+        UserPreferencesUpdate(
+            theme="light",
+            workspace_layout="vertical",
+            side_panel_alignment="right",
+        ),
     )
 
     assert updated.locale == "es"
@@ -97,6 +105,7 @@ async def test_partial_workspace_update_preserves_locale(session) -> None:
     assert updated.theme == "light"
     assert updated.density == "comfortable"
     assert updated.workspace_layout == "vertical"
+    assert updated.side_panel_alignment == "right"
 
 
 @pytest.mark.asyncio
@@ -114,6 +123,7 @@ async def test_single_user_preferences_use_stable_actor_key(session) -> None:
     assert loaded.locale_configured is True
     assert loaded.theme == "dark"
     assert loaded.density == "compact"
+    assert loaded.side_panel_alignment == "left"
 
 
 def test_custom_workspace_requires_each_panel_once() -> None:
