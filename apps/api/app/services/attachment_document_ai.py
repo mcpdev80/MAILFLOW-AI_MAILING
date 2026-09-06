@@ -123,7 +123,9 @@ def analyze_attachment_document(
                 tags=tags,
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-            raise ClassificationError(f"Invalid attachment document response: {raw!r}") from exc
+            raise ClassificationError(
+                f"Invalid attachment document response: {raw!r}"
+            ) from exc
 
     result, _role = client._call_classification(messages, "deep", parse)
     return result

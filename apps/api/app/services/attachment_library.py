@@ -152,7 +152,10 @@ async def _apply_attachment_memory(
                 continue
             if memory.document_type and memory.document_type != document_type:
                 continue
-            if memory.filename_pattern and memory.filename_pattern.lower() not in filename_lower:
+            if (
+                memory.filename_pattern
+                and memory.filename_pattern.lower() not in filename_lower
+            ):
                 continue
             matching.append(memory)
 
@@ -277,7 +280,9 @@ async def ingest_message_attachments(
                 provider.fetch_attachment_content, email_data.uid, attachment
             )
             stored = await asyncio.to_thread(storage.put, account.org_id, payload)
-            extracted_text = await asyncio.to_thread(_extracted_text, attachment, payload)
+            extracted_text = await asyncio.to_thread(
+                _extracted_text, attachment, payload
+            )
             document = await repo.get_or_create_document(
                 org_id=account.org_id,
                 content_sha256=stored.content_sha256,

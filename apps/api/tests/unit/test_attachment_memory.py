@@ -147,8 +147,12 @@ async def test_attachment_memory_never_overwrites_corrected_placement(session):
         ai_tags=["invoice"],
     )
     session.add(document)
-    manual = AttachmentFolder(org_id=org.id, owner_scope="user-a", name="Manual", managed_by="user")
-    learned = AttachmentFolder(org_id=org.id, owner_scope="user-a", name="Learned", managed_by="user")
+    manual = AttachmentFolder(
+        org_id=org.id, owner_scope="user-a", name="Manual", managed_by="user"
+    )
+    learned = AttachmentFolder(
+        org_id=org.id, owner_scope="user-a", name="Learned", managed_by="user"
+    )
     session.add_all([manual, learned])
     await session.flush()
     session.add(

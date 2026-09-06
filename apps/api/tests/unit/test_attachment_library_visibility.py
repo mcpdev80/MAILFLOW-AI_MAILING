@@ -99,7 +99,10 @@ async def test_private_attachment_is_invisible_to_other_org_user(session):
 
     assert [row[0].id for row in rows_a] == [document.id]
     assert rows_b == []
-    assert await repo.get_accessible_document(_identity(org, "user-b"), document.id) is None
+    assert (
+        await repo.get_accessible_document(_identity(org, "user-b"), document.id)
+        is None
+    )
 
 
 @pytest.mark.asyncio
@@ -134,8 +137,12 @@ async def test_deduplicated_document_exposes_only_callers_authorized_sources(ses
     assert detail_b is not None
     assert [source.id for source in detail_a[2]] == [source_a.id]
     assert [source.id for source in detail_b[2]] == [source_b.id]
-    assert [source.source_filename for source in detail_a[2]] == ["alice-private-name.pdf"]
-    assert [source.source_filename for source in detail_b[2]] == ["bob-visible-name.pdf"]
+    assert [source.source_filename for source in detail_a[2]] == [
+        "alice-private-name.pdf"
+    ]
+    assert [source.source_filename for source in detail_b[2]] == [
+        "bob-visible-name.pdf"
+    ]
 
     rows_a = await repo.list_accessible_documents(_identity(org, "user-a"))
     rows_b = await repo.list_accessible_documents(_identity(org, "user-b"))
@@ -158,7 +165,9 @@ async def test_deduplicated_document_exposes_only_callers_authorized_sources(ses
 
 @pytest.mark.asyncio
 async def test_shared_attachment_requires_explicit_can_use_grant(session):
-    org = Organization(name="Attachment shared visibility", slug=f"att-shared-{uuid4()}")
+    org = Organization(
+        name="Attachment shared visibility", slug=f"att-shared-{uuid4()}"
+    )
     session.add(org)
     await session.flush()
     shared = EmailAccount(

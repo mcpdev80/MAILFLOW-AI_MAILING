@@ -45,10 +45,15 @@ def _item(
         ai_category=document.ai_category,
         ai_subcategory=document.ai_subcategory,
         ai_confidence=document.ai_confidence,
-        category=(placement.category_override if placement else None) or document.ai_category,
+        category=(placement.category_override if placement else None)
+        or document.ai_category,
         subcategory=(placement.subcategory_override if placement else None)
         or document.ai_subcategory,
-        tags=list(dict.fromkeys([*document.ai_tags, *(placement.user_tags if placement else [])])),
+        tags=list(
+            dict.fromkeys(
+                [*document.ai_tags, *(placement.user_tags if placement else [])]
+            )
+        ),
         folder_id=placement.folder_id if placement else None,
         source_count=source_count,
         created_at=document.created_at,
@@ -110,8 +115,13 @@ async def create_attachment_folder(
     session: AsyncSession = Depends(get_session),
 ) -> object:
     repo = AttachmentLibraryRepository(session)
-    if payload.parent_id is not None and await repo.get_folder(identity, payload.parent_id) is None:
-        raise HTTPException(status_code=404, detail="attachment_parent_folder_not_found")
+    if (
+        payload.parent_id is not None
+        and await repo.get_folder(identity, payload.parent_id) is None
+    ):
+        raise HTTPException(
+            status_code=404, detail="attachment_parent_folder_not_found"
+        )
     folder = await repo.create_folder(
         identity,
         name=payload.name.strip(),
@@ -136,8 +146,13 @@ async def update_attachment_folder(
         raise HTTPException(status_code=404, detail="attachment_folder_not_found")
     if payload.parent_id == folder_id:
         raise HTTPException(status_code=422, detail="attachment_folder_self_parent")
-    if payload.parent_id is not None and await repo.get_folder(identity, payload.parent_id) is None:
-        raise HTTPException(status_code=404, detail="attachment_parent_folder_not_found")
+    if (
+        payload.parent_id is not None
+        and await repo.get_folder(identity, payload.parent_id) is None
+    ):
+        raise HTTPException(
+            status_code=404, detail="attachment_parent_folder_not_found"
+        )
     if payload.name is not None:
         folder.name = payload.name.strip()
         folder.managed_by = "user"
@@ -212,7 +227,10 @@ async def correct_attachment_organization(
     if result is None:
         raise HTTPException(status_code=404, detail="attachment_not_found")
     document, _placement, sources = result
-    if payload.folder_id is not None and await repo.get_folder(identity, payload.folder_id) is None:
+    if (
+        payload.folder_id is not None
+        and await repo.get_folder(identity, payload.folder_id) is None
+    ):
         raise HTTPException(status_code=404, detail="attachment_folder_not_found")
 
     tags = list(dict.fromkeys(tag.strip() for tag in payload.tags if tag.strip()))
@@ -221,7 +239,9 @@ async def correct_attachment_organization(
         document_id,
         folder_id=payload.folder_id,
         category_override=payload.category.strip() if payload.category else None,
-        subcategory_override=payload.subcategory.strip() if payload.subcategory else None,
+        subcategory_override=payload.subcategory.strip()
+        if payload.subcategory
+        else None,
         user_tags=tags,
         corrected=True,
     )
@@ -268,8 +288,12 @@ async def download_attachment_document(
     try:
         payload = await asyncio.to_thread(attachment_storage.read, document.storage_key)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="attachment_binary_not_found") from exc
-    display_name = sources[0].source_filename if sources else document.canonical_filename
+        raise HTTPException(
+            status_code=404, detail="attachment_binary_not_found"
+        ) from exc
+    display_name = (
+        sources[0].source_filename if sources else document.canonical_filename
+    )
     filename = quote(display_name, safe="")
     return Response(
         content=payload,

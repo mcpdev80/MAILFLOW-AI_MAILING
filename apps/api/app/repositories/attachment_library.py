@@ -160,7 +160,9 @@ class AttachmentLibraryRepository:
                 AttachmentPlacement,
                 func.count(AttachmentSource.id).label("source_count"),
             )
-            .join(AttachmentSource, AttachmentSource.document_id == AttachmentDocument.id)
+            .join(
+                AttachmentSource, AttachmentSource.document_id == AttachmentDocument.id
+            )
             .join(EmailAccount, EmailAccount.id == AttachmentSource.account_id)
             .outerjoin(AttachmentPlacement, placement_join)
             .where(
@@ -185,7 +187,9 @@ class AttachmentLibraryRepository:
                 == category
             )
         if document_type:
-            statement = statement.where(AttachmentDocument.document_type == document_type)
+            statement = statement.where(
+                AttachmentDocument.document_type == document_type
+            )
         if mime_type:
             statement = statement.where(AttachmentDocument.mime_type == mime_type)
         if query and query.strip():
@@ -203,12 +207,18 @@ class AttachmentLibraryRepository:
 
     async def get_accessible_document(
         self, identity: RequestIdentity, document_id: UUID
-    ) -> tuple[AttachmentDocument, AttachmentPlacement | None, list[AttachmentSource]] | None:
+    ) -> (
+        tuple[AttachmentDocument, AttachmentPlacement | None, list[AttachmentSource]]
+        | None
+    ):
         scope = attachment_owner_scope(identity)
         row = (
             await self.session.execute(
                 select(AttachmentDocument, AttachmentPlacement)
-                .join(AttachmentSource, AttachmentSource.document_id == AttachmentDocument.id)
+                .join(
+                    AttachmentSource,
+                    AttachmentSource.document_id == AttachmentDocument.id,
+                )
                 .join(EmailAccount, EmailAccount.id == AttachmentSource.account_id)
                 .outerjoin(
                     AttachmentPlacement,

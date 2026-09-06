@@ -14,7 +14,9 @@ class AttachmentLibrarySettings(BaseSettings):
     ATTACHMENT_LIBRARY_AI_THRESHOLD: float = Field(default=0.80, ge=0.0, le=1.0)
     ATTACHMENT_LIBRARY_AI_MIN_TEXT_CHARS: int = Field(default=120, ge=1)
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 attachment_library_settings = AttachmentLibrarySettings()

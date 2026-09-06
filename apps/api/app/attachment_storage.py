@@ -23,9 +23,15 @@ class StoredAttachment:
 class AttachmentStorage:
     """Store one immutable binary per organization/content hash."""
 
-    def __init__(self, root: str | Path | None = None, *, max_bytes: int | None = None) -> None:
-        self.root = Path(root or attachment_library_settings.ATTACHMENT_LIBRARY_STORAGE_PATH)
-        self.max_bytes = max_bytes or attachment_library_settings.ATTACHMENT_LIBRARY_MAX_BYTES
+    def __init__(
+        self, root: str | Path | None = None, *, max_bytes: int | None = None
+    ) -> None:
+        self.root = Path(
+            root or attachment_library_settings.ATTACHMENT_LIBRARY_STORAGE_PATH
+        )
+        self.max_bytes = (
+            max_bytes or attachment_library_settings.ATTACHMENT_LIBRARY_MAX_BYTES
+        )
 
     def put(self, org_id: UUID, payload: bytes) -> StoredAttachment:
         if len(payload) > self.max_bytes:

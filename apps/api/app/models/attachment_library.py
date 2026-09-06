@@ -137,8 +137,12 @@ class AttachmentPlacement(Base):
     )
     category_override: Mapped[str | None] = mapped_column(String(100), nullable=True)
     subcategory_override: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    user_tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
-    corrected: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    user_tags: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default="[]"
+    )
+    corrected: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -179,7 +183,9 @@ class AttachmentSource(Base):
     thread_id: Mapped[str | None] = mapped_column(String(500), nullable=True)
     from_email: Mapped[str] = mapped_column(String(500))
     subject: Mapped[str] = mapped_column(Text, default="", server_default="")
-    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    received_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     source_filename: Mapped[str] = mapped_column(String(500))
     mime_type: Mapped[str] = mapped_column(String(255))
     size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
