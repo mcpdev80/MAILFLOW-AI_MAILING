@@ -45,16 +45,26 @@ class AttachmentDocumentListItem(BaseModel):
 
 
 class AttachmentDocumentDetail(AttachmentDocumentListItem):
-    extracted_text: str | None
+    extracted_text: str | None = None
     sources: list[AttachmentSourceOut]
 
 
-class AttachmentCorrection(BaseModel):
-    folder_id: UUID | None = None
-    category: str | None = Field(default=None, max_length=100)
-    subcategory: str | None = Field(default=None, max_length=150)
-    tags: list[str] = Field(default_factory=list, max_length=50)
-    remember: bool = False
+class BlockedAttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    account_id: UUID
+    uid: int
+    folder: str
+    message_id: str | None
+    from_email: str
+    subject: str
+    received_at: datetime | None
+    source_filename: str
+    mime_type: str
+    size_bytes: int | None
+    safety_reason: str | None
+    created_at: datetime
 
 
 class AttachmentFolderCreate(BaseModel):
@@ -80,19 +90,9 @@ class AttachmentFolderOut(BaseModel):
     updated_at: datetime
 
 
-class BlockedAttachmentOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    account_id: UUID
-    uid: int
-    folder: str
-    message_id: str | None
-    from_email: str
-    subject: str
-    received_at: datetime | None
-    source_filename: str
-    mime_type: str
-    size_bytes: int | None
-    safety_reason: str | None
-    created_at: datetime
+class AttachmentCorrection(BaseModel):
+    folder_id: UUID | None = None
+    category: str | None = Field(default=None, max_length=100)
+    subcategory: str | None = Field(default=None, max_length=150)
+    tags: list[str] = Field(default_factory=list, max_length=50)
+    remember: bool = False
