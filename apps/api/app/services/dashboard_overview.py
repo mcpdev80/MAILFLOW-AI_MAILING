@@ -6,7 +6,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import and_, case, cast, func, or_, select, String
+from sqlalchemy import String, and_, case, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import RequestIdentity
@@ -37,66 +37,49 @@ def _time_window(range_days: int) -> tuple[datetime, datetime, datetime]:
     return now, today_start, range_start
 
 
+def _count(label: str, predicate=None):
+    value = func.count(ProcessedEmail.id)
+    if predicate is not None:
+        value = value.filter(predicate)
+    return value.label(label)
+
+
+def _counter_columns(range_start: datetime, today_start: datetime):
+    no_memory = ProcessedEmail.decision_memory_id.is_(None)
+    pending = or_(
+        ProcessedEmail.action_review_required.is_(True),
+        ProcessedEmail.mailbox_action_status.in_(PENDING_STATES),
+    )
+    automated = and_(
+        ProcessedEmail.mailbox_action.in_(AUTOMATED_ACTIONS),
+        ProcessedEmail.mailbox_action_status == "execute",
+    )
+    fast = and_(
+        no_memory,
+        or_(
+            ProcessedEmail.classification_stage.is_(None),
+            ProcessedEmail.classification_stage <= 1,
+        ),
+    )
+    deep = and_(no_memory, ProcessedEmail.classification_stage >= 2)
+    return (
+        _count("total_processed"),
+        _count("processed_range", ProcessedEmail.processed_at >= range_start),
+        _count("processed_today", ProcessedEmail.processed_at >= today_start),
+        _count("pending_or_queued", pending),
+        _count("review_required", ProcessedEmail.review_required.is_(True)),
+        _count("urgent", ProcessedEmail.urgency.in_(("immediate", "today"))),
+        _count("action_required", ProcessedEmail.action_required == "yes"),
+        _count("failed_or_deferred", ProcessedEmail.mailbox_action_status.in_(FAILED_STATES)),
+        _count("automated_actions", automated),
+        _count("decision_memory", ProcessedEmail.decision_memory_id.is_not(None)),
+        _count("fast_model", fast),
+        _count("deep_model", deep),
+    )
+
+
 async def _counter_row(session: AsyncSession, scope, range_start, today_start):
-    query = select(
-        func.count(ProcessedEmail.id).label("total_processed"),
-        func.count(ProcessedEmail.id)
-        .filter(ProcessedEmail.processed_at >= range_start)
-        .label("processed_range"),
-        func.count(ProcessedEmail.id)
-        .filter(ProcessedEmail.processed_at >= today_start)
-        .label("processed_today"),
-        func.count(ProcessedEmail.id)
-        .filter(
-            or_(
-                ProcessedEmail.action_review_required.is_(True),
-                ProcessedEmail.mailbox_action_status.in_(PENDING_STATES),
-            )
-        )
-        .label("pending_or_queued"),
-        func.count(ProcessedEmail.id)
-        .filter(ProcessedEmail.review_required.is_(True))
-        .label("review_required"),
-        func.count(ProcessedEmail.id)
-        .filter(ProcessedEmail.urgency.in_(("immediate", "today")))
-        .label("urgent"),
-        func.count(ProcessedEmail.id)
-        .filter(ProcessedEmail.action_required == "yes")
-        .label("action_required"),
-        func.count(ProcessedEmail.id)
-        .filter(ProcessedEmail.mailbox_action_status.in_(FAILED_STATES))
-        .label("failed_or_deferred"),
-        func.count(ProcessedEmail.id)
-        .filter(
-            and_(
-                ProcessedEmail.mailbox_action.in_(AUTOMATED_ACTIONS),
-                ProcessedEmail.mailbox_action_status == "execute",
-            )
-        )
-        .label("automated_actions"),
-        func.count(ProcessedEmail.id)
-        .filter(ProcessedEmail.decision_memory_id.is_not(None))
-        .label("decision_memory"),
-        func.count(ProcessedEmail.id)
-        .filter(
-            and_(
-                ProcessedEmail.decision_memory_id.is_(None),
-                or_(
-                    ProcessedEmail.classification_stage.is_(None),
-                    ProcessedEmail.classification_stage <= 1,
-                ),
-            )
-        )
-        .label("fast_model"),
-        func.count(ProcessedEmail.id)
-        .filter(
-            and_(
-                ProcessedEmail.decision_memory_id.is_(None),
-                ProcessedEmail.classification_stage >= 2,
-            )
-        )
-        .label("deep_model"),
-    ).where(scope)
+    query = select(*_counter_columns(range_start, today_start)).where(scope)
     return (await session.execute(query)).one()
 
 
@@ -105,12 +88,10 @@ async def _build_counters(
 ) -> DashboardCounters:
     row = await _counter_row(session, scope, range_start, today_start)
     active_backfills = int(
-        (
-            await session.scalar(
-                select(func.count(BackfillJob.id)).where(
-                    BackfillJob.account_id.in_(account_ids),
-                    BackfillJob.state.in_(ACTIVE_BACKFILL_STATES),
-                )
+        await session.scalar(
+            select(func.count(BackfillJob.id)).where(
+                BackfillJob.account_id.in_(account_ids),
+                BackfillJob.state.in_(ACTIVE_BACKFILL_STATES),
             )
         )
         or 0
@@ -131,13 +112,9 @@ async def _build_trend(
         await session.execute(
             select(
                 day_expr.label("day"),
-                func.count(ProcessedEmail.id).label("processed"),
-                func.count(ProcessedEmail.id)
-                .filter(ProcessedEmail.review_required.is_(True))
-                .label("review"),
-                func.count(ProcessedEmail.id)
-                .filter(ProcessedEmail.mailbox_action_status.in_(FAILED_STATES))
-                .label("failures"),
+                _count("processed"),
+                _count("review", ProcessedEmail.review_required.is_(True)),
+                _count("failures", ProcessedEmail.mailbox_action_status.in_(FAILED_STATES)),
             )
             .where(scope, ProcessedEmail.processed_at >= range_start)
             .group_by(func.date(ProcessedEmail.processed_at))
@@ -199,24 +176,17 @@ async def _build_breakdowns(
 
 
 async def _mailbox_counts(session: AsyncSession, scope, today_start: datetime) -> dict:
+    pending = or_(
+        ProcessedEmail.action_review_required.is_(True),
+        ProcessedEmail.mailbox_action_status.in_(PENDING_STATES),
+    )
     rows = (
         await session.execute(
             select(
                 ProcessedEmail.account_id,
-                func.count(ProcessedEmail.id)
-                .filter(ProcessedEmail.processed_at >= today_start)
-                .label("processed_today"),
-                func.count(ProcessedEmail.id)
-                .filter(ProcessedEmail.review_required.is_(True))
-                .label("review_count"),
-                func.count(ProcessedEmail.id)
-                .filter(
-                    or_(
-                        ProcessedEmail.action_review_required.is_(True),
-                        ProcessedEmail.mailbox_action_status.in_(PENDING_STATES),
-                    )
-                )
-                .label("pending_count"),
+                _count("processed_today", ProcessedEmail.processed_at >= today_start),
+                _count("review_count", ProcessedEmail.review_required.is_(True)),
+                _count("pending_count", pending),
             )
             .where(scope)
             .group_by(ProcessedEmail.account_id)
@@ -225,7 +195,9 @@ async def _mailbox_counts(session: AsyncSession, scope, today_start: datetime) -
     return {row.account_id: row for row in rows}
 
 
-async def _backfills(session: AsyncSession, account_ids: list[UUID]) -> dict[UUID, BackfillJob]:
+async def _backfills(
+    session: AsyncSession, account_ids: list[UUID]
+) -> dict[UUID, BackfillJob]:
     rows = (
         await session.execute(
             select(BackfillJob)
