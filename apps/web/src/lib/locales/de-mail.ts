@@ -62,4 +62,9 @@ export const deMail = {
   "mail.noDeadline": "Keine Frist erkannt.",
   "mail.translation": "Übersetzung",
   "mail.messageDetails": "Nachrichtendetails",
+  "mail.print": "Drucken",
+  "mail.printInvalid": "Ungültige Druckanfrage.",
+  "mail.from": "Von",
+  "mail.date": "Datum",
+  "mail.attachmentsLabel": "Anhänge",
 } as const;
