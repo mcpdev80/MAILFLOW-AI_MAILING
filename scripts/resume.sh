@@ -38,9 +38,10 @@ public_port() {
   fi
 }
 show_success() {
-  local language public_url
+  local language public_url tls_mode
   language="$(get_env MAILFLOW_BOOTSTRAP_LANGUAGE "$ENV_FILE")"
   public_url="$(get_env MAILFLOW_PUBLIC_URL "$ENV_FILE")"
+  tls_mode="$(get_env MAILFLOW_TLS_MODE "$ENV_FILE")"
   [ -n "$public_url" ] || public_url="https://localhost"
 
   case "$language" in
@@ -49,6 +50,10 @@ show_success() {
       printf '  Mailflow ist bereit!\n'
       printf '========================================\n\n'
       printf 'Öffnen:\n  %s\n\n' "$public_url"
+      if [ "$tls_mode" = "custom" ]; then
+        printf 'Wichtig bei benutzerdefiniertem TLS:\n'
+        printf '  Verwende genau den Hostnamen aus der URL oben, nicht die Server-IP.\n\n'
+      fi
       printf 'Als Nächstes:\n'
       printf '  1. Öffne den Link im Browser.\n'
       printf '  2. Melde dich an bzw. lege beim ersten Start deinen Benutzer an.\n'
@@ -61,6 +66,10 @@ show_success() {
       printf '  Mailflow está listo!\n'
       printf '========================================\n\n'
       printf 'Abrir:\n  %s\n\n' "$public_url"
+      if [ "$tls_mode" = "custom" ]; then
+        printf 'Importante con TLS personalizado:\n'
+        printf '  Usa exactamente el nombre de host de la URL anterior, no la IP del servidor.\n\n'
+      fi
       printf 'Siguiente:\n'
       printf '  1. Abre el enlace en el navegador.\n'
       printf '  2. Inicia sesión o crea tu primer usuario.\n'
@@ -73,6 +82,10 @@ show_success() {
       printf '  Mailflow is ready!\n'
       printf '========================================\n\n'
       printf 'Open:\n  %s\n\n' "$public_url"
+      if [ "$tls_mode" = "custom" ]; then
+        printf 'Important for custom TLS:\n'
+        printf '  Use the exact hostname from the URL above, not the server IP address.\n\n'
+      fi
       printf 'Next:\n'
       printf '  1. Open the link in your browser.\n'
       printf '  2. Sign in or create your first user.\n'
@@ -87,9 +100,11 @@ show_success() {
 [ -f "$INSTALL_DIR/.env" ] || fail "Existing installation has no .env file: $INSTALL_DIR/.env"
 
 cd "$INSTALL_DIR"
-git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git pull --ff-only origin "$BRANCH"
+if [ "${MAILFLOW_SKIP_SELF_UPDATE:-0}" != "1" ]; then
+  git fetch origin "$BRANCH"
+  git checkout "$BRANCH"
+  git pull --ff-only origin "$BRANCH"
+fi
 
 ENV_FILE="$INSTALL_DIR/.env"
 TLS_MODE="$(get_env MAILFLOW_TLS_MODE "$ENV_FILE")"
