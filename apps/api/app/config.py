@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Annotated
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     SECRET_ENCRYPTION_KEYS: str = ""
 
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     API_DOCS_ENABLED: bool = False
 
     AUTH_MODE: str = "single"
