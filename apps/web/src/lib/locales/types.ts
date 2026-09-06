@@ -3,6 +3,7 @@ import type { enAccount } from "./en-account";
 import type { enCompose } from "./en-compose";
 import type { enDashboard } from "./en-dashboard";
 import type { enDecision } from "./en-decision";
+import type { enDrafts } from "./en-drafts";
 import type { enMail } from "./en-mail";
 import type { enMailActions } from "./en-mail-actions";
 import type { enMembers } from "./en-members";
@@ -20,6 +21,7 @@ export type TranslationKey =
   | keyof typeof enCompose
   | keyof typeof enDashboard
   | keyof typeof enDecision
+  | keyof typeof enDrafts
   | keyof typeof enMail
   | keyof typeof enMailActions
   | keyof typeof enMembers
