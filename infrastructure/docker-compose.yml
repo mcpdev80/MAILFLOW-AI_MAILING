@@ -78,6 +78,10 @@ services:
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
       OAUTH_REDIRECT_BASE: ${MAILFLOW_PUBLIC_URL:-https://localhost}
       OAUTH_SUCCESS_REDIRECT: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/dashboard
+      ATTACHMENT_LIBRARY_ENABLED: ${ATTACHMENT_LIBRARY_ENABLED:-true}
+      ATTACHMENT_LIBRARY_STORAGE_PATH: /data/attachments
+      ATTACHMENT_LIBRARY_MAX_BYTES: ${ATTACHMENT_LIBRARY_MAX_BYTES:-26214400}
+      ATTACHMENT_LIBRARY_MAX_EXTRACTED_CHARS: ${ATTACHMENT_LIBRARY_MAX_EXTRACTED_CHARS:-32000}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
@@ -89,6 +93,8 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.0}
+    volumes:
+      - attachment_data:/data/attachments:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -123,11 +129,17 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      ATTACHMENT_LIBRARY_ENABLED: ${ATTACHMENT_LIBRARY_ENABLED:-true}
+      ATTACHMENT_LIBRARY_STORAGE_PATH: /data/attachments
+      ATTACHMENT_LIBRARY_MAX_BYTES: ${ATTACHMENT_LIBRARY_MAX_BYTES:-26214400}
+      ATTACHMENT_LIBRARY_MAX_EXTRACTED_CHARS: ${ATTACHMENT_LIBRARY_MAX_EXTRACTED_CHARS:-32000}
       LOG_FORMAT: ${LOG_FORMAT:-json}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.0}
+    volumes:
+      - attachment_data:/data/attachments
     depends_on:
       postgres:
         condition: service_healthy
@@ -205,3 +217,4 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  attachment_data:
