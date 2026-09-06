@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { installMockApi } from "./support/mock-api.mjs";
 
-const mailActionUrl =
-  "**/api/mf/mail-client/accounts/acct-1/messages/42/actions";
+const mailActionPath =
+  "/api/mf/mail-client/accounts/acct-1/messages/42/actions";
 
 async function installSession(page) {
   await page.context().addCookies([
@@ -14,6 +14,17 @@ async function installSession(page) {
       sameSite: "Lax",
     },
   ]);
+}
+
+function observeMailActions(page) {
+  const actions = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (request.method() === "POST" && url.pathname === mailActionPath) {
+      actions.push(request.postDataJSON());
+    }
+  });
+  return actions;
 }
 
 async function useCustomMailLayout(page) {
@@ -107,19 +118,7 @@ test("opening an unread message marks it read and decrements unread counters", a
   page,
 }) => {
   await useCustomMailLayout(page);
-  const actions = [];
-  await page.route(mailActionUrl, async (route) => {
-    actions.push(route.request().postDataJSON());
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        action: route.request().postDataJSON().action,
-        applied: true,
-        destination_folder: null,
-      }),
-    });
-  });
+  const actions = observeMailActions(page);
 
   await page.goto("/app/mail");
 
@@ -155,7 +154,7 @@ test("opening an unread message marks it read and decrements unread counters", a
 test("opening an already read message does not mark it read again", async ({
   page,
 }) => {
-  let actionCalls = 0;
+  const actions = observeMailActions(page);
 
   await page.route("**/api/mf/mail-client/inbox**", async (route) => {
     return route.fulfill({
@@ -199,7 +198,7 @@ test("opening an already read message does not mark it read again", async ({
   });
 
   await page.route(
-    "**/api/mf/mail-client/accounts/acct-1/messages/42",
+    /\/api\/mf\/mail-client\/accounts\/acct-1\/messages\/42(?:\?.*)?$/,
     async (route) => {
       return route.fulfill({
         status: 200,
@@ -231,19 +230,6 @@ test("opening an already read message does not mark it read again", async ({
     },
   );
 
-  await page.route(mailActionUrl, async (route) => {
-    actionCalls += 1;
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        action: route.request().postDataJSON().action,
-        applied: true,
-        destination_folder: null,
-      }),
-    });
-  });
-
   await page.goto("/app/mail");
   const messageRow = page
     .getByRole("button")
@@ -254,7 +240,7 @@ test("opening an already read message does not mark it read again", async ({
   await expect(
     page.getByText("The project update is ready for review."),
   ).toBeVisible();
-  expect(actionCalls).toBe(0);
+  expect(actions).toEqual([]);
 });
 
 test("composer persists and sends only through explicit user action", async ({
