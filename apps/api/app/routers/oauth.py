@@ -261,5 +261,6 @@ async def callback(
 
     await session.commit()
     return RedirectResponse(
-        f"{success}?connected={provider}", status_code=status.HTTP_302_FOUND
+        f"{success}?connected={provider}&account_id={account.id}",
+        status_code=status.HTTP_302_FOUND,
     )
