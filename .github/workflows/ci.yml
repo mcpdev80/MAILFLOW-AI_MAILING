@@ -1,12 +1,7 @@
 name: CI
 
-# CI is intentionally manual on normal branches. This branch temporarily uses
-# a push trigger for final MVP validation.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/mvp-guidelines-figma-redesign
 
 jobs:
   lint-python:
