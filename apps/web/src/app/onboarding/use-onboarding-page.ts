@@ -57,6 +57,8 @@ export function useOnboardingPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const addMailbox = params.get("new") === "1";
+    const connectedAccountId = params.get("account_id");
     void Promise.allSettled([api.listProviders(), api.listAccounts()]).then(
       ([providerResult, accountResult]) => {
         if (providerResult.status === "fulfilled") {
@@ -68,10 +70,13 @@ export function useOnboardingPage() {
             }));
           }
         }
-        const connectedAccount =
-          accountResult.status === "fulfilled"
-            ? accountResult.value[0]
-            : undefined;
+        const accounts =
+          accountResult.status === "fulfilled" ? accountResult.value : [];
+        const connectedAccount = connectedAccountId
+          ? accounts.find((candidate) => candidate.id === connectedAccountId)
+          : addMailbox
+            ? undefined
+            : accounts[0];
         if (connectedAccount) {
           setAccount(connectedAccount);
           setProviderChoice(
@@ -88,9 +93,17 @@ export function useOnboardingPage() {
                 ? "shared"
                 : "private",
           }));
+        } else {
+          setAccount(null);
         }
-        if (params.get("connected") && connectedAccount) setStep("privacy");
-        else if (params.get("step") === "mailbox") setStep("mailbox");
+        if (params.get("connected") && connectedAccount) {
+          setStep("privacy");
+        } else if (params.get("connected") && connectedAccountId) {
+          setError("The connected mailbox could not be loaded.");
+          setStep("mailbox");
+        } else if (params.get("step") === "mailbox") {
+          setStep("mailbox");
+        }
         setLoading(false);
       },
     );
@@ -231,12 +244,13 @@ export function useOnboardingPage() {
         const active = existing.some((job) =>
           ["running", "paused"].includes(job.state),
         );
-        if (!active)
+        if (!active) {
           await backfillApi.start(account.id, {
             folder: account.inbox_folder || "INBOX",
             mode: "dry_run",
             batch_size: 10,
           });
+        }
       }
       setStep("ready");
     } catch (err) {
