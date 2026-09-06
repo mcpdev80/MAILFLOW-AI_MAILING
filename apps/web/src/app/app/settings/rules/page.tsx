@@ -2,60 +2,225 @@
 
 import { SettingsShell, settingsShellStyles as s } from "@/components/settings-shell";
 import { api } from "@/lib/api";
+import { rulesApi, type DomainRule, type InternalDomain, type KeywordRule } from "@/lib/rules-api";
 import type { EmailAccount } from "@/lib/types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+type RuleTab = "domain" | "keyword" | "internal";
 
 export default function RulesSettingsPage() {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [accountId, setAccountId] = useState("");
+  const [domainRules, setDomainRules] = useState<DomainRule[]>([]);
+  const [keywordRules, setKeywordRules] = useState<KeywordRule[]>([]);
+  const [internalDomains, setInternalDomains] = useState<InternalDomain[]>([]);
+  const [tab, setTab] = useState<RuleTab>("domain");
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [domain, setDomain] = useState("");
+  const [label, setLabel] = useState("work");
+  const [keywords, setKeywords] = useState("");
+  const [matchAll, setMatchAll] = useState(false);
+  const [internalDomain, setInternalDomain] = useState("");
 
-  const load = useCallback(async () => {
-    try { setAccounts(await api.listAccounts()); }
-    catch (err) { setError(err instanceof Error ? err.message : "Unable to load mailbox policies"); }
+  const selected = useMemo(() => accounts.find((item) => item.id === accountId) ?? null, [accounts, accountId]);
+
+  const loadRules = useCallback(async (id: string) => {
+    setError(null);
+    try {
+      const [domains, keyword, internal] = await Promise.all([
+        rulesApi.listDomain(id),
+        rulesApi.listKeyword(id),
+        rulesApi.listInternalDomains(id),
+      ]);
+      setDomainRules(domains);
+      setKeywordRules(keyword);
+      setInternalDomains(internal);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load rules");
+    }
   }, []);
-  useEffect(() => { void load(); }, [load]);
 
-  async function update(account: EmailAccount, patch: { move_policy?: "off" | "review" | "automatic"; archive_policy?: "off" | "review" | "automatic" }) {
-    setBusyId(account.id); setError(null);
-    try { await api.updateAccount(account.id, patch); await load(); }
-    catch (err) { setError(err instanceof Error ? err.message : "Unable to update mailbox policy"); }
-    finally { setBusyId(null); }
+  useEffect(() => {
+    void (async () => {
+      try {
+        const rows = await api.listAccounts();
+        setAccounts(rows);
+        if (rows[0]) setAccountId((current) => current || rows[0].id);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to load mailboxes");
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (accountId) void loadRules(accountId);
+  }, [accountId, loadRules]);
+
+  async function updatePolicy(
+    account: EmailAccount,
+    patch: { move_policy?: "off" | "review" | "automatic"; archive_policy?: "off" | "review" | "automatic" },
+  ) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.updateAccount(account.id, patch);
+      const rows = await api.listAccounts();
+      setAccounts(rows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update mailbox policy");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addDomainRule() {
+    if (!accountId || !domain.trim() || !label.trim()) return;
+    setBusy(true);
+    try {
+      await rulesApi.createDomain(accountId, {
+        domain: domain.trim().toLowerCase(),
+        label: label.trim(),
+        rule_id: `domain_${Date.now()}`,
+        priority: domainRules.length,
+      });
+      setDomain("");
+      await loadRules(accountId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create rule");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addKeywordRule() {
+    const parsed = keywords.split(",").map((item) => item.trim()).filter(Boolean);
+    if (!accountId || parsed.length === 0 || !label.trim()) return;
+    setBusy(true);
+    try {
+      await rulesApi.createKeyword(accountId, {
+        keywords: parsed,
+        label: label.trim(),
+        rule_id: `keyword_${Date.now()}`,
+        priority: keywordRules.length,
+        match_all: matchAll,
+      });
+      setKeywords("");
+      await loadRules(accountId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create rule");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addInternalDomain() {
+    if (!accountId || !internalDomain.trim()) return;
+    setBusy(true);
+    try {
+      await rulesApi.createInternalDomain(accountId, internalDomain.trim().toLowerCase());
+      setInternalDomain("");
+      await loadRules(accountId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create internal domain");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(kind: RuleTab, id: string) {
+    if (!accountId) return;
+    setBusy(true);
+    try {
+      if (kind === "domain") await rulesApi.deleteDomain(accountId, id);
+      if (kind === "keyword") await rulesApi.deleteKeyword(accountId, id);
+      if (kind === "internal") await rulesApi.deleteInternalDomain(accountId, id);
+      await loadRules(accountId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete rule");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <SettingsShell>
       <section className={s.panel}>
         <header className={s.panelHeader}>
-          <h2>Rules & Actions</h2>
-          <p>Configure the real mailbox action policies available in the current Mailflow backend.</p>
+          <div>
+            <h2>Rules & Actions</h2>
+            <p>Automate classification and mailbox actions using the real Mailflow rule engine.</p>
+          </div>
+          <label className="field" style={{ minWidth: 260 }}>
+            Mailbox
+            <select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+              {accounts.map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
+            </select>
+          </label>
         </header>
 
         {error && <div className="alert error">{error}</div>}
-        <div className={s.section}>
-          <h3 className={s.sectionTitle}>Mailbox action policies</h3>
-          <p className={s.sectionCopy}>Move and archive policies are evaluated after classification. Delete and send remain explicit-user-action only.</p>
-          {accounts.length === 0 ? <div className="empty">No mailboxes configured.</div> : (
-            <div style={{ display: "grid", gap: 12 }}>
-              {accounts.map((account) => (
-                <div key={account.id} style={{ display: "grid", gridTemplateColumns: "minmax(180px,1fr) 190px 190px", gap: 16, alignItems: "center", border: "1px solid var(--mf-border)", borderRadius: 8, padding: 16 }}>
-                  <div><strong>{account.username}</strong><div className="muted" style={{ marginTop: 3, fontSize: 12 }}>Confidence threshold: {Math.round((account.action_confidence_threshold ?? .85) * 100)}%</div></div>
-                  <label className="field">Move to folders<select disabled={busyId === account.id} value={account.move_policy} onChange={(e) => void update(account, { move_policy: e.target.value as "off" | "review" | "automatic" })}><option value="automatic">Automatic when safe</option><option value="review">Review first</option><option value="off">Off</option></select></label>
-                  <label className="field">Archive<select disabled={busyId === account.id} value={account.archive_policy} onChange={(e) => void update(account, { archive_policy: e.target.value as "off" | "review" | "automatic" })}><option value="review">Review first</option><option value="automatic">Automatic when safe</option><option value="off">Off</option></select></label>
-                </div>
+        {!selected ? <div className="empty">No mailbox configured.</div> : <>
+          <div className={s.section}>
+            <h3 className={s.sectionTitle}>Mailbox action policies</h3>
+            <p className={s.sectionCopy}>Choose whether safe move and archive actions happen automatically, require review, or stay disabled.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 14 }}>
+              <label className="field">Move to folders
+                <select disabled={busy} value={selected.move_policy} onChange={(event) => void updatePolicy(selected, { move_policy: event.target.value as "off" | "review" | "automatic" })}>
+                  <option value="automatic">Automatic when safe</option><option value="review">Review first</option><option value="off">Off</option>
+                </select>
+              </label>
+              <label className="field">Archive
+                <select disabled={busy} value={selected.archive_policy} onChange={(event) => void updatePolicy(selected, { archive_policy: event.target.value as "off" | "review" | "automatic" })}>
+                  <option value="automatic">Automatic when safe</option><option value="review">Review first</option><option value="off">Off</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className={s.section} style={{ borderTop: "1px solid var(--mf-border)", paddingTop: 20 }}>
+            <div style={{ display: "flex", gap: 18, borderBottom: "1px solid var(--mf-border)", marginBottom: 18 }}>
+              {(["domain", "keyword", "internal"] as RuleTab[]).map((item) => (
+                <button key={item} className="btn secondary" type="button" onClick={() => setTab(item)} style={{ border: 0, borderBottom: tab === item ? "2px solid var(--mf-primary)" : "2px solid transparent", borderRadius: 0, color: tab === item ? "var(--mf-primary)" : "var(--mf-text-muted)", background: "transparent" }}>
+                  {item === "domain" ? "Domain rules" : item === "keyword" ? "Keyword rules" : "Internal domains"}
+                </button>
               ))}
             </div>
-          )}
-        </div>
 
-        <div className={s.section} style={{ borderTop: "1px solid var(--mf-border)", paddingTop: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
-            <div><h3 className={s.sectionTitle}>Conditional automation rules</h3><p className={s.sectionCopy}>Figma defines arbitrary “if condition → action” rules with enable/disable state and last-run information.</p></div>
-            <button className="btn" type="button" disabled>＋ Create Rule</button>
+            {tab === "domain" && <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 10, alignItems: "end", marginBottom: 16 }}>
+                <label className="field">Sender domain<input value={domain} onChange={(event) => setDomain(event.target.value)} placeholder="example.com" /></label>
+                <label className="field">Classification<select value={label} onChange={(event) => setLabel(event.target.value)}>{["work","private","finance","orders","appointments","newsletters","notifications","other"].map((item) => <option key={item}>{item}</option>)}</select></label>
+                <button className="btn" type="button" disabled={busy || !domain.trim()} onClick={() => void addDomainRule()}>Create Rule</button>
+              </div>
+              <RuleList empty="No domain rules yet." rows={domainRules.map((rule) => ({ id: rule.id, title: rule.domain, detail: `Classify as ${rule.label}`, meta: `Priority ${rule.priority}` }))} busy={busy} onRemove={(id) => void remove("domain", id)} />
+            </>}
+
+            {tab === "keyword" && <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 10, alignItems: "end", marginBottom: 10 }}>
+                <label className="field">Keywords<input value={keywords} onChange={(event) => setKeywords(event.target.value)} placeholder="invoice, payment, receipt" /></label>
+                <label className="field">Classification<select value={label} onChange={(event) => setLabel(event.target.value)}>{["work","private","finance","orders","appointments","newsletters","notifications","other"].map((item) => <option key={item}>{item}</option>)}</select></label>
+                <button className="btn" type="button" disabled={busy || !keywords.trim()} onClick={() => void addKeywordRule()}>Create Rule</button>
+              </div>
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", marginBottom: 16 }}><input style={{ width: 16, minHeight: 16 }} type="checkbox" checked={matchAll} onChange={(event) => setMatchAll(event.target.checked)} />Require all keywords</label>
+              <RuleList empty="No keyword rules yet." rows={keywordRules.map((rule) => ({ id: rule.id, title: rule.keywords.join(rule.match_all ? " + " : " / "), detail: `Classify as ${rule.label}`, meta: rule.match_all ? "Match all" : "Match any" }))} busy={busy} onRemove={(id) => void remove("keyword", id)} />
+            </>}
+
+            {tab === "internal" && <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end", marginBottom: 16 }}>
+                <label className="field">Internal organization domain<input value={internalDomain} onChange={(event) => setInternalDomain(event.target.value)} placeholder="company.example" /></label>
+                <button className="btn" type="button" disabled={busy || !internalDomain.trim()} onClick={() => void addInternalDomain()}>Add Domain</button>
+              </div>
+              <RuleList empty="No internal domains yet." rows={internalDomains.map((item) => ({ id: item.id, title: item.domain, detail: "Treat sender as internal", meta: "Organization" }))} busy={busy} onRemove={(id) => void remove("internal", id)} />
+            </>}
           </div>
-          <div className="alert info">The current backend does not have a persisted generic rule engine or CRUD contract for the Figma rule examples. I am not showing fake rules. This control stays disabled until that domain model is defined.</div>
-        </div>
+        </>}
       </section>
     </SettingsShell>
   );
+}
+
+function RuleList({ rows, empty, busy, onRemove }: { rows: { id: string; title: string; detail: string; meta: string }[]; empty: string; busy: boolean; onRemove: (id: string) => void }) {
+  if (rows.length === 0) return <div className="empty">{empty}</div>;
+  return <div style={{ display: "grid", gap: 10 }}>{rows.map((row) => <div key={row.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 16, alignItems: "center", border: "1px solid var(--mf-border)", borderRadius: 8, padding: 16 }}><div><strong>{row.title}</strong><div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{row.detail}</div></div><span className="pill">{row.meta}</span><button className="btn secondary" type="button" disabled={busy} onClick={() => onRemove(row.id)}>Delete</button></div>)}</div>;
 }
