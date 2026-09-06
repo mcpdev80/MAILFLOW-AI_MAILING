@@ -4,6 +4,7 @@ export const enShell = {
   "nav.mailboxes": "Mailboxes",
   "nav.learning": "Learning",
   "shell.systemStatus": "System Status",
+  "shell.checking": "Checking…",
   "shell.operational": "All systems operational",
   "shell.degraded": "Service degraded",
   "shell.notifications": "Notifications",
