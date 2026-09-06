@@ -360,14 +360,52 @@ export interface Cycle {
 }
 
 export type UserLocale = "de" | "en" | "es";
+export type Theme = "light" | "dark" | "system";
+export type Density = "comfortable" | "compact";
+export type WorkspaceLayout =
+  | "classic"
+  | "vertical"
+  | "focus"
+  | "compact"
+  | "wide"
+  | "custom";
+export type WorkspacePanel =
+  | "accounts"
+  | "folders"
+  | "message_list"
+  | "message_content";
+export type WorkspaceDock = "left" | "center" | "right";
+
+export interface WorkspacePanelConfig {
+  panel: WorkspacePanel;
+  dock: WorkspaceDock;
+  order: number;
+  size_px: number | null;
+  visible: boolean;
+}
+
+export interface WorkspaceCustomConfig {
+  version: 1;
+  panels: WorkspacePanelConfig[];
+  message_content_overlay: boolean;
+  show_resize_handles: boolean;
+}
 
 export interface UserPreferences {
   locale: UserLocale;
   locale_configured: boolean;
+  theme: Theme;
+  density: Density;
+  workspace_layout: WorkspaceLayout;
+  workspace_custom_config: WorkspaceCustomConfig | null;
 }
 
 export interface UserPreferencesUpdate {
-  locale: UserLocale;
+  locale?: UserLocale;
+  theme?: Theme;
+  density?: Density;
+  workspace_layout?: WorkspaceLayout;
+  workspace_custom_config?: WorkspaceCustomConfig;
 }
 
 export interface CycleEnqueued {
