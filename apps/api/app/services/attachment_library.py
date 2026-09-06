@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from uuid import UUID
 
-from mailflow_core.attachment_library import decide_attachment_ingestion
+from mailflow_core.attachment_library import (
+    decide_attachment_ingestion,
+    derive_document_metadata,
+)
 from mailflow_core.attachments import AttachmentExtractionConfig, extract_attachment
 from mailflow_core.providers.base import EmailData, EmailProvider
 from mailflow_core.types import ClassificationResult
@@ -65,7 +67,9 @@ async def ingest_message_attachments(
     """Persist attachment observations and safe unique binaries.
 
     Blocked/ignored/unsupported items are metadata-only observations. Their bytes
-    are intentionally never fetched into the global library.
+    are intentionally never fetched into the global library. Safe documents get
+    initial organization metadata from the already-computed message AI context,
+    avoiding a second LLM request during ingestion.
     """
     if not attachment_library_settings.ATTACHMENT_LIBRARY_ENABLED:
         return
@@ -117,6 +121,7 @@ async def ingest_message_attachments(
         try:
             payload = provider.fetch_attachment_content(email_data.uid, attachment)
             stored = storage.put(account.org_id, payload)
+            extracted_text = _extracted_text(attachment, payload)
             document = await repo.get_or_create_document(
                 org_id=account.org_id,
                 content_sha256=stored.content_sha256,
@@ -124,8 +129,24 @@ async def ingest_message_attachments(
                 canonical_filename=attachment.filename,
                 mime_type=attachment.mime_type,
                 size_bytes=stored.size_bytes,
-                extracted_text=_extracted_text(attachment, payload),
+                extracted_text=extracted_text,
             )
+
+            # Deduplicated documents are classified once. A second source mapping
+            # must not silently overwrite existing global AI metadata.
+            if document.analysis_status == "pending":
+                metadata = derive_document_metadata(
+                    attachment,
+                    classification=classification,
+                    extracted_text=extracted_text,
+                )
+                document.document_type = metadata.document_type
+                document.ai_category = metadata.category
+                document.ai_subcategory = metadata.subcategory
+                document.ai_confidence = metadata.confidence
+                document.ai_tags = list(metadata.tags)
+                document.analysis_status = "ready"
+
             await repo.add_source_if_missing(
                 document_id=document.id,
                 account_id=account.id,
