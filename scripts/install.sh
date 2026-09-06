@@ -5,7 +5,8 @@ set -euo pipefail
 # Start from a stable directory so readline/tab completion and path hooks can resolve cwd.
 cd "$HOME"
 
-BRANCH="test-mvp"
+BRANCH="${MAILFLOW_INSTALL_REF:-${1:-main}}"
+export MAILFLOW_INSTALL_REF="$BRANCH"
 RAW_BASE="https://raw.githubusercontent.com/mcpdev80/MAILFLOW-AI_MAILING/$BRANCH/scripts"
 DEFAULT_INSTALL="$HOME/mailflow"
 
@@ -77,11 +78,11 @@ if is_mailflow_install "$DEFAULT_INSTALL"; then
       git -C "$DEFAULT_INSTALL" fetch origin "$BRANCH"
       git -C "$DEFAULT_INSTALL" checkout "$BRANCH"
       git -C "$DEFAULT_INSTALL" pull --ff-only origin "$BRANCH"
-      MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
+      MAILFLOW_INSTALL_REF="$BRANCH" MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
       ;;
     2)
       printf '\n%s\n' "$(msg new_hint)"
-      exec bash <(curl -fsSL "$RAW_BASE/install-core.sh")
+      MAILFLOW_INSTALL_REF="$BRANCH" exec bash <(curl -fsSL "$RAW_BASE/install-core.sh") "$BRANCH"
       ;;
     *)
       printf 'Invalid choice.\n' >&2
@@ -89,5 +90,5 @@ if is_mailflow_install "$DEFAULT_INSTALL"; then
       ;;
   esac
 else
-  exec bash <(curl -fsSL "$RAW_BASE/install-core.sh")
+  MAILFLOW_INSTALL_REF="$BRANCH" exec bash <(curl -fsSL "$RAW_BASE/install-core.sh") "$BRANCH"
 fi

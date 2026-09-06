@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BRANCH="feat/mvp-guidelines-figma-redesign"
+CURRENT_BRANCH="$(git -C "${1:-$HOME/mailflow}" branch --show-current 2>/dev/null || true)"
+BRANCH="${MAILFLOW_INSTALL_REF:-${CURRENT_BRANCH:-main}}"
+export MAILFLOW_INSTALL_REF="$BRANCH"
 INSTALL_DIR="${1:-$HOME/mailflow}"
 COMPOSE_FILE="infrastructure/docker-compose.yml"
 TLS_COMPOSE_FILE="infrastructure/docker-compose.custom-tls.yml"
