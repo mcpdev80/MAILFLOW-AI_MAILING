@@ -4,10 +4,12 @@ import type { MessageSearchResult } from "@/lib/dashboard-api";
 import { enumLabel, type TranslationKey } from "@/lib/i18n";
 import type { EmailAccount } from "@/lib/types";
 import Link from "next/link";
+import styles from "./search.module.css";
 
 export type SearchFilters = {
   q: string;
   sender: string;
+  subject: string;
   account_id: string;
   category: string;
   subcategory: string;
@@ -27,55 +29,44 @@ export type SearchFilters = {
 type T = (key: TranslationKey) => string;
 type SetFilter = (key: keyof SearchFilters, value: string) => void;
 
-const CATEGORIES = [
-  "work",
-  "private",
-  "finance",
-  "orders",
-  "appointments",
-  "newsletters",
-  "notifications",
-  "other",
-];
+type SelectOption = { value: string; label: string };
+const CATEGORIES = ["work", "private", "finance", "orders", "appointments", "newsletters", "notifications", "other"];
 const IMPORTANCE = ["critical", "high", "normal", "low", "unknown"];
 const URGENCY = ["immediate", "today", "this_week", "none", "unknown"];
 const ACTION = ["yes", "no", "unknown"];
 
-function TextField({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
+function TextField(props: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
 }) {
   return (
-    <label className="field">
-      <span>{label}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+    <label className={styles.field}>
+      <span>{props.label}</span>
+      <input
+        type={props.type ?? "text"}
+        value={props.value}
+        onChange={(event) => props.onChange(event.currentTarget.value)}
+      />
     </label>
   );
 }
 
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
-}: {
+function SelectField(props: {
   label: string;
   value: string;
-  options: Array<{ value: string; label: string }>;
+  options: SelectOption[];
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="field">
-      <span>{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map((option) => (
+    <label className={styles.field}>
+      <span>{props.label}</span>
+      <select
+        value={props.value}
+        onChange={(event) => props.onChange(event.currentTarget.value)}
+      >
+        {props.options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
@@ -85,142 +76,165 @@ function SelectField({
   );
 }
 
-function enumOptions(t: T, group: string, values: string[]) {
+function enumOptions(t: T, group: string, values: string[]): SelectOption[] {
   return [
     { value: "", label: t("common.all") },
     ...values.map((value) => ({ value, label: enumLabel(t, group, value) })),
   ];
 }
 
-function SearchPrimaryFilters({
-  filters,
-  accounts,
-  setFilter,
-  t,
-}: {
+function PrimaryFilters(props: {
   filters: SearchFilters;
   accounts: EmailAccount[];
   setFilter: SetFilter;
   t: T;
 }) {
+  const { filters, accounts, setFilter, t } = props;
   return (
     <>
-      <TextField label={t("search.senderSubject")} value={filters.q} onChange={(v) => setFilter("q", v)} />
-      <TextField label={t("search.sender")} value={filters.sender} onChange={(v) => setFilter("sender", v)} />
       <SelectField
         label={t("search.mailbox")}
         value={filters.account_id}
-        onChange={(v) => setFilter("account_id", v)}
+        onChange={(value) => setFilter("account_id", value)}
         options={[
           { value: "", label: t("common.all") },
-          ...accounts.map((a) => ({ value: a.id, label: a.username })),
+          ...accounts.map((account) => ({ value: account.id, label: account.username })),
         ]}
       />
-      <SelectField label={t("review.category")} value={filters.category} onChange={(v) => setFilter("category", v)} options={enumOptions(t, "category", CATEGORIES)} />
-      <TextField label={t("review.subcategory")} value={filters.subcategory} onChange={(v) => setFilter("subcategory", v)} />
-      <SelectField label={t("review.importance")} value={filters.importance} onChange={(v) => setFilter("importance", v)} options={enumOptions(t, "importance", IMPORTANCE)} />
-      <SelectField label={t("review.urgency")} value={filters.urgency} onChange={(v) => setFilter("urgency", v)} options={enumOptions(t, "urgency", URGENCY)} />
-      <SelectField label={t("review.actionRequired")} value={filters.action_required} onChange={(v) => setFilter("action_required", v)} options={enumOptions(t, "action_required", ACTION)} />
+      <TextField label={t("search.sender")} value={filters.sender} onChange={(value) => setFilter("sender", value)} />
+      <TextField label={t("search.subject")} value={filters.subject} onChange={(value) => setFilter("subject", value)} />
+      <TextField label={t("search.from")} type="date" value={filters.date_from} onChange={(value) => setFilter("date_from", value)} />
+      <TextField label={t("search.to")} type="date" value={filters.date_to} onChange={(value) => setFilter("date_to", value)} />
+      <SelectField label={t("review.category")} value={filters.category} onChange={(value) => setFilter("category", value)} options={enumOptions(t, "category", CATEGORIES)} />
+      <TextField label={t("review.subcategory")} value={filters.subcategory} onChange={(value) => setFilter("subcategory", value)} />
+      <SelectField label={t("review.importance")} value={filters.importance} onChange={(value) => setFilter("importance", value)} options={enumOptions(t, "importance", IMPORTANCE)} />
+      <SelectField label={t("review.urgency")} value={filters.urgency} onChange={(value) => setFilter("urgency", value)} options={enumOptions(t, "urgency", URGENCY)} />
+      <SelectField label={t("review.actionRequired")} value={filters.action_required} onChange={(value) => setFilter("action_required", value)} options={enumOptions(t, "action_required", ACTION)} />
     </>
   );
 }
 
-function SearchAdvancedFilters({
-  filters,
-  setFilter,
-  t,
-}: {
+function AdvancedFilters(props: {
   filters: SearchFilters;
   setFilter: SetFilter;
   t: T;
 }) {
+  const { filters, setFilter, t } = props;
   return (
     <>
-      <SelectField label={t("search.review")} value={filters.review_required} onChange={(v) => setFilter("review_required", v)} options={[
+      <SelectField label={t("search.review")} value={filters.review_required} onChange={(value) => setFilter("review_required", value)} options={[
         { value: "", label: t("common.all") },
         { value: "true", label: t("search.required") },
         { value: "false", label: t("search.notRequired") },
       ]} />
-      <SelectField label={t("search.security")} value={filters.suspicious_content} onChange={(v) => setFilter("suspicious_content", v)} options={[
+      <SelectField label={t("search.security")} value={filters.suspicious_content} onChange={(value) => setFilter("suspicious_content", value)} options={[
         { value: "", label: t("common.all") },
         { value: "true", label: t("search.suspicious") },
         { value: "false", label: t("search.normal") },
       ]} />
-      <SelectField label={t("search.processingState")} value={filters.processed_state} onChange={(v) => setFilter("processed_state", v)} options={[
-        { value: "", label: t("common.all") },
-        ...["execute", "review", "pending", "queued", "deferred", "blocked", "failed", "error"].map((value) => ({ value, label: t(`processing.${value}` as TranslationKey) })),
-      ]} />
-      <SelectField label={t("search.classificationSource")} value={filters.classification_source} onChange={(v) => setFilter("classification_source", v)} options={[
+      <TextField label={t("search.tag")} value={filters.tag} onChange={(value) => setFilter("tag", value)} />
+      <TextField label={t("search.destinationFolder")} value={filters.destination_folder} onChange={(value) => setFilter("destination_folder", value)} />
+      <SelectField label={t("search.classificationSource")} value={filters.classification_source} onChange={(value) => setFilter("classification_source", value)} options={[
         { value: "", label: t("common.all") },
         { value: "decision_memory", label: "DecisionMemory" },
         { value: "fast_model", label: t("search.fastModel") },
         { value: "deep_model", label: t("search.deepModel") },
       ]} />
-      <TextField label={t("search.tag")} value={filters.tag} onChange={(v) => setFilter("tag", v)} />
-      <TextField label={t("search.destinationFolder")} value={filters.destination_folder} onChange={(v) => setFilter("destination_folder", v)} />
-      <TextField label={t("search.from")} type="date" value={filters.date_from} onChange={(v) => setFilter("date_from", v)} />
-      <TextField label={t("search.to")} type="date" value={filters.date_to} onChange={(v) => setFilter("date_to", v)} />
+      <SelectField label={t("search.processingState")} value={filters.processed_state} onChange={(value) => setFilter("processed_state", value)} options={[
+        { value: "", label: t("common.all") },
+        ...["execute", "review", "pending", "queued", "deferred", "blocked", "failed", "error"].map((value) => ({
+          value,
+          label: t(`processing.${value}` as TranslationKey),
+        })),
+      ]} />
     </>
   );
 }
 
-export function SearchFiltersPanel({
-  filters,
-  accounts,
-  loading,
-  setFilter,
-  onSearch,
-  t,
-}: {
+export function SearchFiltersPanel(props: {
   filters: SearchFilters;
   accounts: EmailAccount[];
   loading: boolean;
   setFilter: SetFilter;
   onSearch: () => void;
+  onReset: () => void;
   t: T;
 }) {
   return (
-    <section className="card">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "0.65rem" }}>
-        <SearchPrimaryFilters filters={filters} accounts={accounts} setFilter={setFilter} t={t} />
-        <SearchAdvancedFilters filters={filters} setFilter={setFilter} t={t} />
+    <section className={styles.searchCard}>
+      <input
+        className={styles.heroInput}
+        value={props.filters.q}
+        onChange={(event) => props.setFilter("q", event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") props.onSearch();
+        }}
+        placeholder={props.t("search.senderSubject")}
+        aria-label={props.t("search.senderSubject")}
+      />
+      <div className={styles.filterGrid}>
+        <PrimaryFilters {...props} />
+        <AdvancedFilters {...props} />
+        <div className={styles.filterActions}>
+          <button className="btn secondary" type="button" disabled={props.loading} onClick={props.onReset}>
+            {props.t("search.reset")}
+          </button>
+          <button className="btn" type="button" disabled={props.loading} onClick={props.onSearch}>
+            {props.loading ? props.t("common.loading") : props.t("search.action")}
+          </button>
+        </div>
       </div>
-      <button type="button" className="btn" style={{ marginTop: "0.75rem" }} disabled={loading} onClick={onSearch}>
-        {loading ? t("common.loading") : t("search.action")}
-      </button>
     </section>
   );
 }
 
+function initials(value: string): string {
+  return value
+    .split(/[@._\s-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
 export function SearchResults({ result, t }: { result: MessageSearchResult | null; t: T }) {
+  if (result && result.items.length === 0) {
+    return <div className={styles.empty}>{t("search.noResults")}</div>;
+  }
   return (
     <>
-      <div style={{ margin: "1rem 0" }}>
-        <strong>{result?.total ?? 0}</strong> {t("search.results")}
+      <div className={styles.resultsMeta}>
+        <strong>{result?.total ?? 0} {t("search.results")}</strong>
+        <span className={styles.sort}>{t("search.sortBy")}: <strong>{t("search.relevance")}</strong></span>
       </div>
-      <div style={{ display: "grid", gap: "0.65rem" }}>
+      <div className={styles.results}>
         {result?.items.map((item) => (
-          <article className="card" key={item.id}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-              <div>
-                <strong>{item.subject || t("review.noSubject")}</strong>
-                <div className="muted">{item.from_email} · {item.account_label} · {new Date(item.processed_at).toLocaleString()}</div>
+          <Link
+            className={styles.resultCard}
+            key={item.id}
+            href={`/app/mail?account=${encodeURIComponent(item.account_id)}&folder=${encodeURIComponent(item.folder)}&uid=${item.uid}`}
+          >
+            <div className={styles.resultTop}>
+              <div className={styles.senderWrap}>
+                <span className={styles.avatar}>{initials(item.from_email)}</span>
+                <span className={styles.sender}>{item.from_email}</span>
+                <span className={styles.mailboxPill}>{item.account_label}</span>
               </div>
-              <Link className="btn secondary" href={`/app/mail?account=${encodeURIComponent(item.account_id)}&folder=${encodeURIComponent(item.folder)}&uid=${item.uid}`}>
-                {t("review.openMessage")}
-              </Link>
+              <span className={styles.time}>{new Date(item.processed_at).toLocaleString()}</span>
             </div>
-            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-              <span className="pill">{enumLabel(t, "category", item.category)}</span>
-              <span className="pill">{enumLabel(t, "importance", item.importance)}</span>
-              <span className="pill">{enumLabel(t, "urgency", item.urgency)}</span>
-              <span className="pill">{item.classification_source}</span>
-              <span className="pill">{item.processed_state}</span>
-              {item.review_required && <span className="pill">{t("review.title")}</span>}
-              {item.suspicious_content && <span className="pill off">{t("review.security")}</span>}
+            <p className={styles.subject}>{item.subject || t("review.noSubject")}</p>
+            <div className={styles.resultBottom}>
+              <div className={styles.tags}>
+                <span className={`${styles.tag} ${styles.category}`}>{enumLabel(t, "category", item.category)}</span>
+                <span className={styles.tag}>{enumLabel(t, "importance", item.importance)}</span>
+                <span className={styles.tag}>{enumLabel(t, "urgency", item.urgency)}</span>
+                {item.review_required && <span className={styles.tag}>{t("review.title")}</span>}
+                {item.suspicious_content && <span className={styles.tag}>{t("review.security")}</span>}
+              </div>
+              <span className={styles.meta}>{item.classification_source} · {item.processed_state}</span>
             </div>
-            <div className="muted" style={{ marginTop: "0.45rem" }}>{item.destination_folder}</div>
-          </article>
+            {item.destination_folder && <span className={styles.destination}>{item.destination_folder}</span>}
+          </Link>
         ))}
       </div>
     </>
