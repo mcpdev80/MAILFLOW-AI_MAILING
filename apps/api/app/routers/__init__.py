@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from app.routers.accounts import router as accounts_router
-from app.routers.attachments import router as attachments_router
 from app.routers.attention import router as attention_router
 from app.routers.audit import router as audit_router
 from app.routers.backfill import router as backfill_router
@@ -29,7 +28,6 @@ from app.routers.writing import router as writing_router
 
 __all__ = [
     "accounts_router",
-    "attachments_router",
     "attention_router",
     "audit_router",
     "backfill_router",
