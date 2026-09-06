@@ -9,6 +9,8 @@ import {
 } from "@/lib/attachments-api";
 import { useCallback, useEffect, useState } from "react";
 
+export type AttachmentView = "grid" | "list";
+
 export function useAttachmentsPage() {
   const [documents, setDocuments] = useState<AttachmentDocument[]>([]);
   const [folders, setFolders] = useState<AttachmentFolder[]>([]);
@@ -16,6 +18,10 @@ export function useAttachmentsPage() {
   const [selected, setSelected] = useState<AttachmentDetail | null>(null);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+  const [documentType, setDocumentType] = useState<string | null>(null);
+  const [view, setView] = useState<AttachmentView>("grid");
+  const [savedDecision, setSavedDecision] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +30,12 @@ export function useAttachmentsPage() {
     setError(null);
     try {
       const [nextDocuments, nextFolders, nextBlocked] = await Promise.all([
-        attachmentsApi.list({ q: query.trim() || undefined, folderId }),
+        attachmentsApi.list({
+          q: query.trim() || undefined,
+          folderId,
+          category,
+          documentType,
+        }),
         attachmentsApi.folders(),
         attachmentsApi.blocked(),
       ]);
@@ -36,15 +47,22 @@ export function useAttachmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [folderId, query]);
+  }, [category, documentType, folderId, query]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 180);
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  useEffect(() => {
+    if (!savedDecision) return;
+    const timer = window.setTimeout(() => setSavedDecision(false), 3200);
+    return () => window.clearTimeout(timer);
+  }, [savedDecision]);
+
   const openDocument = async (id: string) => {
     try {
+      setError(null);
       setSelected(await attachmentsApi.detail(id));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "request_failed");
@@ -77,6 +95,7 @@ export function useAttachmentsPage() {
       remember,
     });
     setSelected(updated);
+    if (remember) setSavedDecision(true);
     await load();
   };
 
@@ -87,10 +106,17 @@ export function useAttachmentsPage() {
     selected,
     folderId,
     query,
+    category,
+    documentType,
+    view,
+    savedDecision,
     loading,
     error,
     setFolderId,
     setQuery,
+    setCategory,
+    setDocumentType,
+    setView,
     setSelected,
     openDocument,
     createFolder,
