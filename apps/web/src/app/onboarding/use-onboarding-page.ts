@@ -57,13 +57,14 @@ export function useOnboardingPage() {
           setAccountForm((current) => ({ ...current, llm_provider_id: providerResult.value[0].id }));
         }
       }
-      if (accountResult.status === "fulfilled" && accountResult.value[0]) {
-        const connected = accountResult.value[0];
-        setAccount(connected);
-        setProviderChoice(connected.provider_type === "gmail" ? "gmail" : connected.provider_type === "microsoft" ? "microsoft" : "imap");
-        setAccountForm((current) => ({ ...current, ownership_mode: connected.ownership_mode === "shared" ? "shared" : "private" }));
-        if (params.get("connected")) setStep("privacy");
+      const connectedAccount = accountResult.status === "fulfilled" ? accountResult.value[0] : undefined;
+      if (connectedAccount) {
+        setAccount(connectedAccount);
+        setProviderChoice(connectedAccount.provider_type === "gmail" ? "gmail" : connectedAccount.provider_type === "microsoft" ? "microsoft" : "imap");
+        setAccountForm((current) => ({ ...current, ownership_mode: connectedAccount.ownership_mode === "shared" ? "shared" : "private" }));
       }
+      if (params.get("connected") && connectedAccount) setStep("privacy");
+      else if (params.get("step") === "mailbox") setStep("mailbox");
       setLoading(false);
     });
   }, [params]);
@@ -94,9 +95,6 @@ export function useOnboardingPage() {
     setBusy(true);
     setError(null);
     try {
-      // OAuth state needs an ownership decision before the provider redirect. The
-      // onboarding defaults to the privacy-safe private mode; B3 can explicitly
-      // convert the resulting mailbox to shared afterwards.
       const result = await api.oauthAuthorizeUrl(provider, { ownershipMode: "private", sharedUserIds: [] });
       window.location.href = result.authorize_url;
     } catch (err) {
