@@ -34,41 +34,20 @@ export function useSignupPage() {
       return;
     }
     const orgName = organization.trim() || name.trim();
-    const org = await authClient.organization.create({
-      name: orgName,
-      slug: organizationSlug(orgName),
-    });
+    const org = await authClient.organization.create({ name: orgName, slug: organizationSlug(orgName) });
     if (org.error) {
       setError(org.error.message ?? t("auth.signup.organizationFailed"));
       setBusy(false);
       return;
     }
-    router.push("/onboarding");
+    router.push("/setup");
   }, [confirmPassword, email, name, organization, password, router, t]);
 
-  return {
-    name,
-    setName,
-    organization,
-    setOrganization,
-    email,
-    setEmail,
-    password,
-    setPassword,
-    confirmPassword,
-    setConfirmPassword,
-    error,
-    busy,
-    submit,
-  };
+  return { name, setName, organization, setOrganization, email, setEmail, password, setPassword, confirmPassword, setConfirmPassword, error, busy, submit };
 }
 
 function organizationSlug(value: string): string {
-  const base = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
+  const base = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
   const suffix = Math.random().toString(36).slice(2, 8);
   return `${base || "org"}-${suffix}`;
 }
