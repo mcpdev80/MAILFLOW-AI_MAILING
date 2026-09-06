@@ -16,53 +16,30 @@ export function SignupUi({ state }: { state: SignupState }) {
   return (
     <main className="auth-shell">
       <section className="auth-panel auth-panel-wide">
-        <div className="auth-brand">MailFlow</div>
+        <div className="auth-brand">Mailflow</div>
         <div className="auth-copy">
           <h1>{t("auth.signup.title")}</h1>
-          <p className="muted">{t("home.tagline")}</p>
+          <p>Create your workspace and start organizing email with Mailflow.</p>
         </div>
 
         {state.error && <div className="alert error">{state.error}</div>}
 
         <form onSubmit={submit} className="auth-form">
-          <div className="row">
-            <Field
-              id="name"
-              label={t("auth.signup.name")}
-              value={state.name}
-              autoComplete="name"
-              onChange={state.setName}
-            />
-            <Field
-              id="organization"
-              label={t("auth.signup.organization")}
-              value={state.organization}
-              onChange={state.setOrganization}
-            />
-          </div>
-          <Field
-            id="email"
-            label={t("auth.signup.email")}
-            type="email"
-            value={state.email}
-            autoComplete="email"
-            onChange={state.setEmail}
-          />
-          <Field
-            id="password"
-            label={t("auth.signup.password")}
-            type="password"
-            value={state.password}
-            autoComplete="new-password"
-            minLength={8}
-            onChange={state.setPassword}
-          />
+          <Field id="name" label={t("auth.signup.name")} value={state.name} autoComplete="name" onChange={state.setName} />
+          <Field id="organization" label={t("auth.signup.organization")} value={state.organization} autoComplete="organization" onChange={state.setOrganization} />
+          <Field id="email" label={t("auth.signup.email")} type="email" value={state.email} autoComplete="email" onChange={state.setEmail} />
+          <Field id="password" label={t("auth.signup.password")} type="password" value={state.password} autoComplete="new-password" minLength={8} onChange={state.setPassword} />
+          <p className="auth-hint" style={{ marginTop: -8, textAlign: "left" }}>At least 8 characters.</p>
+          <Field id="confirm-password" label="Confirm password" type="password" value={state.confirmPassword} autoComplete="new-password" minLength={8} onChange={state.setConfirmPassword} />
+          <p className="auth-hint" style={{ marginTop: -4 }}>
+            By creating an account you agree to the Terms of Service and Privacy Policy.
+          </p>
           <button type="submit" className="btn btn-lg auth-primary" disabled={state.busy}>
             {state.busy ? t("auth.signup.creating") : t("auth.signup.action")}
           </button>
         </form>
 
-        <p className="auth-switch muted">
+        <p className="auth-switch">
           {t("auth.signup.hasAccount")}{" "}
           <Link href="/login">{t("auth.signup.login")}</Link>
         </p>
@@ -71,15 +48,7 @@ export function SignupUi({ state }: { state: SignupState }) {
   );
 }
 
-function Field({
-  id,
-  label,
-  value,
-  onChange,
-  type = "text",
-  autoComplete,
-  minLength,
-}: {
+function Field({ id, label, value, onChange, type = "text", autoComplete, minLength }: {
   id: string;
   label: string;
   value: string;
@@ -91,15 +60,7 @@ function Field({
   return (
     <label className="field" htmlFor={id}>
       <span>{label}</span>
-      <input
-        id={id}
-        type={type}
-        autoComplete={autoComplete}
-        minLength={minLength}
-        required
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <input id={id} type={type} autoComplete={autoComplete} minLength={minLength} required value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
