@@ -2,26 +2,29 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-RUN pip install uv
+# Create the unprivileged runtime user before copying application files. This
+# lets COPY assign ownership directly instead of recursively chowning the whole
+# uv environment at the end of every build.
+RUN pip install uv \
+    && useradd --create-home --uid 10001 appuser \
+    && chown appuser:appuser /app
 
-# Dependencias (capa cacheable): solo los manifests primero.
-COPY pyproject.toml ./
-COPY apps/api/pyproject.toml apps/api/
-COPY apps/worker/pyproject.toml apps/worker/
-COPY packages/core/pyproject.toml packages/core/
+# Dependencies (cacheable layer): copy manifests with final ownership first.
+COPY --chown=appuser:appuser pyproject.toml ./
+COPY --chown=appuser:appuser apps/api/pyproject.toml apps/api/
+COPY --chown=appuser:appuser apps/worker/pyproject.toml apps/worker/
+COPY --chown=appuser:appuser packages/core/pyproject.toml packages/core/
 
 RUN uv sync --no-dev
 
-# Código del worker + sus dependencias (api app + core).
-COPY apps/api/app/ apps/api/app/
-COPY apps/worker/worker/ apps/worker/worker/
-COPY packages/core/mailflow_core/ packages/core/mailflow_core/
+# Worker code and shared dependencies already receive their final ownership.
+COPY --chown=appuser:appuser apps/api/app/ apps/api/app/
+COPY --chown=appuser:appuser apps/worker/worker/ apps/worker/worker/
+COPY --chown=appuser:appuser packages/core/mailflow_core/ packages/core/mailflow_core/
 
-# El worker importa `worker.main` y `app.*`; ambos paths deben estar disponibles.
+# The worker imports `worker.main` and `app.*`; both paths must be available.
 ENV PYTHONPATH=/app/apps/worker:/app/apps/api
 
-# Ejecutar como usuario sin privilegios (no root).
-RUN useradd --create-home --uid 10001 appuser && chown -R appuser /app
 USER appuser
 
 CMD ["uv", "run", "arq", "worker.main.WorkerSettings"]
