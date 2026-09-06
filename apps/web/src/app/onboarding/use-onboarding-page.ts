@@ -2,28 +2,18 @@
 
 import { ApiError, api } from "@/lib/api";
 import { authClient, useSession } from "@/lib/auth-client";
-import {
-  getBootstrapStatus,
-  type BootstrapStatus,
-} from "@/lib/bootstrap-api";
-import type { LLMProvider } from "@/lib/types";
-import { useRouter } from "next/navigation";
+import { backfillApi } from "@/lib/backfill-api";
+import type { EmailAccount, LLMProvider } from "@/lib/types";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-export type OnboardingStep = "llm" | "account" | "done";
+export type OnboardingStep = "welcome" | "mailbox" | "privacy" | "behavior" | "existing" | "ready";
+export type MailProviderChoice = "gmail" | "microsoft" | "imap";
 export type OrganizationMember = {
   id: string;
   userId?: string;
   role: string;
   user?: { id?: string; email?: string; name?: string };
-};
-export type ProviderForm = {
-  label: string;
-  type: string;
-  base_url: string;
-  default_classification_model: string;
-  default_generation_model: string;
-  api_key: string;
 };
 export type AccountForm = {
   imap_host: string;
@@ -35,234 +25,182 @@ export type AccountForm = {
   shared_user_ids: string[];
 };
 
-type OnboardingState = ReturnType<typeof useOnboardingState>;
-
 export function useOnboardingPage() {
   const router = useRouter();
+  const params = useSearchParams();
   const { data: session } = useSession();
   const userId = session?.user?.id;
-  const state = useOnboardingState(userId);
-  const submitProvider = useProviderSubmission(state);
-  const submitAccount = useAccountSubmission(state, userId, router);
-  const connectOAuth = useOAuthConnection(state, userId);
-  const toggleSharedUser = useCallback(
-    (memberId: string, checked: boolean) => {
-      state.setAccountForm((current) => ({
-        ...current,
-        shared_user_ids: checked
-          ? [...new Set([...current.shared_user_ids, memberId])]
-          : current.shared_user_ids.filter((id) => id !== memberId),
-      }));
-    },
-    [state.setAccountForm],
-  );
-  return {
-    ...state,
-    hasUserIdentity: Boolean(userId),
-    submitProvider,
-    submitAccount,
-    connectOAuth,
-    toggleSharedUser,
-  };
-}
-
-function useOnboardingState(userId?: string) {
-  const [step, setStep] = useState<OnboardingStep>("llm");
+  const [step, setStep] = useState<OnboardingStep>("welcome");
+  const [providerChoice, setProviderChoice] = useState<MailProviderChoice>("gmail");
   const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
-  const [bootstrap, setBootstrap] = useState<BootstrapStatus | null>(null);
-  const [providerForm, setProviderForm] =
-    useState<ProviderForm>(emptyProviderForm);
-  const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm);
+  const [account, setAccount] = useState<EmailAccount | null>(null);
+  const [accountForm, setAccountForm] = useState<AccountForm>({
+    imap_host: "",
+    username: "",
+    password: "",
+    interval_minutes: 5,
+    llm_provider_id: "",
+    ownership_mode: "private",
+    shared_user_ids: [],
+  });
+  const [analyzeExisting, setAnalyzeExisting] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+
   useEffect(() => {
-    void loadProviders(setProviders, setAccountForm, setStep, setLoading);
-    void getBootstrapStatus().then(setBootstrap).catch(() => undefined);
-  }, []);
-  useEffect(() => {
-    void loadMembers(userId, setMembers);
-  }, [userId]);
-  const currentMember = useMemo(
-    () => members.find((member) => memberUserId(member) === userId),
-    [members, userId],
-  );
-  const canCreateShared =
-    currentMember?.role === "owner" || currentMember?.role === "admin";
-  return {
-    step,
-    setStep,
-    providers,
-    setProviders,
-    members,
-    bootstrap,
-    providerForm,
-    setProviderForm,
-    accountForm,
-    setAccountForm,
-    loading,
-    error,
-    setError,
-    busy,
-    setBusy,
-    canCreateShared,
-  };
-}
-
-function useProviderSubmission(state: OnboardingState) {
-  return useCallback(async () => {
-    state.setBusy(true);
-    state.setError(null);
-    try {
-      const created = await api.createProvider({
-        ...state.providerForm,
-        api_key: state.providerForm.api_key || null,
-      });
-      state.setProviders((current) => [...current, created]);
-      state.setAccountForm((current) => ({
-        ...current,
-        llm_provider_id: created.id,
-      }));
-      state.setStep("account");
-    } catch (err) {
-      state.setError(messageOf(err, "onboarding_provider_failed"));
-    } finally {
-      state.setBusy(false);
-    }
-  }, [state]);
-}
-
-function useAccountSubmission(
-  state: OnboardingState,
-  userId: string | undefined,
-  router: ReturnType<typeof useRouter>,
-) {
-  return useCallback(async () => {
-    state.setBusy(true);
-    state.setError(null);
-    try {
-      await api.createAccount(accountPayload(state.accountForm, userId));
-      state.setStep("done");
-      window.setTimeout(() => router.push("/app/dashboard"), 900);
-    } catch (err) {
-      state.setError(messageOf(err, "onboarding_account_failed"));
-    } finally {
-      state.setBusy(false);
-    }
-  }, [router, state, userId]);
-}
-
-function useOAuthConnection(state: OnboardingState, userId?: string) {
-  return useCallback(
-    async (provider: "gmail" | "microsoft") => {
-      state.setBusy(true);
-      state.setError(null);
-      try {
-        const result = await api.oauthAuthorizeUrl(
-          provider,
-          ownershipOptions(state.accountForm, userId),
-        );
-        window.location.href = result.authorize_url;
-      } catch (err) {
-        state.setError(messageOf(err, "onboarding_oauth_failed"));
-        state.setBusy(false);
+    void Promise.allSettled([api.listProviders(), api.listAccounts()]).then(([providerResult, accountResult]) => {
+      if (providerResult.status === "fulfilled") {
+        setProviders(providerResult.value);
+        if (providerResult.value[0]) {
+          setAccountForm((current) => ({ ...current, llm_provider_id: providerResult.value[0].id }));
+        }
       }
-    },
-    [state, userId],
-  );
+      if (accountResult.status === "fulfilled" && accountResult.value[0]) {
+        const connected = accountResult.value[0];
+        setAccount(connected);
+        setProviderChoice(connected.provider_type === "gmail" ? "gmail" : connected.provider_type === "microsoft" ? "microsoft" : "imap");
+        setAccountForm((current) => ({ ...current, ownership_mode: connected.ownership_mode === "shared" ? "shared" : "private" }));
+        if (params.get("connected")) setStep("privacy");
+      }
+      setLoading(false);
+    });
+  }, [params]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void authClient.organization.listMembers().then((result) => {
+      if (!result.error) {
+        const data = result.data as unknown as { members?: OrganizationMember[] };
+        setMembers(data.members ?? []);
+      }
+    }).catch(() => undefined);
+  }, [userId]);
+
+  const currentMember = useMemo(() => members.find((member) => memberUserId(member) === userId), [members, userId]);
+  const canCreateShared = currentMember?.role === "owner" || currentMember?.role === "admin";
+
+  const toggleSharedUser = useCallback((memberId: string, checked: boolean) => {
+    setAccountForm((current) => ({
+      ...current,
+      shared_user_ids: checked
+        ? [...new Set([...current.shared_user_ids, memberId])]
+        : current.shared_user_ids.filter((id) => id !== memberId),
+    }));
+  }, []);
+
+  const connectOAuth = useCallback(async (provider: "gmail" | "microsoft") => {
+    setBusy(true);
+    setError(null);
+    try {
+      // OAuth state needs an ownership decision before the provider redirect. The
+      // onboarding defaults to the privacy-safe private mode; B3 can explicitly
+      // convert the resulting mailbox to shared afterwards.
+      const result = await api.oauthAuthorizeUrl(provider, { ownershipMode: "private", sharedUserIds: [] });
+      window.location.href = result.authorize_url;
+    } catch (err) {
+      setError(messageOf(err, "onboarding_oauth_failed"));
+      setBusy(false);
+    }
+  }, []);
+
+  const continueFromMailbox = useCallback(() => {
+    setError(null);
+    if (providerChoice === "imap" && (!accountForm.imap_host || !accountForm.username || !accountForm.password)) {
+      setError("Enter the IMAP host, username and password before continuing.");
+      return;
+    }
+    if (providerChoice !== "imap" && !account) {
+      setError(`Connect ${providerChoice === "gmail" ? "Gmail" : "Microsoft"} before continuing.`);
+      return;
+    }
+    setStep("privacy");
+  }, [account, accountForm, providerChoice]);
+
+  const savePrivacyAndMailbox = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      let currentAccount = account;
+      if (!currentAccount) {
+        currentAccount = await api.createAccount({
+          imap_host: accountForm.imap_host,
+          username: accountForm.username,
+          password: accountForm.password,
+          interval_minutes: accountForm.interval_minutes,
+          llm_provider_id: accountForm.llm_provider_id || null,
+          ownership_mode: accountForm.ownership_mode,
+          shared_user_ids: accountForm.ownership_mode === "shared" ? accountForm.shared_user_ids : [],
+          move_policy: "automatic",
+          archive_policy: "review",
+        });
+        setAccount(currentAccount);
+      } else {
+        const desiredMode = accountForm.ownership_mode;
+        const desiredUsers = desiredMode === "shared" ? accountForm.shared_user_ids : [];
+        if (currentAccount.ownership_mode !== desiredMode) {
+          currentAccount = await api.changeMailboxOwnership(currentAccount.id, { mode: desiredMode, shared_user_ids: desiredUsers });
+          setAccount(currentAccount);
+        } else if (desiredMode === "shared") {
+          await api.replaceSharedAccess(currentAccount.id, desiredUsers);
+        }
+      }
+      setStep("behavior");
+    } catch (err) {
+      setError(messageOf(err, "onboarding_account_failed"));
+    } finally {
+      setBusy(false);
+    }
+  }, [account, accountForm]);
+
+  const saveBehavior = useCallback(async () => {
+    if (!account) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await api.updateAccount(account.id, { move_policy: "automatic", archive_policy: "review" });
+      setAccount(updated);
+      setStep("existing");
+    } catch (err) {
+      setError(messageOf(err, "onboarding_behavior_failed"));
+    } finally {
+      setBusy(false);
+    }
+  }, [account]);
+
+  const finishExisting = useCallback(async () => {
+    if (!account) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (analyzeExisting) {
+        const existing = await backfillApi.list(account.id);
+        const active = existing.some((job) => ["running", "paused"].includes(job.state));
+        if (!active) await backfillApi.start(account.id, { folder: account.inbox_folder || "INBOX", mode: "dry_run", batch_size: 10 });
+      }
+      setStep("ready");
+    } catch (err) {
+      setError(messageOf(err, "onboarding_backfill_failed"));
+    } finally {
+      setBusy(false);
+    }
+  }, [account, analyzeExisting]);
+
+  return {
+    step, setStep, providerChoice, setProviderChoice, providers, members, account, accountForm, setAccountForm,
+    analyzeExisting, setAnalyzeExisting, busy, loading, error, setError, canCreateShared, toggleSharedUser,
+    connectOAuth, continueFromMailbox, savePrivacyAndMailbox, saveBehavior, finishExisting,
+    openMailflow: () => router.push("/app/dashboard"),
+  };
 }
 
 export type OnboardingController = ReturnType<typeof useOnboardingPage>;
-
-const emptyProviderForm: ProviderForm = {
-  label: "",
-  type: "ollama",
-  base_url: "",
-  default_classification_model: "",
-  default_generation_model: "",
-  api_key: "",
-};
-const emptyAccountForm: AccountForm = {
-  imap_host: "",
-  username: "",
-  password: "",
-  interval_minutes: 5,
-  llm_provider_id: "",
-  ownership_mode: "private",
-  shared_user_ids: [],
-};
-
-async function loadProviders(
-  setProviders: (items: LLMProvider[]) => void,
-  setAccountForm: React.Dispatch<React.SetStateAction<AccountForm>>,
-  setStep: (step: OnboardingStep) => void,
-  setLoading: (value: boolean) => void,
-) {
-  try {
-    const providers = await api.listProviders();
-    setProviders(providers);
-    if (providers.length > 0) {
-      setAccountForm((current) => ({
-        ...current,
-        llm_provider_id: providers[0].id,
-      }));
-      setStep("account");
-    }
-  } catch {
-    // A missing provider is a valid first-run state; provider creation remains available.
-  } finally {
-    setLoading(false);
-  }
-}
-
-async function loadMembers(
-  userId: string | undefined,
-  setMembers: (items: OrganizationMember[]) => void,
-) {
-  if (!userId) return;
-  try {
-    const result = await authClient.organization.listMembers();
-    if (!result.error) {
-      const data = result.data as unknown as { members?: OrganizationMember[] };
-      setMembers(data.members ?? []);
-    }
-  } catch {
-    // Membership is optional unless a shared mailbox is selected.
-  }
-}
-
-function accountPayload(form: AccountForm, userId?: string) {
-  return {
-    imap_host: form.imap_host,
-    username: form.username,
-    password: form.password,
-    interval_minutes: Number(form.interval_minutes),
-    llm_provider_id: form.llm_provider_id || null,
-    ...(userId
-      ? {
-          ownership_mode: form.ownership_mode,
-          shared_user_ids:
-            form.ownership_mode === "shared" ? form.shared_user_ids : [],
-        }
-      : {}),
-  };
-}
-
-function ownershipOptions(form: AccountForm, userId?: string) {
-  if (!userId) return undefined;
-  return {
-    ownershipMode: form.ownership_mode,
-    sharedUserIds: form.ownership_mode === "shared" ? form.shared_user_ids : [],
-  } as const;
-}
 
 export function memberUserId(member: OrganizationMember): string | null {
   return member.userId ?? member.user?.id ?? null;
 }
 
 function messageOf(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error
-    ? error.message
-    : fallback;
+  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
 }
