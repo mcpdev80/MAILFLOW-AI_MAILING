@@ -1,0 +1,11 @@
+export const esShell = {
+  "nav.search": "Buscar",
+  "nav.processing": "Procesamiento",
+  "nav.mailboxes": "Buzones",
+  "nav.learning": "Aprendizaje",
+  "shell.systemStatus": "Estado del sistema",
+  "shell.operational": "Todos los sistemas operativos",
+  "shell.degraded": "Servicio degradado",
+  "shell.notifications": "Notificaciones",
+  "shell.profile": "Perfil",
+} as const;
