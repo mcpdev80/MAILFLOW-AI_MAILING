@@ -9,4 +9,5 @@ export const enShell = {
   "shell.degraded": "Service degraded",
   "shell.notifications": "Notifications",
   "shell.profile": "Profile",
+  "shell.addMailbox": "Add Mailbox",
 } as const;
