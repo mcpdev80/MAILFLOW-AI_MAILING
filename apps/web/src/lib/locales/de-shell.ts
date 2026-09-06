@@ -1,6 +1,7 @@
 export const deShell = {
   "nav.search": "Suche",
   "nav.processing": "Verarbeitung",
+  "nav.attachments": "Anhänge",
   "nav.mailboxes": "Postfächer",
   "nav.learning": "Lernen",
   "shell.systemStatus": "Systemstatus",
