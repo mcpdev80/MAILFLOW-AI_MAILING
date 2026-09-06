@@ -107,9 +107,7 @@ async def _member_roles(
         {"organization_id": auth_org_id},
     )
     return {
-        str(user_id): str(role)
-        for user_id, role in rows
-        if str(user_id) in user_ids
+        str(user_id): str(role) for user_id, role in rows if str(user_id) in user_ids
     }
 
 
@@ -127,7 +125,9 @@ async def authorize(
     selected_users = shared_user_ids or []
     mode, owner_user_id = new_account_ownership(identity, ownership_mode)
     if mode != OWNERSHIP_SHARED and selected_users:
-        raise HTTPException(status_code=422, detail="shared_users_require_shared_mailbox")
+        raise HTTPException(
+            status_code=422, detail="shared_users_require_shared_mailbox"
+        )
     if mode == OWNERSHIP_SHARED:
         await ensure_org_members(session, identity, selected_users)
         if identity.user_id:
@@ -140,7 +140,9 @@ async def authorize(
                 str(identity.org.id),
                 auth_org_id=identity.auth_org_id,
                 owner_user_id=owner_user_id,
-                manager_user_id=(identity.user_id if mode == OWNERSHIP_SHARED else None),
+                manager_user_id=(
+                    identity.user_id if mode == OWNERSHIP_SHARED else None
+                ),
                 ownership_mode=mode,
                 shared_user_ids=(selected_users if mode == OWNERSHIP_SHARED else []),
             ),
@@ -206,8 +208,10 @@ async def callback(
         base_match.append(EmailAccount.owner_user_id == owner_user_id)
 
     existing = (
-        await session.execute(select(EmailAccount).where(*base_match))
-    ).scalars().first()
+        (await session.execute(select(EmailAccount).where(*base_match)))
+        .scalars()
+        .first()
+    )
 
     if existing and ownership_mode == OWNERSHIP_SHARED and manager_user_id:
         can_manage = (
