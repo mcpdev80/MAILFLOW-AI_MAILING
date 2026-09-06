@@ -116,7 +116,8 @@ function ActionToolbar({
 
 function MoveControls({ state }: { state: WorkspaceState }) {
   const { t } = useI18n();
-  const selected = state.selected!;
+  const selected = state.selected;
+  if (!selected) return null;
   return (
     <div className={styles.moveGroup}>
       <select
@@ -152,6 +153,8 @@ function MoveControls({ state }: { state: WorkspaceState }) {
 
 function MoreButton({ state }: { state: WorkspaceState }) {
   const { t } = useI18n();
+  const selected = state.selected;
+  if (!selected) return null;
   return (
     <button
       type="button"
@@ -159,7 +162,7 @@ function MoreButton({ state }: { state: WorkspaceState }) {
       aria-label={t("mail.moreActions")}
       onClick={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
-        void state.openContextMenuAt(state.selected!, {
+        void state.openContextMenuAt(selected, {
           x: Math.max(8, rect.right - 220),
           y: rect.bottom + 4,
         });

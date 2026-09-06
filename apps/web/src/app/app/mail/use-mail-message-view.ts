@@ -35,6 +35,7 @@ export function useMailMessageView(options: MessageViewOptions) {
   const [thread, setThread] = useState<ThreadView | null>(null);
   const [messageLoading, setMessageLoading] = useState(false);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: changing mailboxes must clear the selected message.
   useEffect(() => {
     setSelected(null);
     setThread(null);

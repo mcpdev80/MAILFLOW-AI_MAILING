@@ -18,7 +18,8 @@ export function WorkspaceOverlays({ state }: { state: WorkspaceState }) {
 }
 
 function ContextMenuOverlay({ state }: { state: WorkspaceState }) {
-  const menu = state.contextMenu!;
+  const menu = state.contextMenu;
+  if (!menu) return null;
   return (
     <MailContextMenu
       position={menu.position}
@@ -59,7 +60,8 @@ function UndoToast({ state }: { state: WorkspaceState }) {
 
 function AiDialog({ state }: { state: WorkspaceState }) {
   const { t } = useI18n();
-  const result = state.aiResult!;
+  const result = state.aiResult;
+  if (!result) return null;
   return (
     <div className={styles.dialogBackdrop} role="presentation">
       <dialog open className={styles.dialog} aria-label={result.title}>

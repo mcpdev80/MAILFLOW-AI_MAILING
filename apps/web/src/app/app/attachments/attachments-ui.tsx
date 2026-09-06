@@ -484,9 +484,9 @@ export function AttachmentsUI() {
       )}
 
       {state.savedDecision && (
-        <div className={styles.toast} role="status">
+        <output className={styles.toast}>
           {t("attachments.decisionSaved")}
-        </div>
+        </output>
       )}
       {state.error && (
         <div className={styles.error}>

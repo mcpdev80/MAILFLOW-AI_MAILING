@@ -73,6 +73,7 @@ export function TrendCard(props: { points: DashboardTrendPoint[]; t: T }) {
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
       >
+        <title>{props.t("dashboard.trend")}</title>
         <polyline
           className={styles.trendLine}
           points={trendPoints(props.points)}

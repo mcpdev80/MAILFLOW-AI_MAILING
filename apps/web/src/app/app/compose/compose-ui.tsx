@@ -188,7 +188,7 @@ function FieldRow({
   trailing,
 }: { label: string; children: React.ReactNode; trailing?: React.ReactNode }) {
   return (
-    <label
+    <div
       style={{
         display: "grid",
         gridTemplateColumns: "72px minmax(0, 1fr) auto",
@@ -202,7 +202,7 @@ function FieldRow({
       <span className="muted">{label}</span>
       <span style={{ minWidth: 0 }}>{children}</span>
       {trailing}
-    </label>
+    </div>
   );
 }
 
@@ -348,7 +348,7 @@ function MessageEditor({
     controller.setFields((current) => ({ ...current, ...value }));
   return (
     <section>
-      <EditorMode
+      <EditorModeToggle
         value={controller.fields.editorMode}
         disabled={disabled}
         onChange={(editorMode) => patch({ editorMode })}
@@ -383,7 +383,7 @@ function MessageEditor({
   );
 }
 
-function EditorMode({
+function EditorModeToggle({
   value,
   disabled,
   onChange,

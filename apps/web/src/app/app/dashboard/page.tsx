@@ -81,7 +81,7 @@ function DashboardNotices({ state }: { state: DashboardState }) {
 }
 
 function DashboardContent({ state }: { state: DashboardState }) {
-  const overview = state.overview!;
+  if (!state.overview) return null;
   return (
     <>
       <DashboardKpis state={state} />
@@ -144,7 +144,8 @@ function DashboardMiniStats({ state }: { state: DashboardState }) {
 
 function DashboardGrid({ state }: { state: DashboardState }) {
   const { t } = useI18n();
-  const overview = state.overview!;
+  const overview = state.overview;
+  if (!overview) return null;
   return (
     <section className={styles.split}>
       <div className={styles.column}>

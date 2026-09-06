@@ -356,12 +356,7 @@ function CreateRuleModal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section
-        className={page.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-memory-title"
-      >
+      <dialog open className={page.modal} aria-labelledby="create-memory-title">
         <h2 id="create-memory-title">{t("learning.newRule")}</h2>
         <p>{t("learning.createSubtitle")}</p>
         <form className={page.modalForm} onSubmit={submit}>
@@ -447,7 +442,7 @@ function CreateRuleModal({
             </button>
           </div>
         </form>
-      </section>
+      </dialog>
     </div>
   );
 }

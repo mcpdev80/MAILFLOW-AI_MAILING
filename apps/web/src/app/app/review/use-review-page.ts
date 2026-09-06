@@ -51,15 +51,12 @@ export function useReviewPage() {
 
   const retry = useCallback(
     (item: OperationalReviewItem) => {
-      if (item.source_type !== "backfill_failure" || !item.job_id) {
+      const jobId = item.job_id;
+      if (item.source_type !== "backfill_failure" || !jobId) {
         return Promise.resolve();
       }
       return runBusy(item.id, () =>
-        attentionApi.retryBackfillFailure(
-          item.account_id,
-          item.job_id!,
-          item.id,
-        ),
+        attentionApi.retryBackfillFailure(item.account_id, jobId, item.id),
       );
     },
     [runBusy],
