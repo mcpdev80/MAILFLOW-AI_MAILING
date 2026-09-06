@@ -31,10 +31,12 @@ def _item(
     document: AttachmentDocument,
     placement: AttachmentPlacement | None,
     source_count: int,
+    *,
+    display_filename: str | None = None,
 ) -> AttachmentDocumentListItem:
     return AttachmentDocumentListItem(
         id=document.id,
-        canonical_filename=document.canonical_filename,
+        canonical_filename=display_filename or document.canonical_filename,
         mime_type=document.mime_type,
         size_bytes=document.size_bytes,
         analysis_status=document.analysis_status,
@@ -66,7 +68,8 @@ async def list_attachments(
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> list[AttachmentDocumentListItem]:
-    rows = await AttachmentLibraryRepository(session).list_accessible_documents(
+    repo = AttachmentLibraryRepository(session)
+    rows = await repo.list_accessible_documents(
         identity,
         query=q,
         account_id=account_id,
@@ -77,7 +80,19 @@ async def list_attachments(
         limit=limit,
         offset=offset,
     )
-    return [_item(document, placement, source_count) for document, placement, source_count in rows]
+    items: list[AttachmentDocumentListItem] = []
+    for document, placement, source_count in rows:
+        detail = await repo.get_accessible_document(identity, document.id)
+        filename = detail[2][0].source_filename if detail and detail[2] else None
+        items.append(
+            _item(
+                document,
+                placement,
+                source_count,
+                display_filename=filename,
+            )
+        )
+    return items
 
 
 @router.get("/folders", response_model=list[AttachmentFolderOut])
@@ -180,7 +195,8 @@ async def attachment_detail(
     if result is None:
         raise HTTPException(status_code=404, detail="attachment_not_found")
     document, placement, sources = result
-    item = _item(document, placement, len(sources))
+    filename = sources[0].source_filename if sources else None
+    item = _item(document, placement, len(sources), display_filename=filename)
     return AttachmentDocumentDetail(
         **item.model_dump(),
         extracted_text=document.extracted_text,
@@ -232,7 +248,8 @@ async def correct_attachment_organization(
 
     await session.commit()
     await session.refresh(placement)
-    item = _item(document, placement, len(sources))
+    filename = sources[0].source_filename if sources else None
+    item = _item(document, placement, len(sources), display_filename=filename)
     return AttachmentDocumentDetail(
         **item.model_dump(),
         extracted_text=document.extracted_text,
@@ -251,12 +268,13 @@ async def download_attachment_document(
     )
     if result is None:
         raise HTTPException(status_code=404, detail="attachment_not_found")
-    document, _placement, _sources = result
+    document, _placement, sources = result
     try:
         payload = attachment_storage.read(document.storage_key)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="attachment_binary_not_found") from exc
-    filename = quote(document.canonical_filename, safe="")
+    display_name = sources[0].source_filename if sources else document.canonical_filename
+    filename = quote(display_name, safe="")
     return Response(
         content=payload,
         media_type=document.mime_type or "application/octet-stream",
