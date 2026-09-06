@@ -8,9 +8,9 @@
     "start": "next start",
     "lint": "biome check src/",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "pnpm dlx playwright@1.63.0 test",
-    "test:e2e:ui": "pnpm dlx playwright@1.63.0 test --ui",
-    "test:e2e:headed": "pnpm dlx playwright@1.63.0 test --headed",
+    "test:e2e": "pnpm dlx @playwright/test@1.63.0 test",
+    "test:e2e:ui": "pnpm dlx @playwright/test@1.63.0 test --ui",
+    "test:e2e:headed": "pnpm dlx @playwright/test@1.63.0 test --headed",
     "auth:generate": "WEB_AUTH=on better-auth generate --config src/lib/auth.ts --output ./better-auth-schema.sql -y",
     "auth:migrate": "WEB_AUTH=on better-auth migrate --config src/lib/auth.ts -y"
   },
