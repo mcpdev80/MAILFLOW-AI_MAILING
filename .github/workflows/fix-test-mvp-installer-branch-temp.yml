@@ -1,0 +1,31 @@
+name: Fix test-mvp installer branch (temporary)
+
+on:
+  push:
+    branches:
+      - test-mvp
+    paths:
+      - .github/workflows/fix-test-mvp-installer-branch-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test-mvp
+      - name: Point MVP installer at test-mvp
+        shell: bash
+        run: |
+          sed -i 's/^BRANCH="main"$/BRANCH="test-mvp"/' scripts/install.sh
+          sed -i 's/^BRANCH="main"$/BRANCH="test-mvp"/' scripts/install-core.sh
+          bash -n scripts/install.sh
+          bash -n scripts/install-core.sh
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/install.sh scripts/install-core.sh
+          git commit -m "fix(installer): keep MVP test installs on test-mvp"
+          git push origin HEAD:test-mvp
