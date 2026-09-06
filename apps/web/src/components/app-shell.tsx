@@ -73,7 +73,7 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
     [reviewCount],
   );
   return (
-    <aside className={styles.sidebar}>
+    <aside className={styles.sidebar} data-testid="app-sidebar">
       <div className={styles.sidebarTop}>
         <Link href="/app/dashboard" className={styles.brand}>
           <span className={styles.brandMark}>M</span>
@@ -120,7 +120,7 @@ function StatusPill({ state }: { state: ShellState }) {
         ? t("shell.operational")
         : t("shell.degraded");
   return (
-    <div className={styles.statusWrap}>
+    <div className={styles.statusWrap} data-testid="system-status">
       <span className={styles.statusLabel}>{t("shell.systemStatus")}:</span>
       <span className={`${styles.status} ${state.healthy === false ? styles.statusDegraded : ""}`}>
         <span className={styles.statusDot} aria-hidden="true" />
@@ -133,7 +133,7 @@ function StatusPill({ state }: { state: ShellState }) {
 function Header({ state, showStatus }: { state: ShellState; showStatus: boolean }) {
   const { t } = useI18n();
   return (
-    <header className={styles.header}>
+    <header className={styles.header} data-testid="app-header">
       {showStatus ? <StatusPill state={state} /> : <span />}
       <div className={styles.headerActions}>
         <Link
@@ -159,11 +159,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ? appearance.workspaceCustomConfig?.system_status_position ?? "top"
       : "top";
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-testid="app-shell">
       <Sidebar reviewCount={state.reviewCount} />
       <div className={styles.content}>
         <Header state={state} showStatus={statusPosition === "top"} />
-        <div className={styles.main}>{children}</div>
+        <div className={styles.main} data-testid="app-content">{children}</div>
         {statusPosition === "bottom" && (
           <footer className={styles.statusFooter}>
             <StatusPill state={state} />
