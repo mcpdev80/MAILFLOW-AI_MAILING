@@ -23,6 +23,7 @@ import {
 
 type AiResult = { title: string; body: string };
 type DirectMailAction = Extract<MailActionRequest["action"], MailActionId>;
+type Translate = ReturnType<typeof useI18n>["t"];
 type ContextMenuState = {
   position: ContextMenuPosition;
   message: InboxMessage;
@@ -44,48 +45,14 @@ export function useMailContextActions(options: ContextActionOptions) {
   const { t } = useI18n();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
-
-  async function openContextMenuAt(message: InboxMessage, position: ContextMenuPosition) {
-    try {
-      const metadata = await options.ensureMetadata(message.account_id);
-      setContextMenu({ position, message, capabilities: metadata.capabilities });
-    } catch (err) {
-      options.setError(apiErrorMessage(err, t("mail.actionsFailed")));
-    }
-  }
-
-  async function openReply(
-    type: "reply" | "reply_all" | "forward",
-    source?: InboxMessage,
-    aiAction?: MailActionId,
-  ) {
-    const detail = source ? await options.detailFor(source) : options.selected;
-    if (!detail) return;
-    const customInstruction = aiAction === "ai_reply_custom" ? customReplyInstruction(t("mail.customReplyPrompt")) : undefined;
-    if (aiAction === "ai_reply_custom" && !customInstruction) return;
-    try {
-      const id = await createReplyDraft(detail, type, aiAction, customInstruction);
-      router.push(`/app/compose?draft=${encodeURIComponent(id)}`);
-    } catch (err) {
-      options.setError(apiErrorMessage(err, t("mail.replyDraftFailed")));
-    }
-  }
-
-  async function executeContextAction(action: MailActionId, message: InboxMessage) {
-    try {
-      if (isReplyAction(action)) return openReply(action, message);
-      if (action.startsWith("ai_reply")) return openReply("reply", message, action);
-      if (isInsightAction(action)) return showInsight(action, message, options, setAiResult, t);
-      if (action.startsWith("ai_translate_") || action === "ai_custom") return showGeneratedAI(action, message, options, setAiResult, t);
-      if (isDirectMailAction(action)) return options.runActionFor(message, { action });
-      if (action === "move") return moveFromContext(message, options, t("mail.movePrompt"));
-      if (action === "print_message" || action === "print_thread") return printMessage(action, await options.detailFor(message));
-      if (action === "message_details") setAiResult(messageDetails(await options.detailFor(message), t("mail.messageDetails")));
-    } catch (err) {
-      options.setError(apiErrorMessage(err, t("mail.actionFailed")));
-    }
-  }
-
+  const openContextMenuAt = contextMenuOpener(options, setContextMenu, t);
+  const openReply = replyOpener(options, router.push, t);
+  const executeContextAction = contextExecutor(
+    options,
+    openReply,
+    setAiResult,
+    t,
+  );
   return {
     contextMenu,
     setContextMenu,
@@ -94,6 +61,74 @@ export function useMailContextActions(options: ContextActionOptions) {
     openContextMenuAt,
     openReply,
     executeContextAction,
+  };
+}
+
+function contextMenuOpener(
+  options: ContextActionOptions,
+  setContextMenu: (value: ContextMenuState | null) => void,
+  t: Translate,
+) {
+  return async (message: InboxMessage, position: ContextMenuPosition) => {
+    try {
+      const metadata = await options.ensureMetadata(message.account_id);
+      setContextMenu({ position, message, capabilities: metadata.capabilities });
+    } catch (err) {
+      options.setError(apiErrorMessage(err, t("mail.actionsFailed")));
+    }
+  };
+}
+
+function replyOpener(
+  options: ContextActionOptions,
+  push: (href: string) => void,
+  t: Translate,
+) {
+  return async (
+    type: "reply" | "reply_all" | "forward",
+    source?: InboxMessage,
+    aiAction?: MailActionId,
+  ) => {
+    const detail = source ? await options.detailFor(source) : options.selected;
+    if (!detail) return;
+    const instruction = aiAction === "ai_reply_custom"
+      ? customReplyInstruction(t("mail.customReplyPrompt"))
+      : undefined;
+    if (aiAction === "ai_reply_custom" && !instruction) return;
+    try {
+      const id = await createReplyDraft(detail, type, aiAction, instruction);
+      push(`/app/compose?draft=${encodeURIComponent(id)}`);
+    } catch (err) {
+      options.setError(apiErrorMessage(err, t("mail.replyDraftFailed")));
+    }
+  };
+}
+
+function contextExecutor(
+  options: ContextActionOptions,
+  openReply: ReturnType<typeof replyOpener>,
+  setAiResult: (value: AiResult | null) => void,
+  t: Translate,
+) {
+  return async (action: MailActionId, message: InboxMessage) => {
+    try {
+      if (isReplyAction(action)) return openReply(action, message);
+      if (action.startsWith("ai_reply")) return openReply("reply", message, action);
+      if (isInsightAction(action)) return showInsight(action, message, options, setAiResult, t);
+      if (action.startsWith("ai_translate_") || action === "ai_custom") {
+        return showGeneratedAI(action, message, options, setAiResult, t);
+      }
+      if (isDirectMailAction(action)) return options.runActionFor(message, { action });
+      if (action === "move") return moveFromContext(message, options, t("mail.movePrompt"));
+      if (action === "print_message" || action === "print_thread") {
+        return printMessage(action, await options.detailFor(message));
+      }
+      if (action === "message_details") {
+        setAiResult(messageDetails(await options.detailFor(message), t("mail.messageDetails")));
+      }
+    } catch (err) {
+      options.setError(apiErrorMessage(err, t("mail.actionFailed")));
+    }
   };
 }
 
@@ -114,7 +149,7 @@ async function showInsight(
   message: InboxMessage,
   options: ContextActionOptions,
   setAiResult: (value: AiResult) => void,
-  t: ReturnType<typeof useI18n>["t"],
+  t: Translate,
 ) {
   const detail = await options.detailFor(message);
   const context = detail.thread_id ? await api.threadDetail(detail.account_id, detail.thread_id) : null;
@@ -128,7 +163,7 @@ async function showGeneratedAI(
   message: InboxMessage,
   options: ContextActionOptions,
   setAiResult: (value: AiResult) => void,
-  t: ReturnType<typeof useI18n>["t"],
+  t: Translate,
 ) {
   const detail = await options.detailFor(message);
   const language = translationLanguage(action);
@@ -182,11 +217,7 @@ function messageDetails(detail: MessageDetail, title: string): AiResult {
   };
 }
 
-function insightResult(
-  action: MailActionId,
-  insights: ThreadInsights | null,
-  t: ReturnType<typeof useI18n>["t"],
-): AiResult {
+function insightResult(action: MailActionId, insights: ThreadInsights | null, t: Translate): AiResult {
   if (!insights) return { title: t("mail.aiInsight"), body: t("mail.noInsight") };
   if (action === "ai_summarize") return { title: t("mail.summary"), body: insights.overview };
   if (action === "ai_key_points") return { title: t("mail.keyPoints"), body: bulletList(insights.key_points, t("mail.noKeyPoints")) };
