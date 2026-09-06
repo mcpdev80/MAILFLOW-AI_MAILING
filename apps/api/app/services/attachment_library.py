@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from uuid import uuid4
 
 from mailflow_core.attachment_library import (
     decide_attachment_ingestion,
@@ -13,10 +14,13 @@ from mailflow_core.attachment_library import (
 from mailflow_core.attachments import AttachmentExtractionConfig, extract_attachment
 from mailflow_core.providers.base import EmailData, EmailProvider
 from mailflow_core.types import ClassificationResult
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.attachment_library_config import attachment_library_settings
 from app.attachment_storage import AttachmentStorage, attachment_storage
+from app.models.attachment_library import AttachmentMemory, AttachmentPlacement
 from app.models.email_account import EmailAccount
 from app.repositories.attachment_library import AttachmentLibraryRepository
 from app.secrets import redact_text
@@ -51,6 +55,105 @@ def _extracted_text(attachment, payload: bytes) -> str | None:
     except Exception as exc:  # extraction must never break mail processing
         log.info("Attachment text extraction skipped: %s", redact_text(str(exc)))
         return None
+
+
+async def _apply_private_attachment_memory(
+    session: AsyncSession,
+    *,
+    account: EmailAccount,
+    document_id,
+    sender_email: str,
+    filename: str,
+    mime_type: str,
+    document_type: str | None,
+) -> None:
+    """Apply one learned folder rule when a mailbox has exactly one owner.
+
+    Shared mailboxes intentionally do not get an implicit per-user placement here:
+    several users can organize the same deduplicated binary differently. Their
+    explicit corrections remain isolated by owner_scope.
+    """
+    if account.ownership_mode != "private" or not account.owner_user_id:
+        return
+
+    owner_scope = account.owner_user_id
+    sender = sender_email.strip().lower()
+    sender_domain = sender.rsplit("@", 1)[1] if "@" in sender else None
+    memories = list(
+        (
+            await session.execute(
+                select(AttachmentMemory)
+                .where(
+                    AttachmentMemory.org_id == account.org_id,
+                    AttachmentMemory.owner_scope == owner_scope,
+                    AttachmentMemory.active.is_(True),
+                )
+                .order_by(AttachmentMemory.updated_at.desc())
+            )
+        ).scalars()
+    )
+
+    filename_lower = filename.lower()
+    matching: list[AttachmentMemory] = []
+    for memory in memories:
+        if memory.sender_email and memory.sender_email.lower() != sender:
+            continue
+        if memory.sender_domain and memory.sender_domain.lower() != sender_domain:
+            continue
+        if memory.mime_type and memory.mime_type.lower() != mime_type.lower():
+            continue
+        if memory.document_type and memory.document_type != document_type:
+            continue
+        if memory.filename_pattern and memory.filename_pattern.lower() not in filename_lower:
+            continue
+        matching.append(memory)
+
+    if not matching:
+        return
+
+    def specificity(memory: AttachmentMemory) -> int:
+        return sum(
+            value is not None
+            for value in (
+                memory.sender_email,
+                memory.sender_domain,
+                memory.filename_pattern,
+                memory.mime_type,
+                memory.document_type,
+            )
+        )
+
+    memory = max(matching, key=specificity)
+    existing = (
+        await session.execute(
+            select(AttachmentPlacement).where(
+                AttachmentPlacement.document_id == document_id,
+                AttachmentPlacement.owner_scope == owner_scope,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None and existing.corrected:
+        return
+
+    await session.execute(
+        pg_insert(AttachmentPlacement)
+        .values(
+            id=uuid4(),
+            document_id=document_id,
+            org_id=account.org_id,
+            owner_scope=owner_scope,
+            folder_id=memory.folder_id,
+            category_override=None,
+            subcategory_override=None,
+            user_tags=[],
+            corrected=False,
+        )
+        .on_conflict_do_update(
+            index_elements=["document_id", "owner_scope"],
+            set_={"folder_id": memory.folder_id, "corrected": False},
+        )
+    )
+    memory.usage_count += 1
 
 
 async def ingest_message_attachments(
@@ -164,6 +267,15 @@ async def ingest_message_attachments(
                 disposition=attachment.disposition,
                 ingestion_status="stored",
                 safety_reason=None,
+            )
+            await _apply_private_attachment_memory(
+                session,
+                account=account,
+                document_id=document.id,
+                sender_email=email_data.from_email,
+                filename=attachment.filename,
+                mime_type=attachment.mime_type,
+                document_type=document.document_type,
             )
         except Exception as exc:  # attachment failure must not fail the mail cycle
             log.warning(
