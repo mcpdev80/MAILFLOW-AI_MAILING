@@ -48,12 +48,20 @@ export function useComposePage() {
 
   useEffect(() => {
     let cancelled = false;
-    void initializeComposer(searchParams, applyDraft, setAccounts, setError, setLoading, cancelled);
+    void initializeComposer(
+      searchParams,
+      applyDraft,
+      setAccounts,
+      setError,
+      setLoading,
+      () => cancelled,
+      t("compose.openFailed"),
+    );
     return () => {
       cancelled = true;
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [applyDraft, searchParams]);
+  }, [applyDraft, searchParams, t]);
 
   const persist = useCallback(async () => {
     const current = draftRef.current;
@@ -197,22 +205,23 @@ async function initializeComposer(
   setAccounts: (accounts: EmailAccount[]) => void,
   setError: SetError,
   setLoading: (loading: boolean) => void,
-  cancelled: boolean,
+  isCancelled: () => boolean,
+  openFailed: string,
 ) {
   try {
     const accounts = await api.listAccounts();
-    if (cancelled) return;
+    if (isCancelled()) return;
     setAccounts(accounts);
     if (accounts.length === 0) return;
     const requestedDraft = params.get("draft");
     const draft = requestedDraft
       ? await api.getDraft(requestedDraft)
       : await createDraftFromParams(accounts, params);
-    if (!cancelled) applyDraft(draft);
+    if (!isCancelled()) applyDraft(draft);
   } catch (err) {
-    if (!cancelled) setError(apiMessage(err, "compose_open_failed"));
+    if (!isCancelled()) setError(apiMessage(err, openFailed));
   } finally {
-    if (!cancelled) setLoading(false);
+    if (!isCancelled()) setLoading(false);
   }
 }
 
