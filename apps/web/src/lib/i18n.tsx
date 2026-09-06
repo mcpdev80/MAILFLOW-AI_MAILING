@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api";
+import { getBootstrapStatus } from "@/lib/bootstrap-api";
 import {
   type ReactNode,
   createContext,
@@ -173,6 +174,15 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 const LOCAL_KEY = "mailflow.locale";
 
+function asLocale(value: string | null | undefined): Locale | null {
+  return value && LOCALES.includes(value as Locale) ? (value as Locale) : null;
+}
+
+function applyLocale(locale: Locale): void {
+  window.localStorage.setItem(LOCAL_KEY, locale);
+  document.documentElement.lang = locale;
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("en");
   const [ready, setReady] = useState(false);
@@ -180,27 +190,42 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     const browserLocale = detectBrowserLocale();
-    const cached = window.localStorage.getItem(LOCAL_KEY) as Locale | null;
-    const initial = cached && LOCALES.includes(cached) ? cached : browserLocale;
-    setLocaleState(initial);
-    document.documentElement.lang = initial;
+    const cached = asLocale(window.localStorage.getItem(LOCAL_KEY));
 
-    api
-      .getUserPreferences()
-      .then(async (preferences) => {
+    void Promise.allSettled([api.getUserPreferences(), getBootstrapStatus()]).then(
+      async ([preferencesResult, bootstrapResult]) => {
         if (!active) return;
-        if (preferences.locale_configured) {
-          setLocaleState(preferences.locale);
-          window.localStorage.setItem(LOCAL_KEY, preferences.locale);
-          document.documentElement.lang = preferences.locale;
-        } else {
-          await api.updateUserPreferences({ locale: initial });
+
+        const deploymentLocale =
+          bootstrapResult.status === "fulfilled"
+            ? asLocale(bootstrapResult.value.fields.language.value)
+            : null;
+        const firstRunLocale = cached ?? deploymentLocale ?? browserLocale;
+
+        if (
+          preferencesResult.status === "fulfilled" &&
+          preferencesResult.value.locale_configured
+        ) {
+          const userLocale = preferencesResult.value.locale;
+          setLocaleState(userLocale);
+          applyLocale(userLocale);
+          setReady(true);
+          return;
         }
-      })
-      .catch(() => undefined)
-      .finally(() => {
+
+        setLocaleState(firstRunLocale);
+        applyLocale(firstRunLocale);
+
+        if (preferencesResult.status === "fulfilled") {
+          try {
+            await api.updateUserPreferences({ locale: firstRunLocale });
+          } catch {
+            // Keep the selected first-run locale locally if persistence is unavailable.
+          }
+        }
         if (active) setReady(true);
-      });
+      },
+    );
 
     return () => {
       active = false;
@@ -209,8 +234,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLocale = useCallback(async (next: Locale) => {
     setLocaleState(next);
-    window.localStorage.setItem(LOCAL_KEY, next);
-    document.documentElement.lang = next;
+    applyLocale(next);
     try {
       await api.updateUserPreferences({ locale: next });
     } catch {
