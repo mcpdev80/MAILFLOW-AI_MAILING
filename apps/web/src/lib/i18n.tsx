@@ -20,6 +20,7 @@ import { deMailActions } from "./locales/de-mail-actions";
 import { deModelSettings } from "./locales/de-model-settings";
 import { deNotifications } from "./locales/de-notifications";
 import { deSearch } from "./locales/de-search";
+import { deSecurity } from "./locales/de-security";
 import { deSettings } from "./locales/de-settings";
 import { deShell } from "./locales/de-shell";
 import { en } from "./locales/en";
@@ -32,6 +33,7 @@ import { enMailActions } from "./locales/en-mail-actions";
 import { enModelSettings } from "./locales/en-model-settings";
 import { enNotifications } from "./locales/en-notifications";
 import { enSearch } from "./locales/en-search";
+import { enSecurity } from "./locales/en-security";
 import { enSettings } from "./locales/en-settings";
 import { enShell } from "./locales/en-shell";
 import { es } from "./locales/es";
@@ -44,6 +46,7 @@ import { esMailActions } from "./locales/es-mail-actions";
 import { esModelSettings } from "./locales/es-model-settings";
 import { esNotifications } from "./locales/es-notifications";
 import { esSearch } from "./locales/es-search";
+import { esSecurity } from "./locales/es-security";
 import { esSettings } from "./locales/es-settings";
 import { esShell } from "./locales/es-shell";
 import type { TranslationKey } from "./locales/types";
@@ -69,6 +72,7 @@ const fallback = {
   ...enModelSettings,
   ...enNotifications,
   ...enSearch,
+  ...enSecurity,
   ...enSettings,
   ...enShell,
 };
@@ -84,6 +88,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...deModelSettings,
     ...deNotifications,
     ...deSearch,
+    ...deSecurity,
     ...deSettings,
     ...deShell,
   },
@@ -99,6 +104,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...esModelSettings,
     ...esNotifications,
     ...esSearch,
+    ...esSecurity,
     ...esSettings,
     ...esShell,
   },
