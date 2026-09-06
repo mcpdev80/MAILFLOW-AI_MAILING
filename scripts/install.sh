@@ -53,7 +53,7 @@ resolve_install_ref() {
 
 checkout_ref() {
   local dir="$1" ref="$2"
-  git -C "$dir" fetch origin "$ref"
+  git -C "$dir" fetch origin "+refs/heads/$ref:refs/remotes/origin/$ref"
   if git -C "$dir" show-ref --verify --quiet "refs/heads/$ref"; then
     git -C "$dir" checkout "$ref"
   else

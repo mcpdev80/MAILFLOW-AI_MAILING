@@ -545,8 +545,12 @@ fi
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   say "$(msg updating) $INSTALL_DIR"
-  git -C "$INSTALL_DIR" fetch origin "$BRANCH"
-  git -C "$INSTALL_DIR" checkout "$BRANCH"
+  git -C "$INSTALL_DIR" fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+  if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git -C "$INSTALL_DIR" checkout "$BRANCH"
+  else
+    git -C "$INSTALL_DIR" checkout -b "$BRANCH" --track "origin/$BRANCH"
+  fi
   git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
 elif [ -e "$INSTALL_DIR" ]; then
   fail "$INSTALL_DIR already exists but is not a Mailflow git checkout."

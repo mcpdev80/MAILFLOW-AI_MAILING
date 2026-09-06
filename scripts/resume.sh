@@ -103,8 +103,12 @@ show_success() {
 
 cd "$INSTALL_DIR"
 if [ "${MAILFLOW_SKIP_SELF_UPDATE:-0}" != "1" ]; then
-  git fetch origin "$BRANCH"
-  git checkout "$BRANCH"
+  git fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git checkout "$BRANCH"
+  else
+    git checkout -b "$BRANCH" --track "origin/$BRANCH"
+  fi
   git pull --ff-only origin "$BRANCH"
 fi
 
