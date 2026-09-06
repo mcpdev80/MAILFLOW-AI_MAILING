@@ -14,6 +14,14 @@ Do not remove existing copyright, license, provenance, warranty, or modification
 
 Contributions should identify material copied or adapted from third-party sources and state the applicable license and source where required.
 
+## AI-assisted contributions
+
+AI-assisted development tools may be used. Contributors remain responsible for everything they submit, including review, correctness, security, licensing, confidentiality, and third-party rights.
+
+If generative AI materially assisted a contribution, disclose that fact in the pull request description. The disclosure should name the tool when known and briefly describe how it was used, for example for implementation suggestions, refactoring, tests, debugging, or documentation.
+
+Do not treat an AI system as a legal author or copyright holder. Do not use AI-generated suggestions to bypass copyright, confidentiality, contractual, or licensing obligations. See [`../AI_ASSISTANCE.md`](../AI_ASSISTANCE.md) for the project's transparency statement.
+
 ## Development Setup
 
 ### Prerequisites
@@ -69,7 +77,8 @@ pnpm biome check .
 2. Write tests for behavior changes
 3. Ensure CI passes (lint + tests)
 4. Document third-party code or assets introduced by the change, including license information where applicable
-5. Open a PR against `main` with a clear description
+5. Disclose material use of generative AI in the PR description
+6. Open a PR against `main` with a clear description
 
 ## Commit Message Format
 
