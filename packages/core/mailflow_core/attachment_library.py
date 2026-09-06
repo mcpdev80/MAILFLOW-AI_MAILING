@@ -1,4 +1,4 @@
-"""Safety-first policy for deciding whether an email attachment belongs in the library."""
+"""Safety-first attachment-library policy and lightweight document metadata derivation."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import PurePath
 from typing import Literal
 
-from mailflow_core.types import AttachmentInfo
+from mailflow_core.types import AttachmentInfo, ClassificationResult
 
 AttachmentIngestionStatus = Literal["store", "ignore", "block", "unsupported"]
 
@@ -63,12 +63,59 @@ _NOISE_NAME = re.compile(
     re.IGNORECASE,
 )
 
+_DOCUMENT_HINTS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "invoice",
+        re.compile(
+            r"\b(invoice|rechnung|factura|invoice[-_ ]?no|rechnungs?[-_ ]?nr)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "receipt",
+        re.compile(r"\b(receipt|beleg|quittung|kassenbon|recibo)\b", re.IGNORECASE),
+    ),
+    (
+        "contract",
+        re.compile(r"\b(contract|vertrag|agreement|vereinbarung|contrato)\b", re.IGNORECASE),
+    ),
+    (
+        "ticket",
+        re.compile(r"\b(ticket|boarding pass|bordkarte|fahrkarte|entrada)\b", re.IGNORECASE),
+    ),
+    (
+        "statement",
+        re.compile(r"\b(statement|kontoauszug|abrechnung|extracto)\b", re.IGNORECASE),
+    ),
+    (
+        "certificate",
+        re.compile(r"\b(certificate|zertifikat|bescheinigung|certificado)\b", re.IGNORECASE),
+    ),
+)
+
 
 @dataclass(frozen=True)
 class AttachmentIngestionDecision:
     status: AttachmentIngestionStatus
     reason: str
     fetch_content: bool
+
+
+@dataclass(frozen=True)
+class AttachmentDocumentMetadata:
+    """Conservative initial metadata derived without an additional model request.
+
+    The parent email classification is already AI/rule-derived and is therefore a
+    useful organizational signal. Document type is inferred only from explicit
+    filename/text hints or MIME family. A later dedicated document-model pass can
+    replace these values without changing the storage or permission model.
+    """
+
+    document_type: str
+    category: str
+    subcategory: str | None
+    confidence: float
+    tags: tuple[str, ...]
 
 
 def decide_attachment_ingestion(
@@ -119,6 +166,58 @@ def decide_attachment_ingestion(
         return AttachmentIngestionDecision("unsupported", "unsupported_type", False)
 
     return AttachmentIngestionDecision("store", "relevant_safe_attachment", True)
+
+
+def derive_document_metadata(
+    attachment: AttachmentInfo,
+    *,
+    classification: ClassificationResult,
+    extracted_text: str | None = None,
+) -> AttachmentDocumentMetadata:
+    """Seed document metadata from explicit content hints plus the email classification."""
+    filename = (attachment.filename or "").strip()
+    mime = (attachment.mime_type or "application/octet-stream").lower().strip()
+    haystack = f"{filename}\n{(extracted_text or '')[:4000]}"
+
+    document_type: str | None = None
+    for candidate, pattern in _DOCUMENT_HINTS:
+        if pattern.search(haystack):
+            document_type = candidate
+            break
+
+    if document_type is None:
+        if mime == "text/calendar":
+            document_type = "calendar"
+        elif mime.startswith("image/"):
+            document_type = "image"
+        elif "spreadsheet" in mime or mime in {"text/csv", "application/vnd.ms-excel"}:
+            document_type = "spreadsheet"
+        elif "presentation" in mime or mime == "application/vnd.ms-powerpoint":
+            document_type = "presentation"
+        elif mime == "application/pdf":
+            document_type = "pdf_document"
+        else:
+            document_type = "document"
+
+    category = classification.category
+    subcategory = classification.subcategory
+    confidence = max(0.0, min(1.0, classification.confidence * 0.95))
+    tags = tuple(
+        dict.fromkeys(
+            [
+                document_type,
+                *classification.system_tags,
+                *classification.user_tags,
+            ]
+        )
+    )
+    return AttachmentDocumentMetadata(
+        document_type=document_type,
+        category=category,
+        subcategory=subcategory,
+        confidence=confidence,
+        tags=tags,
+    )
 
 
 def library_mime_types() -> frozenset[str]:
