@@ -1,31 +1,32 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n";
-import Link from "next/link";
 import { SearchFiltersPanel, SearchResults } from "./search-ui";
+import styles from "./search.module.css";
 import { useSearchPage } from "./use-search-page";
 
 export default function SearchPage() {
   const { t } = useI18n();
   const search = useSearchPage();
   return (
-    <main className="container">
-      <header className="page-header">
+    <main className={styles.page}>
+      <header className={styles.pageHeader}>
         <div>
-          <h1>{t("search.title")}</h1>
-          <p className="muted">{t("search.description")}</p>
+          <h1>{t("search.advanced")}</h1>
+          <p>{t("search.description")}</p>
         </div>
-        <Link className="btn secondary" href="/app/dashboard">
-          {t("nav.dashboard")}
-        </Link>
+        <button type="button" className="btn" onClick={search.reset}>
+          {t("search.new")}
+        </button>
       </header>
-      {search.error && <div className="alert error">{search.error}</div>}
+      {search.error && <div className={styles.error}>{search.error}</div>}
       <SearchFiltersPanel
         filters={search.filters}
         accounts={search.accounts}
         loading={search.loading}
         setFilter={search.setFilter}
         onSearch={() => search.runSearch(search.filters)}
+        onReset={search.reset}
         t={t}
       />
       <SearchResults result={search.result} t={t} />
