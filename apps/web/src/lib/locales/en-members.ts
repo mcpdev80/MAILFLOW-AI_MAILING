@@ -1,0 +1,15 @@
+export const enMembers = {
+  "members.back": "Dashboard",
+  "members.title": "Team members",
+  "members.members": "Members",
+  "members.empty": "No members yet.",
+  "members.inviteTitle": "Invite by email",
+  "members.emailPlaceholder": "person@company.com",
+  "members.role.member": "Member",
+  "members.role.admin": "Administrator",
+  "members.invite": "Invite",
+  "members.inviting": "Inviting…",
+  "members.pending": "Pending invitations",
+  "members.loadFailed": "Could not load organization members.",
+  "members.inviteFailed": "Could not send the invitation.",
+} as const;
