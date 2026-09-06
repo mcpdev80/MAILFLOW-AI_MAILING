@@ -60,7 +60,9 @@ test("archive moves the selected message to Archive and clears the detail pane",
 
   await page.getByRole("button", { name: "Archive", exact: true }).click();
 
-  await expect(page.getByText("Select a message", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Select a message", { exact: true }),
+  ).toBeVisible();
   expect(actions).toContainEqual({ action: "archive" });
 });
 
@@ -74,7 +76,9 @@ test("move sends the selected destination and clears the detail pane", async ({
   await moveFolder.selectOption("Archive");
   await page.getByRole("button", { name: "Move", exact: true }).click();
 
-  await expect(page.getByText("Select a message", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Select a message", { exact: true }),
+  ).toBeVisible();
   expect(actions).toContainEqual({
     action: "move",
     destination_folder: "Archive",
@@ -93,6 +97,8 @@ test("delete requires confirmation and moves the selected message to Trash", asy
   });
   await page.getByRole("button", { name: "Delete", exact: true }).click();
 
-  await expect(page.getByText("Select a message", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Select a message", { exact: true }),
+  ).toBeVisible();
   expect(actions).toContainEqual({ action: "trash" });
 });
