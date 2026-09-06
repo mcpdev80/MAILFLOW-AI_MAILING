@@ -18,6 +18,7 @@ import type { enSearch } from "./en-search";
 import type { enSecurity } from "./en-security";
 import type { enSettings } from "./en-settings";
 import type { enShell } from "./en-shell";
+import type { enStructure } from "./en-structure";
 
 export type TranslationKey =
   | keyof typeof en
@@ -39,4 +40,5 @@ export type TranslationKey =
   | keyof typeof enSearch
   | keyof typeof enSecurity
   | keyof typeof enSettings
-  | keyof typeof enShell;
+  | keyof typeof enShell
+  | keyof typeof enStructure;
