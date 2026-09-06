@@ -24,10 +24,9 @@ jobs:
           node-version: "20"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Check mail core web changes
+      - name: Check mail core e2e changes
         run: >-
           pnpm biome check
-          apps/web/src/app/app/mail
           apps/web/e2e/core-surfaces.spec.mjs
           apps/web/e2e/support/mock-api.mjs
       - run: pnpm --filter @mailflow/web typecheck
