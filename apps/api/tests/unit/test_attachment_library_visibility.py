@@ -59,6 +59,7 @@ async def _source(
     account: EmailAccount,
     document: AttachmentDocument,
     uid: int,
+    source_filename: str | None = None,
 ) -> AttachmentSource:
     source = AttachmentSource(
         document_id=document.id,
@@ -70,7 +71,7 @@ async def _source(
         thread_id=f"thread-{uid}",
         from_email="billing@example.test",
         subject="Invoice",
-        source_filename=document.canonical_filename,
+        source_filename=source_filename or document.canonical_filename,
         mime_type=document.mime_type,
         size_bytes=document.size_bytes,
         disposition="attachment",
@@ -108,9 +109,21 @@ async def test_deduplicated_document_exposes_only_callers_authorized_sources(ses
     await session.flush()
     account_a = await _account(session, org, "user-a")
     account_b = await _account(session, org, "user-b")
-    document = await _document(session, org, "shared-binary.pdf")
-    source_a = await _source(session, account=account_a, document=document, uid=10)
-    source_b = await _source(session, account=account_b, document=document, uid=11)
+    document = await _document(session, org, "internal-origin-name.pdf")
+    source_a = await _source(
+        session,
+        account=account_a,
+        document=document,
+        uid=10,
+        source_filename="alice-private-name.pdf",
+    )
+    source_b = await _source(
+        session,
+        account=account_b,
+        document=document,
+        uid=11,
+        source_filename="bob-visible-name.pdf",
+    )
     await session.commit()
 
     repo = AttachmentLibraryRepository(session)
@@ -121,6 +134,8 @@ async def test_deduplicated_document_exposes_only_callers_authorized_sources(ses
     assert detail_b is not None
     assert [source.id for source in detail_a[2]] == [source_a.id]
     assert [source.id for source in detail_b[2]] == [source_b.id]
+    assert [source.source_filename for source in detail_a[2]] == ["alice-private-name.pdf"]
+    assert [source.source_filename for source in detail_b[2]] == ["bob-visible-name.pdf"]
 
     rows_a = await repo.list_accessible_documents(_identity(org, "user-a"))
     rows_b = await repo.list_accessible_documents(_identity(org, "user-b"))
