@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import styles from "./app-shell.module.css";
 
-type NavItem = { href: string; label: TranslationKey | null; fallback: string; glyph: string; badge?: number | null };
+type NavItem = { href: string; label: TranslationKey; fallback: string; glyph: string; badge?: number | null };
 type ShellState = { healthy: boolean | null; reviewCount: number | null; notificationCount: number | null };
 
 function initials(name?: string | null, email?: string | null): string {
@@ -45,9 +45,9 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
     { href: "/app/mail", label: "nav.mail", fallback: "Mail", glyph: "■" },
     { href: "/app/review", label: "nav.review", fallback: "Review", glyph: "●", badge: reviewCount },
     { href: "/app/search", label: "nav.search", fallback: "Search", glyph: "●" },
-    { href: "/app/processing", label: null, fallback: "Processing", glyph: "■" },
+    { href: "/app/processing", label: "nav.processing", fallback: "Processing", glyph: "■" },
     { href: "/app/accounts", label: "nav.mailboxes", fallback: "Mailboxes", glyph: "■" },
-    { href: "/app/learning", label: null, fallback: "Learning", glyph: "■" },
+    { href: "/app/learning", label: "nav.learning", fallback: "Learning", glyph: "■" },
     { href: "/app/settings/preferences", label: "nav.settings", fallback: "Settings", glyph: "•" },
   ], [reviewCount]);
   return (
@@ -57,7 +57,8 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
         <nav className={styles.nav} aria-label="Mailflow">
           {items.map((item, index) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return <div key={item.href}>{index === 4 && <div className={styles.separator} />}<Link href={item.href} className={`${styles.navItem} ${active ? styles.navItemActive : ""}`} title={item.label ? t(item.label) : item.fallback}><span className={styles.navGlyph} aria-hidden="true">{item.glyph}</span><span className={styles.navLabel}>{item.label ? t(item.label) : item.fallback}</span>{item.badge != null && item.badge > 0 && <span className={styles.badge}>{item.badge}</span>}</Link></div>;
+            const label = t(item.label) || item.fallback;
+            return <div key={item.href}>{index === 4 && <div className={styles.separator} />}<Link href={item.href} className={`${styles.navItem} ${active ? styles.navItemActive : ""}`} title={label}><span className={styles.navGlyph} aria-hidden="true">{item.glyph}</span><span className={styles.navLabel}>{label}</span>{item.badge != null && item.badge > 0 && <span className={styles.badge}>{item.badge}</span>}</Link></div>;
           })}
         </nav>
       </div>
