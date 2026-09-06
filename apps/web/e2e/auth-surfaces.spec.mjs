@@ -25,7 +25,9 @@ test("signup exposes account and organization fields", async ({ page }) => {
   await expect(page.getByLabel("Organization name")).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Confirm password", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("Confirm password", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
     "href",
     "/login",

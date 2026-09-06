@@ -299,7 +299,9 @@ async function completePrivateMailboxOnboarding(page, email) {
   await page.getByRole("button", { name: "Analyze existing messages" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
 
-  await expect(page.getByRole("heading", { name: "You're all set!" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "You're all set!" }),
+  ).toBeVisible();
   await expect(page.getByText(/Step 6 of 6/i)).toBeVisible();
   await page.getByRole("button", { name: "Open Mailflow" }).click();
   await expect(page).toHaveURL(/\/app\/dashboard$/);

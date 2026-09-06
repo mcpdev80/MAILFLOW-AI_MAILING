@@ -444,7 +444,7 @@ test("forward creates a clean draft with forwarded content and no thread reply h
     account_id: "acct-1",
     message_type: "forward",
     in_reply_to: null,
-    references: ["<message-42@example.test>"],
+    references: [],
     to_recipients: [],
     cc_recipients: [],
     subject: "Fwd: Project update",
@@ -480,7 +480,7 @@ test("review inbox and appearance settings remain interactive", async ({
   await page.goto("/app/review");
   await expect(page.getByText("Project update", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Classification requires confirmation."),
+    page.getByText("Action Required", { exact: true }).first(),
   ).toBeVisible();
 
   await page.goto("/app/settings/preferences");
