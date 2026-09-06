@@ -2,7 +2,7 @@ from mailflow_core.attachment_library import (
     decide_attachment_ingestion,
     derive_document_metadata,
 )
-from mailflow_core.types import AttachmentInfo, ClassificationResult
+from mailflow_core.types import AttachmentInfo
 
 
 def attachment(
@@ -18,24 +18,6 @@ def attachment(
         mime_type=mime_type,
         size=size,
         disposition=disposition,
-    )
-
-
-def classification(
-    *,
-    category: str = "finance",
-    subcategory: str | None = "invoices",
-    confidence: float = 0.9,
-) -> ClassificationResult:
-    return ClassificationResult(
-        label=category,
-        category=category,  # type: ignore[arg-type]
-        subcategory=subcategory,
-        confidence=confidence,
-        method="llm",
-        importance="normal",
-        urgency="none",
-        action_required="no",
     )
 
 
@@ -101,34 +83,40 @@ def test_unsupported_type_does_not_fetch() -> None:
     assert decision.fetch_content is False
 
 
-def test_invoice_filename_derives_invoice_type_and_mail_category() -> None:
+def test_invoice_filename_derives_source_neutral_finance_metadata() -> None:
     metadata = derive_document_metadata(
-        attachment("Rechnung-2026-09.pdf", "application/pdf"),
-        classification=classification(),
+        attachment("Rechnung-2026-09.pdf", "application/pdf")
     )
     assert metadata.document_type == "invoice"
     assert metadata.category == "finance"
-    assert metadata.subcategory == "invoices"
-    assert metadata.confidence == 0.855
-    assert "invoice" in metadata.tags
-    assert "information_only" in metadata.tags
+    assert metadata.subcategory is None
+    assert metadata.confidence == 0.92
+    assert metadata.tags == ("invoice",)
 
 
-def test_document_text_hint_can_identify_contract() -> None:
+def test_document_text_hint_can_identify_contract_without_mail_context() -> None:
     metadata = derive_document_metadata(
         attachment("document.pdf", "application/pdf"),
-        classification=classification(category="work", subcategory=None, confidence=0.8),
         extracted_text="Vertrag zwischen Beispiel GmbH und dem Auftragnehmer",
     )
     assert metadata.document_type == "contract"
-    assert metadata.category == "work"
-    assert metadata.confidence == 0.76
+    assert metadata.category == "other"
+    assert metadata.confidence == 0.92
 
 
-def test_unknown_pdf_falls_back_to_generic_document_type() -> None:
+def test_calendar_mime_derives_appointments_category() -> None:
     metadata = derive_document_metadata(
-        attachment("scan.pdf", "application/pdf"),
-        classification=classification(category="other", subcategory=None, confidence=0.5),
+        attachment("invite.ics", "text/calendar")
+    )
+    assert metadata.document_type == "calendar"
+    assert metadata.category == "appointments"
+    assert metadata.confidence == 0.88
+
+
+def test_unknown_pdf_falls_back_to_low_confidence_generic_type() -> None:
+    metadata = derive_document_metadata(
+        attachment("scan.pdf", "application/pdf")
     )
     assert metadata.document_type == "pdf_document"
     assert metadata.category == "other"
+    assert metadata.confidence == 0.40
