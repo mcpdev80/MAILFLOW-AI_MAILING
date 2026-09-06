@@ -28,8 +28,16 @@ function recipients(
   source: MessageDetail,
   type: "reply" | "reply_all" | "forward",
 ) {
-  if (type === "reply") return { to: [source.from_email], cc: [] as string[] };
   if (type === "forward") return { to: [] as string[], cc: [] as string[] };
+  if (type === "reply") {
+    const sender = safeRecipients([source.from_email], source.account_address);
+    if (sender.length > 0) return { to: sender, cc: [] as string[] };
+    const originalRecipients = safeRecipients(
+      [...source.to_emails, ...source.cc_emails],
+      source.account_address,
+    );
+    return { to: originalRecipients.slice(0, 1), cc: [] as string[] };
+  }
   const to = safeRecipients(
     [source.from_email, ...source.to_emails],
     source.account_address,
@@ -48,20 +56,23 @@ export async function createReplyDraft(
   customInstruction?: string,
 ): Promise<string> {
   const target = recipients(source, type);
+  const isForward = type === "forward";
   const draft = await api.createDraft({
     account_id: source.account_id,
     message_type: type,
-    in_reply_to: type === "forward" ? null : source.message_id,
-    references: Array.from(
-      new Set([...source.references, source.message_id].filter(Boolean)),
-    ),
+    in_reply_to: isForward ? null : source.message_id,
+    references: isForward
+      ? []
+      : Array.from(
+          new Set([...source.references, source.message_id].filter(Boolean)),
+        ),
     to_recipients: target.to,
     cc_recipients: target.cc,
     subject: prefixedSubject(
       source.subject,
-      type === "forward" ? "Fwd:" : "Re:",
+      isForward ? "Fwd:" : "Re:",
     ),
-    body_text: type === "forward" ? forwardBody(source) : "",
+    body_text: isForward ? forwardBody(source) : "",
     editor_mode: "rich_text",
   });
   if (!aiAction?.startsWith("ai_reply")) return draft.id;
