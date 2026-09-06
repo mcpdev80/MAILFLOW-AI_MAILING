@@ -1,11 +1,26 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n";
+import { Suspense } from "react";
 import { SearchFiltersPanel, SearchResults } from "./search-ui";
 import styles from "./search.module.css";
 import { useSearchPage } from "./use-search-page";
 
 export default function SearchPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className={styles.page}>
+          <p className="muted">…</p>
+        </main>
+      }
+    >
+      <SearchPageContent />
+    </Suspense>
+  );
+}
+
+function SearchPageContent() {
   const { t } = useI18n();
   const search = useSearchPage();
   return (
