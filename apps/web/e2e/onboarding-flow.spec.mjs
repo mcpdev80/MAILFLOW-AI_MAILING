@@ -390,6 +390,9 @@ test("invited member logs in, accepts invitation and completes onboarding", asyn
   await page.locator('form button[type="submit"]').click();
 
   await expect(page).toHaveURL(/\/accept-invitation\/inv-member-1$/);
+  await expect(page.getByText("Mailflow Test Org")).toBeVisible();
+  await expect(page.getByText("member@example.test")).toBeVisible();
+  await expect(page.getByText("Member", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Accept invitation" }),
   ).toBeVisible();
