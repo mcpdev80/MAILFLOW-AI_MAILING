@@ -10,15 +10,17 @@ class FakeDocumentClient:
     def __init__(self, raw: str) -> None:
         self.raw = raw
         self.calls = 0
+        self.messages = None
 
     def _call_classification(self, messages, primary_role, parser):
         self.calls += 1
+        self.messages = messages
         assert primary_role == "deep"
         assert "UNTRUSTED" in messages[0]["content"]
         return parser(self.raw, "fake-model"), "deep"
 
 
-def test_document_ai_parses_strict_supported_result() -> None:
+def test_document_ai_parses_strict_supported_result_without_email_context() -> None:
     client = FakeDocumentClient(
         '{"document_type":"invoice","category":"finance","subcategory":"utilities",'
         '"confidence":0.93,"tags":["invoice","energy"]}'
@@ -28,10 +30,6 @@ def test_document_ai_parses_strict_supported_result() -> None:
         filename="document.pdf",
         mime_type="application/pdf",
         extracted_text="Invoice number 42 total EUR 100",
-        email_category="other",
-        email_subcategory=None,
-        sender="billing@example.test",
-        subject="Your document",
     )
     assert result.document_type == "invoice"
     assert result.category == "finance"
@@ -39,6 +37,10 @@ def test_document_ai_parses_strict_supported_result() -> None:
     assert result.confidence == pytest.approx(0.93)
     assert result.tags == ("invoice", "energy")
     assert client.calls == 1
+    prompt = client.messages[1]["content"]
+    assert "Sender:" not in prompt
+    assert "Email subject:" not in prompt
+    assert "Parent email" not in prompt
 
 
 def test_document_ai_rejects_unknown_document_type() -> None:
@@ -52,8 +54,4 @@ def test_document_ai_rejects_unknown_document_type() -> None:
             filename="document.pdf",
             mime_type="application/pdf",
             extracted_text="Some document text",
-            email_category="other",
-            email_subcategory=None,
-            sender="sender@example.test",
-            subject="Document",
         )
