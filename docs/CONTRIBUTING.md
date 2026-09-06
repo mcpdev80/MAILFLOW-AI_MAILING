@@ -1,77 +1,82 @@
-# Contributing to MailFlow
+# Contributing to Mailflow
 
-Thank you for your interest in contributing! MailFlow is open source under AGPL-3.0.
+Mailflow is open source under AGPL-3.0.
 
-## Development Setup
+## Development setup
 
 ### Prerequisites
+
 - Python 3.13+
 - Node.js 20+
 - pnpm 9+
-- uv (Python package manager)
-- Docker + Docker Compose (for local services)
+- uv
+- Docker + Docker Compose for local services
 
-### Quick Start
+### Quick start
 
 ```bash
-git clone https://github.com/JonatanGhub/mailflow.git
-cd mailflow
+git clone https://github.com/mcpdev80/MAILFLOW-AI_MAILING.git
+cd MAILFLOW-AI_MAILING
 
-# Start local services (Postgres + Redis)
 docker compose -f infrastructure/docker-compose.dev.yml up -d postgres redis
 
-# Backend
 uv sync --all-packages
 uvicorn apps.api.app.main:app --reload
 
-# Frontend (separate terminal)
 pnpm install
 pnpm dev
 ```
 
-### Running Tests
+### Validation
 
 ```bash
 # Python tests
 uv run pytest packages/core/tests/ --cov=mailflow_core --cov-fail-under=80
 
-# Lint
+# Python lint / format check
 uv run ruff check .
 uv run ruff format --check .
 
-# TypeScript
+# Frontend
 pnpm typecheck
 pnpm biome check .
 ```
 
-## Code Standards
+## Code standards
 
-- Python: follow `ruff` rules (see `pyproject.toml`)
-- TypeScript: follow Biome rules
-- Test coverage: 80% minimum for `packages/core`
-- All functions < 50 lines, all files < 400 lines
+- Python follows the repository Ruff configuration.
+- TypeScript follows the repository Biome configuration.
+- Domain logic in `packages/core` is developed test-first and retains at least 80% coverage.
+- Keep functions below 50 lines and source files below 400 lines; split controller/data logic from presentation when a screen becomes complex.
+- Technical identifiers and code are English.
+- User-visible frontend copy belongs in the DE/EN/ES locale catalogs, with English as the fallback language.
+- Do not commit hard-coded credentials, API keys, demo mail, demo users or fake production counters/states.
+- Preserve mailbox authorization boundaries and explicit-user-action outbound mail safety.
+- Treat Figma as a visual reference. Do not change backend/domain behavior merely to mirror a mockup.
 
-## Pull Request Process
+## Pull request process
 
-1. Fork the repo and create a branch: `feat/your-feature` or `fix/your-bug`
-2. Write tests first (TDD)
-3. Ensure CI passes (lint + tests)
-4. Open a PR against `main` with a clear description
+1. Create a focused branch such as `feat/your-feature` or `fix/your-bug`.
+2. Add or update tests for changed domain behavior.
+3. Run the smallest useful local/targeted validation while developing.
+4. Before merge, run the required full CI once on the final intended revision.
+5. Open or update the PR against `main` with a clear description of behavior and migration impact.
 
-## Commit Message Format
+## Commit messages
 
-```
+Use conventional, concise messages, for example:
+
+```text
 feat: add Gmail OAuth2 provider
 fix: handle UIDVALIDITY change in IMAP
 docs: update self-hosting guide
 test: add classification cascade tests
 ```
 
-## Architecture Decisions
+## Architecture decisions
 
-Read `docs/PLAN.md` and `docs/ARCHITECTURE.md` before making significant changes.
-New architectural decisions go in `docs/adr/`.
+Read `docs/PLAN.md`, `docs/ARCHITECTURE.md` and the current ADRs before making significant changes. New architectural decisions belong in `docs/adr/`.
 
-## Code of Conduct
+## Code of conduct
 
-Be respectful. Focus on technical merit. English preferred in code/comments; Spanish is welcome in discussions.
+Be respectful and focus on technical merit. English is preferred for code and technical documentation; product UI is localized independently.
