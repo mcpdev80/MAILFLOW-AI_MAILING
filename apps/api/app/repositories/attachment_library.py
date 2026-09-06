@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from uuid import UUID
+from datetime import datetime
+from uuid import UUID, uuid4
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import RequestIdentity
@@ -29,6 +31,41 @@ class AttachmentLibraryRepository:
             )
         ).scalar_one_or_none()
 
+    async def get_or_create_document(
+        self,
+        *,
+        org_id: UUID,
+        content_sha256: str,
+        storage_key: str,
+        canonical_filename: str,
+        mime_type: str,
+        size_bytes: int,
+        extracted_text: str | None = None,
+    ) -> AttachmentDocument:
+        document_id = uuid4()
+        await self.session.execute(
+            pg_insert(AttachmentDocument)
+            .values(
+                id=document_id,
+                org_id=org_id,
+                content_sha256=content_sha256,
+                storage_key=storage_key,
+                canonical_filename=canonical_filename,
+                mime_type=mime_type,
+                size_bytes=size_bytes,
+                extracted_text=extracted_text,
+                analysis_status="pending",
+                tags=[],
+            )
+            .on_conflict_do_nothing(
+                index_elements=["org_id", "content_sha256"]
+            )
+        )
+        document = await self.find_document_by_hash(org_id, content_sha256)
+        if document is None:
+            raise RuntimeError("attachment_document_upsert_failed")
+        return document
+
     async def find_source(
         self, account_id: UUID, folder: str, uid: int, part_id: str
     ) -> AttachmentSource | None:
@@ -42,6 +79,52 @@ class AttachmentLibraryRepository:
                 )
             )
         ).scalar_one_or_none()
+
+    async def add_source_if_missing(
+        self,
+        *,
+        document_id: UUID | None,
+        account_id: UUID,
+        uid: int,
+        folder: str,
+        part_id: str,
+        message_id: str | None,
+        thread_id: str | None,
+        from_email: str,
+        subject: str,
+        received_at: datetime | None,
+        source_filename: str,
+        mime_type: str,
+        size_bytes: int | None,
+        disposition: str | None,
+        ingestion_status: str,
+        safety_reason: str | None,
+    ) -> None:
+        await self.session.execute(
+            pg_insert(AttachmentSource)
+            .values(
+                id=uuid4(),
+                document_id=document_id,
+                account_id=account_id,
+                uid=uid,
+                folder=folder,
+                part_id=part_id,
+                message_id=message_id,
+                thread_id=thread_id,
+                from_email=from_email,
+                subject=subject,
+                received_at=received_at,
+                source_filename=source_filename,
+                mime_type=mime_type,
+                size_bytes=size_bytes,
+                disposition=disposition,
+                ingestion_status=ingestion_status,
+                safety_reason=safety_reason,
+            )
+            .on_conflict_do_nothing(
+                index_elements=["account_id", "folder", "uid", "part_id"]
+            )
+        )
 
     async def list_accessible_documents(
         self,
