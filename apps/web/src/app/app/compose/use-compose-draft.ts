@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiError, api } from "@/lib/api";
-import type { ReturnTypeOfUseI18n } from "./use-compose-types";
+import type { TranslationKey } from "@/lib/i18n";
 import type { EditorMode, EmailAccount, MailDraft } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,7 +16,7 @@ export type SaveState = "idle" | "saving" | "saved" | "failed";
 export type ComposerFields = ReturnType<typeof fieldsFromDraft>;
 
 type SetError = (value: string | null) => void;
-type Translate = ReturnTypeOfUseI18n["t"];
+type Translate = (key: TranslationKey) => string;
 
 export function useComposeDraft(setError: SetError, t: Translate) {
   const searchParams = useSearchParams();
