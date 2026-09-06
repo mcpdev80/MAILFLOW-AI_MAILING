@@ -62,4 +62,9 @@ export const esMail = {
   "mail.noDeadline": "No se detectó ninguna fecha límite.",
   "mail.translation": "Traducción",
   "mail.messageDetails": "Detalles del mensaje",
+  "mail.print": "Imprimir",
+  "mail.printInvalid": "Solicitud de impresión no válida.",
+  "mail.from": "De",
+  "mail.date": "Fecha",
+  "mail.attachmentsLabel": "Adjuntos",
 } as const;
