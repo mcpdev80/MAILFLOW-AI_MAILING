@@ -1,6 +1,18 @@
 # Contributing to MailFlow
 
-Thank you for your interest in contributing! MailFlow is open source under AGPL-3.0.
+Thank you for your interest in contributing. MailFlow is distributed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+## Contribution licensing and authorship
+
+By submitting a contribution to this repository, you agree that your contribution may be distributed as part of this project under the **AGPL-3.0**, consistent with the license of the repository.
+
+You retain copyright in your original contribution unless you explicitly assign it otherwise.
+
+By submitting a contribution, you represent that you have the right to submit it under these terms. Do not contribute code, documentation, media, or other material that you do not have permission to license under terms compatible with this project.
+
+Do not remove existing copyright, license, provenance, warranty, or modification notices unless the change is legally justified and clearly documented in the pull request.
+
+Contributions should identify material copied or adapted from third-party sources and state the applicable license and source where required.
 
 ## Development Setup
 
@@ -14,8 +26,8 @@ Thank you for your interest in contributing! MailFlow is open source under AGPL-
 ### Quick Start
 
 ```bash
-git clone https://github.com/JonatanGhub/mailflow.git
-cd mailflow
+git clone https://github.com/mcpdev80/MAILFLOW-AI_MAILING.git
+cd MAILFLOW-AI_MAILING
 
 # Start local services (Postgres + Redis)
 docker compose -f infrastructure/docker-compose.dev.yml up -d postgres redis
@@ -54,9 +66,10 @@ pnpm biome check .
 ## Pull Request Process
 
 1. Fork the repo and create a branch: `feat/your-feature` or `fix/your-bug`
-2. Write tests first (TDD)
+2. Write tests for behavior changes
 3. Ensure CI passes (lint + tests)
-4. Open a PR against `main` with a clear description
+4. Document third-party code or assets introduced by the change, including license information where applicable
+5. Open a PR against `main` with a clear description
 
 ## Commit Message Format
 
@@ -74,4 +87,4 @@ New architectural decisions go in `docs/adr/`.
 
 ## Code of Conduct
 
-Be respectful. Focus on technical merit. English preferred in code/comments; Spanish is welcome in discussions.
+Be respectful. Focus on technical merit. English is preferred in code and comments; other languages are welcome in discussions.
