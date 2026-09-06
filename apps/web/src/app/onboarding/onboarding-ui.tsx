@@ -2,6 +2,7 @@
 
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/lib/i18n";
+import type { BootstrapField } from "@/lib/bootstrap-api";
 import type { FormEvent } from "react";
 import {
   type OnboardingController,
@@ -34,6 +35,7 @@ export function OnboardingUi({
         <LanguageSwitcher />
       </header>
       <Progress step={controller.step} />
+      {controller.bootstrap && <BootstrapSummary controller={controller} />}
       {controller.error && (
         <div className="alert error">{controller.error}</div>
       )}
@@ -41,6 +43,46 @@ export function OnboardingUi({
       {controller.step === "account" && <AccountStep controller={controller} />}
       {controller.step === "done" && <DoneStep />}
     </main>
+  );
+}
+
+function BootstrapSummary({ controller }: { controller: OnboardingController }) {
+  const { t } = useI18n();
+  const bootstrap = controller.bootstrap;
+  if (!bootstrap) return null;
+  const rows: Array<[string, BootstrapField]> = [
+    [t("onboarding.bootstrap.publicUrl"), bootstrap.fields.public_url],
+    [t("onboarding.bootstrap.tls"), bootstrap.fields.tls],
+    [t("onboarding.bootstrap.language"), bootstrap.fields.language],
+  ];
+  const configured = rows.filter(([, field]) => field.configured);
+  if (configured.length === 0) return null;
+  return (
+    <section className="card" data-testid="bootstrap-summary">
+      <h2>{t("onboarding.bootstrap.title")}</h2>
+      <p className="muted">{t("onboarding.bootstrap.description")}</p>
+      <div style={{ display: "grid", gap: 10 }}>
+        {configured.map(([label, field]) => (
+          <div
+            key={label}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            <span>
+              <strong>{label}:</strong> {field.value}
+            </span>
+            <span className="muted">
+              ✓ {t("onboarding.bootstrap.configured")} ·{" "}
+              {t("onboarding.bootstrap.source")}: {field.source}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
