@@ -5,6 +5,11 @@ WORKDIR /app
 
 # --- deps + build ---
 FROM base AS builder
+# Native Node modules such as better-sqlite3 may need to fall back to node-gyp
+# when no prebuilt binary exists for the exact Node/libc combination.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json apps/web/package.json
 RUN pnpm install --frozen-lockfile --filter @mailflow/web...
