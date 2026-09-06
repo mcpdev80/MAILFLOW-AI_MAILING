@@ -29,6 +29,7 @@ async def dashboard_overview(
 async def dashboard_search(
     q: str | None = Query(default=None, max_length=500),
     sender: str | None = Query(default=None, max_length=500),
+    subject: str | None = Query(default=None, max_length=500),
     account_id: UUID | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -55,6 +56,7 @@ async def dashboard_search(
         identity,
         query=q,
         sender=sender,
+        subject=subject,
         account_id=account_id,
         date_from=date_from,
         date_to=date_to,
