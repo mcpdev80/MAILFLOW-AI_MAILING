@@ -291,3 +291,15 @@ async def require_identity(
         role=actor_role,
         auth_time=auth_time,
     )
+
+
+async def require_org_admin(
+    identity: RequestIdentity = Depends(require_identity),
+) -> Organization:
+    """Allow privileged organization operations only to owners/admins in SaaS mode."""
+    if identity.user_id is not None and identity.role not in {"owner", "admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="organization_admin_required",
+        )
+    return identity.org
