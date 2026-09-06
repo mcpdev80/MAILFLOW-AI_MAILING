@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
@@ -56,15 +57,20 @@ def _extracted_text(attachment, payload: bytes) -> str | None:
             ),
         )
         return result.text or None
-    except Exception as exc:  # extraction must never break mail processing
+    except Exception as exc:
         log.info("Attachment text extraction skipped: %s", redact_text(str(exc)))
         return None
 
 
-def _should_run_document_ai(*, document_type: str, confidence: float, extracted_text: str | None) -> bool:
+def _should_run_document_ai(
+    *, document_type: str, confidence: float, extracted_text: str | None
+) -> bool:
     if confidence >= attachment_library_settings.ATTACHMENT_LIBRARY_AI_THRESHOLD:
         return False
-    if len((extracted_text or "").strip()) < attachment_library_settings.ATTACHMENT_LIBRARY_AI_MIN_TEXT_CHARS:
+    if (
+        len((extracted_text or "").strip())
+        < attachment_library_settings.ATTACHMENT_LIBRARY_AI_MIN_TEXT_CHARS
+    ):
         return False
     return document_type in {"pdf_document", "document", "image"}
 
@@ -112,12 +118,7 @@ async def _apply_attachment_memory(
     mime_type: str,
     document_type: str | None,
 ) -> None:
-    """Apply learned folder rules independently for every authorized user scope.
-
-    Private mailboxes have one owner scope. Shared mailboxes fan out only to users
-    with an explicit can_use grant. Each placement remains per-user, so one user's
-    learned organization can never alter another user's view of the same binary.
-    """
+    """Apply learned folder rules independently for every authorized user scope."""
     owner_scopes = await _attachment_owner_scopes(session, account)
     if not owner_scopes:
         return
@@ -214,12 +215,11 @@ async def ingest_message_attachments(
     source_folder: str,
     storage: AttachmentStorage = attachment_storage,
 ) -> None:
-    """Persist attachment observations and safe unique binaries.
+    """Persist safe unique binaries plus permission-scoped source observations.
 
-    Blocked/ignored/unsupported items are metadata-only observations. Their bytes
-    are intentionally never fetched into the global library. Safe documents start
-    with cheap metadata derived from the already-computed mail classification. Only
-    ambiguous text-bearing documents receive one focused document-model request.
+    The mail classification is used only as a safety gate. Global metadata for a
+    deduplicated file is derived solely from the file itself so receiving the same
+    binary cannot leak one user's email context to another user.
     """
     if not attachment_library_settings.ATTACHMENT_LIBRARY_ENABLED:
         return
@@ -233,7 +233,9 @@ async def ingest_message_attachments(
     document_client_loaded = False
 
     for attachment in email_data.attachments:
-        if await repo.find_source(account.id, source_folder, email_data.uid, attachment.part_id):
+        if await repo.find_source(
+            account.id, source_folder, email_data.uid, attachment.part_id
+        ):
             continue
 
         decision = decide_attachment_ingestion(
@@ -271,9 +273,11 @@ async def ingest_message_attachments(
             continue
 
         try:
-            payload = provider.fetch_attachment_content(email_data.uid, attachment)
-            stored = storage.put(account.org_id, payload)
-            extracted_text = _extracted_text(attachment, payload)
+            payload = await asyncio.to_thread(
+                provider.fetch_attachment_content, email_data.uid, attachment
+            )
+            stored = await asyncio.to_thread(storage.put, account.org_id, payload)
+            extracted_text = await asyncio.to_thread(_extracted_text, attachment, payload)
             document = await repo.get_or_create_document(
                 org_id=account.org_id,
                 content_sha256=stored.content_sha256,
@@ -284,12 +288,9 @@ async def ingest_message_attachments(
                 extracted_text=extracted_text,
             )
 
-            # Deduplicated documents are classified once. A second source mapping
-            # must not silently overwrite existing global AI metadata.
             if document.analysis_status == "pending":
                 metadata = derive_document_metadata(
                     attachment,
-                    classification=classification,
                     extracted_text=extracted_text,
                 )
                 document.document_type = metadata.document_type
@@ -308,15 +309,12 @@ async def ingest_message_attachments(
                         document_client_loaded = True
                     if document_client is not None:
                         try:
-                            ai = analyze_attachment_document(
+                            ai = await asyncio.to_thread(
+                                analyze_attachment_document,
                                 document_client,
                                 filename=attachment.filename,
                                 mime_type=attachment.mime_type,
                                 extracted_text=extracted_text,
-                                email_category=classification.category,
-                                email_subcategory=classification.subcategory,
-                                sender=email_data.from_email,
-                                subject=email_data.subject,
                             )
                             if ai.confidence >= metadata.confidence:
                                 document.document_type = ai.document_type
@@ -326,7 +324,7 @@ async def ingest_message_attachments(
                                 document.ai_tags = list(
                                     dict.fromkeys([*metadata.tags, *ai.tags])
                                 )
-                        except Exception as exc:  # focused AI is optional
+                        except Exception as exc:
                             log.warning(
                                 "Attachment document AI skipped for account=%s uid=%s part=%s: %s",
                                 account.id,
@@ -365,7 +363,7 @@ async def ingest_message_attachments(
                     mime_type=attachment.mime_type,
                     document_type=document.document_type,
                 )
-            except Exception as exc:  # learned organization is optional
+            except Exception as exc:
                 log.warning(
                     "Attachment memory application skipped for account=%s uid=%s part=%s: %s",
                     account.id,
@@ -373,7 +371,7 @@ async def ingest_message_attachments(
                     attachment.part_id,
                     redact_text(str(exc)),
                 )
-        except Exception as exc:  # attachment failure must not fail the mail cycle
+        except Exception as exc:
             log.warning(
                 "Attachment ingestion failed for account=%s uid=%s part=%s: %s",
                 account.id,
