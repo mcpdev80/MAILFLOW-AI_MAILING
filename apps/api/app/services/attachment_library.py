@@ -268,15 +268,24 @@ async def ingest_message_attachments(
                 ingestion_status="stored",
                 safety_reason=None,
             )
-            await _apply_private_attachment_memory(
-                session,
-                account=account,
-                document_id=document.id,
-                sender_email=email_data.from_email,
-                filename=attachment.filename,
-                mime_type=attachment.mime_type,
-                document_type=document.document_type,
-            )
+            try:
+                await _apply_private_attachment_memory(
+                    session,
+                    account=account,
+                    document_id=document.id,
+                    sender_email=email_data.from_email,
+                    filename=attachment.filename,
+                    mime_type=attachment.mime_type,
+                    document_type=document.document_type,
+                )
+            except Exception as exc:  # learned organization is optional
+                log.warning(
+                    "Attachment memory application skipped for account=%s uid=%s part=%s: %s",
+                    account.id,
+                    email_data.uid,
+                    attachment.part_id,
+                    redact_text(str(exc)),
+                )
         except Exception as exc:  # attachment failure must not fail the mail cycle
             log.warning(
                 "Attachment ingestion failed for account=%s uid=%s part=%s: %s",
