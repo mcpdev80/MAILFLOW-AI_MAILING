@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import { de } from "./locales/de";
+import { deAccount } from "./locales/de-account";
 import { deCompose } from "./locales/de-compose";
 import { deDashboard } from "./locales/de-dashboard";
 import { deDecision } from "./locales/de-decision";
@@ -21,6 +22,7 @@ import { deSearch } from "./locales/de-search";
 import { deSettings } from "./locales/de-settings";
 import { deShell } from "./locales/de-shell";
 import { en } from "./locales/en";
+import { enAccount } from "./locales/en-account";
 import { enCompose } from "./locales/en-compose";
 import { enDashboard } from "./locales/en-dashboard";
 import { enDecision } from "./locales/en-decision";
@@ -31,6 +33,7 @@ import { enSearch } from "./locales/en-search";
 import { enSettings } from "./locales/en-settings";
 import { enShell } from "./locales/en-shell";
 import { es } from "./locales/es";
+import { esAccount } from "./locales/es-account";
 import { esCompose } from "./locales/es-compose";
 import { esDashboard } from "./locales/es-dashboard";
 import { esDecision } from "./locales/es-decision";
@@ -54,6 +57,7 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 
 const fallback = {
   ...en,
+  ...enAccount,
   ...enCompose,
   ...enDashboard,
   ...enDecision,
@@ -67,6 +71,7 @@ const fallback = {
 const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
   de: {
     ...de,
+    ...deAccount,
     ...deCompose,
     ...deDashboard,
     ...deDecision,
@@ -80,6 +85,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
   en: fallback,
   es: {
     ...es,
+    ...esAccount,
     ...esCompose,
     ...esDashboard,
     ...esDecision,
