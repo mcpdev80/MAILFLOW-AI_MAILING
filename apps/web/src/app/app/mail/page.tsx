@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { MailWorkspace } from "./mail-workspace";
 
 export default function MailPage() {
-  return <MailWorkspace />;
+  return (
+    <Suspense fallback={null}>
+      <MailWorkspace />
+    </Suspense>
+  );
 }
