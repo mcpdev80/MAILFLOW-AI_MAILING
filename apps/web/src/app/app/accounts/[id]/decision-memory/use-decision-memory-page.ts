@@ -30,37 +30,7 @@ export function useDecisionMemoryPage() {
     void load();
   }, [load]);
 
-  const save = useCallback(
-    async (entryId: string, payload: DecisionMemoryWrite) => {
-      await runBusy(entryId, async () => {
-        await api.updateDecisionMemory(accountId, entryId, payload);
-        setEditing(null);
-        setDraft(null);
-        setNotice("updated");
-        await load();
-      });
-    },
-    [accountId, load],
-  );
-
-  const toggle = useCallback(
-    (entry: DecisionMemoryEntry) =>
-      save(entry.id, { ...toDecisionWrite(entry), enabled: !entry.enabled }),
-    [save],
-  );
-
-  const remove = useCallback(
-    async (entry: DecisionMemoryEntry) => {
-      await runBusy(entry.id, async () => {
-        await api.deleteDecisionMemory(accountId, entry.id);
-        setNotice("deleted");
-        await load();
-      });
-    },
-    [accountId, load],
-  );
-
-  async function runBusy(id: string, action: () => Promise<void>) {
+  const runBusy = useCallback(async (id: string, action: () => Promise<void>) => {
     setBusy(id);
     setError(null);
     setNotice(null);
@@ -71,7 +41,35 @@ export function useDecisionMemoryPage() {
     } finally {
       setBusy(null);
     }
-  }
+  }, []);
+
+  const save = useCallback(
+    (entryId: string, payload: DecisionMemoryWrite) =>
+      runBusy(entryId, async () => {
+        await api.updateDecisionMemory(accountId, entryId, payload);
+        setEditing(null);
+        setDraft(null);
+        setNotice("updated");
+        await load();
+      }),
+    [accountId, load, runBusy],
+  );
+
+  const toggle = useCallback(
+    (entry: DecisionMemoryEntry) =>
+      save(entry.id, { ...toDecisionWrite(entry), enabled: !entry.enabled }),
+    [save],
+  );
+
+  const remove = useCallback(
+    (entry: DecisionMemoryEntry) =>
+      runBusy(entry.id, async () => {
+        await api.deleteDecisionMemory(accountId, entry.id);
+        setNotice("deleted");
+        await load();
+      }),
+    [accountId, load, runBusy],
+  );
 
   function beginEdit(entry: DecisionMemoryEntry) {
     setEditing(entry.id);
