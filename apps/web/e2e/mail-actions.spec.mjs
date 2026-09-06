@@ -39,6 +39,36 @@ async function installActionRecorder(page) {
   return actions;
 }
 
+async function installDraftRecorder(page) {
+  const drafts = [];
+  await page.route("**/api/mf/mail/drafts", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const payload = route.request().postDataJSON();
+    drafts.push(payload);
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "draft-reply",
+        org_id: "org-1",
+        owner_user_id: "user-1",
+        status: "draft",
+        send_attempts: 0,
+        sent_message_id: null,
+        last_error: null,
+        attachments: [],
+        created_at: "2026-09-06T10:00:00Z",
+        updated_at: "2026-09-06T10:00:00Z",
+        sent_at: null,
+        bcc_recipients: [],
+        body_html: null,
+        ...payload,
+      }),
+    });
+  });
+  return drafts;
+}
+
 async function openMessage(page) {
   await page.goto("/app/mail");
   await page.getByText("Project update", { exact: true }).first().click();
@@ -101,4 +131,58 @@ test("delete requires confirmation and moves the selected message to Trash", asy
     page.getByText("Select a message", { exact: true }),
   ).toBeVisible();
   expect(actions).toContainEqual({ action: "trash" });
+});
+
+test("reply draft targets the sender and preserves reply threading", async ({ page }) => {
+  const drafts = await installDraftRecorder(page);
+  await openMessage(page);
+
+  await page.getByRole("button", { name: "Reply", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/compose\?draft=draft-reply/);
+
+  expect(drafts).toHaveLength(1);
+  expect(drafts[0]).toMatchObject({
+    account_id: "acct-1",
+    message_type: "reply",
+    in_reply_to: "<message-42@example.test>",
+    references: ["<message-42@example.test>"],
+    to_recipients: ["sender@example.test"],
+    cc_recipients: [],
+    subject: "Re: Project update",
+  });
+});
+
+test("reply all excludes the mailbox owner from recipients", async ({ page }) => {
+  const drafts = await installDraftRecorder(page);
+  await openMessage(page);
+
+  await page.getByRole("button", { name: "Reply all", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/compose\?draft=draft-reply/);
+
+  expect(drafts).toHaveLength(1);
+  expect(drafts[0]).toMatchObject({
+    message_type: "reply_all",
+    to_recipients: ["sender@example.test"],
+    cc_recipients: [],
+  });
+  expect(drafts[0].to_recipients).not.toContain("owner@example.test");
+});
+
+test("forward starts a new thread without reply references", async ({ page }) => {
+  const drafts = await installDraftRecorder(page);
+  await openMessage(page);
+
+  await page.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/compose\?draft=draft-reply/);
+
+  expect(drafts).toHaveLength(1);
+  expect(drafts[0]).toMatchObject({
+    message_type: "forward",
+    in_reply_to: null,
+    references: [],
+    to_recipients: [],
+    cc_recipients: [],
+    subject: "Fwd: Project update",
+  });
+  expect(drafts[0].body_text).toContain("---------- Forwarded message ----------");
 });
