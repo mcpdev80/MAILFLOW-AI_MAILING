@@ -81,7 +81,6 @@ normalize_public_url() {
   if [[ "$value" != http://* && "$value" != https://* ]]; then
     value="https://$value"
   fi
-  [[ "$value" == http://* || "$value" == https://* ]] || fail "Public URL must use http:// or https://."
   host="${value#*://}"
   host="${host%%/*}"
   [ -n "$host" ] || fail "Public URL does not contain a host name."
@@ -125,14 +124,33 @@ set_env() {
   fi
 }
 
+get_env() {
+  local key="$1" file="$2"
+  awk -F= -v k="$key" '$1==k {sub(/^[^=]*=/, ""); print; exit}' "$file"
+}
+
+ensure_env_secret() {
+  local key="$1" generator="$2" file="$3" value
+  value="$(get_env "$key" "$file")"
+  if [ -z "$value" ]; then
+    set_env "$key" "$($generator)" "$file"
+    printf '  generated %s\n' "$key"
+  fi
+}
+
+validate_env() {
+  local file="$1" value
+  [ -f "$file" ] || fail "Environment file is missing: $file"
+  value="$(get_env SECRET_KEY "$file")"
+  [ -n "$value" ] || fail "SECRET_KEY is still empty after configuration repair."
+  value="$(get_env POSTGRES_PASSWORD "$file")"
+  [ -n "$value" ] || fail "POSTGRES_PASSWORD is still empty after configuration repair."
+}
+
 cert_to_pem() {
   local src="$1" dst="$2"
-  if openssl x509 -in "$src" -outform PEM -out "$dst" >/dev/null 2>&1; then
-    return 0
-  fi
-  if openssl x509 -inform DER -in "$src" -outform PEM -out "$dst" >/dev/null 2>&1; then
-    return 0
-  fi
+  if openssl x509 -in "$src" -outform PEM -out "$dst" >/dev/null 2>&1; then return 0; fi
+  if openssl x509 -inform DER -in "$src" -outform PEM -out "$dst" >/dev/null 2>&1; then return 0; fi
   return 1
 }
 
@@ -157,7 +175,6 @@ assemble_custom_tls() {
 
   validate_certificate_folder "$source_dir"
   work="$(mktemp -d)"
-  trap 'rm -rf "$work"' RETURN
   cert_dir="$work/certs"
   mkdir -p "$cert_dir"
 
@@ -167,7 +184,8 @@ assemble_custom_tls() {
     case "${file,,}" in
       *.zip)
         need unzip "A ZIP certificate bundle was found, but unzip is not installed."
-        unzip -qq -o "$file" -d "$work/unpacked-$(basename "$file" .zip)" || fail "Could not unpack: $file"
+        mkdir -p "$work/unpacked"
+        unzip -qq -o "$file" -d "$work/unpacked" || fail "Could not unpack: $file"
         ;;
     esac
   done < <(find "$source_dir" -maxdepth 2 -type f -print0)
@@ -175,29 +193,21 @@ assemble_custom_tls() {
   while IFS= read -r -d '' file; do
     case "${file,,}" in
       *.key)
-        if openssl pkey -in "$file" -noout >/dev/null 2>&1; then
-          key_file="$file"
-          break
-        fi
+        if openssl pkey -in "$file" -noout >/dev/null 2>&1; then key_file="$file"; break; fi
         ;;
     esac
   done < <(find "$source_dir" "$work" -type f -print0)
 
   if [ -z "$key_file" ]; then
     while IFS= read -r -d '' file; do
-      case "${file,,}" in
-        *.p12|*.pfx) p12_file="$file"; break ;;
-      esac
+      case "${file,,}" in *.p12|*.pfx) p12_file="$file"; break ;; esac
     done < <(find "$source_dir" "$work" -type f -print0)
     if [ -n "$p12_file" ]; then
       p12_password="$(prompt_secret "PKCS#12 password (leave empty if none)")"
-      if openssl pkcs12 -in "$p12_file" -nocerts -nodes -passin "pass:$p12_password" -out "$work/from-p12.key" >/dev/null 2>&1; then
-        key_file="$work/from-p12.key"
-        openssl pkcs12 -in "$p12_file" -clcerts -nokeys -passin "pass:$p12_password" -out "$work/from-p12-leaf.pem" >/dev/null 2>&1 || true
-        openssl pkcs12 -in "$p12_file" -cacerts -nokeys -passin "pass:$p12_password" -out "$work/from-p12-chain.pem" >/dev/null 2>&1 || true
-      else
-        fail "Could not read the PKCS#12/PFX file with that password."
-      fi
+      openssl pkcs12 -in "$p12_file" -nocerts -nodes -passin "pass:$p12_password" -out "$work/from-p12.key" >/dev/null 2>&1 || fail "Could not read the PKCS#12/PFX file with that password."
+      key_file="$work/from-p12.key"
+      openssl pkcs12 -in "$p12_file" -clcerts -nokeys -passin "pass:$p12_password" -out "$work/from-p12-leaf.pem" >/dev/null 2>&1 || true
+      openssl pkcs12 -in "$p12_file" -cacerts -nokeys -passin "pass:$p12_password" -out "$work/from-p12-chain.pem" >/dev/null 2>&1 || true
     fi
   fi
 
@@ -225,16 +235,13 @@ assemble_custom_tls() {
 
   for bundle in "$work"/p7-*.pem "$cert_dir"/from-p12-chain.pem; do
     [ -f "$bundle" ] || continue
-    awk -v dir="$cert_dir" 'BEGIN{n=0; out=""} /-----BEGIN CERTIFICATE-----/{n++; out=dir "/split-" n "-" systime() ".pem"} out!=""{print >> out} /-----END CERTIFICATE-----/{close(out); out=""}' "$bundle"
+    awk -v dir="$cert_dir" 'BEGIN{n=0;out=""} /-----BEGIN CERTIFICATE-----/{n++;out=dir "/split-" n "-" systime() ".pem"} out!=""{print >> out} /-----END CERTIFICATE-----/{close(out);out=""}' "$bundle"
   done
 
   key_fp="$(pubkey_fingerprint_from_key "$key_file")"
   while IFS= read -r cert; do
     openssl x509 -in "$cert" -noout >/dev/null 2>&1 || continue
-    if [ "$(pubkey_fingerprint_from_cert "$cert")" = "$key_fp" ]; then
-      leaf="$cert"
-      break
-    fi
+    if [ "$(pubkey_fingerprint_from_cert "$cert")" = "$key_fp" ]; then leaf="$cert"; break; fi
   done < <(find "$cert_dir" -type f -name '*.pem' -print)
 
   [ -n "$leaf" ] || fail "No certificate matching the private key was found."
@@ -259,22 +266,16 @@ assemble_custom_tls() {
     while IFS= read -r cert; do
       [ "$cert" = "$leaf" ] && continue
       candidate_subject="$(openssl x509 -in "$cert" -noout -subject -nameopt RFC2253 2>/dev/null | sed 's/^subject=//')"
-      if [ "$candidate_subject" = "$current_issuer" ]; then
-        candidate="$cert"
-        break
-      fi
+      if [ "$candidate_subject" = "$current_issuer" ]; then candidate="$cert"; break; fi
     done < <(find "$cert_dir" -type f -name '*.pem' -print)
     [ -n "$candidate" ] || break
-    if is_self_signed "$candidate"; then
-      break
-    fi
+    if is_self_signed "$candidate"; then break; fi
     cat "$candidate" >> "$output_dir/fullchain.pem"
     current="$candidate"
     added=$((added+1))
     [ "$added" -lt 8 ] || break
   done
 
-  openssl x509 -in "$output_dir/fullchain.pem" -noout >/dev/null 2>&1 || fail "Generated fullchain.pem is invalid."
   [ "$(pubkey_fingerprint_from_key "$output_dir/privkey.pem")" = "$(pubkey_fingerprint_from_cert "$leaf")" ] || fail "Generated certificate and key do not match."
 
   TLS_CERT_FILE="$output_dir/fullchain.pem"
@@ -284,6 +285,7 @@ assemble_custom_tls() {
   printf '  Expires:     %s\n' "$(openssl x509 -in "$leaf" -noout -enddate | cut -d= -f2-)"
   printf '  Full chain:  %s\n' "$TLS_CERT_FILE"
   printf '  Private key: %s\n' "$TLS_KEY_FILE"
+  rm -rf "$work"
 }
 
 say "Mailflow guided installer"
@@ -336,48 +338,53 @@ else
 fi
 
 cd "$INSTALL_DIR"
+ENV_FILE="$INSTALL_DIR/.env"
 
-if [ ! -f .env ]; then
-  cp .env.example .env
+if [ ! -f "$ENV_FILE" ]; then
+  cp .env.example "$ENV_FILE"
   say "Creating secure local configuration"
-  set_env SECRET_KEY "$(secret_fernet)" .env
-  set_env BETTER_AUTH_SECRET "$(secret_hex)" .env
-  set_env WEB_SECRET_KEY "$(secret_hex)" .env
-  set_env INTERNAL_API_SECRET "$(secret_hex)" .env
-  set_env POSTGRES_PASSWORD "$(secret_hex)" .env
 else
-  say "Existing .env found; keeping your current secrets and settings"
+  say "Checking existing local configuration"
 fi
 
-set_env MAILFLOW_PUBLIC_URL "$PUBLIC_URL" .env
-set_env AUTH_MODE "single" .env
-set_env WEB_AUTH "on" .env
-set_env API_INTERNAL_URL "http://api:8000" .env
-set_env API_DOCS_ENABLED "false" .env
-set_env WORKER_MAX_EMAILS_PER_CYCLE "10" .env
+ensure_env_secret SECRET_KEY secret_fernet "$ENV_FILE"
+ensure_env_secret BETTER_AUTH_SECRET secret_hex "$ENV_FILE"
+ensure_env_secret WEB_SECRET_KEY secret_hex "$ENV_FILE"
+ensure_env_secret INTERNAL_API_SECRET secret_hex "$ENV_FILE"
+ensure_env_secret POSTGRES_PASSWORD secret_hex "$ENV_FILE"
+
+set_env MAILFLOW_PUBLIC_URL "$PUBLIC_URL" "$ENV_FILE"
+set_env AUTH_MODE "single" "$ENV_FILE"
+set_env WEB_AUTH "on" "$ENV_FILE"
+set_env API_INTERNAL_URL "http://api:8000" "$ENV_FILE"
+set_env API_DOCS_ENABLED "false" "$ENV_FILE"
+set_env WORKER_MAX_EMAILS_PER_CYCLE "10" "$ENV_FILE"
 
 if [ "$TLS_MODE" = "custom" ]; then
   assemble_custom_tls "$TLS_SOURCE_DIR" "$PUBLIC_URL" "$INSTALL_DIR/.mailflow/tls"
-  set_env TLS_CERT_FILE "$TLS_CERT_FILE" .env
-  set_env TLS_KEY_FILE "$TLS_KEY_FILE" .env
+  set_env TLS_CERT_FILE "$TLS_CERT_FILE" "$ENV_FILE"
+  set_env TLS_KEY_FILE "$TLS_KEY_FILE" "$ENV_FILE"
 else
-  set_env TLS_CERT_FILE "" .env
-  set_env TLS_KEY_FILE "" .env
+  set_env TLS_CERT_FILE "" "$ENV_FILE"
+  set_env TLS_KEY_FILE "" "$ENV_FILE"
 fi
 
 host="${PUBLIC_URL#*://}"
 host="${host%%/*}"
 host="${host%%:*}"
-set_env BETTER_AUTH_URL "$PUBLIC_URL" .env
-set_env NEXT_PUBLIC_APP_URL "$PUBLIC_URL" .env
-set_env PASSKEY_RP_ID "${host:-localhost}" .env
-set_env PASSKEY_ORIGIN "$PUBLIC_URL" .env
-set_env CORS_ORIGINS "$PUBLIC_URL" .env
+set_env BETTER_AUTH_URL "$PUBLIC_URL" "$ENV_FILE"
+set_env NEXT_PUBLIC_APP_URL "$PUBLIC_URL" "$ENV_FILE"
+set_env PASSKEY_RP_ID "${host:-localhost}" "$ENV_FILE"
+set_env PASSKEY_ORIGIN "$PUBLIC_URL" "$ENV_FILE"
+set_env CORS_ORIGINS "$PUBLIC_URL" "$ENV_FILE"
 
-COMPOSE_ARGS=(-f "$COMPOSE_FILE")
+validate_env "$ENV_FILE"
+
+COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")
 if [ "$TLS_MODE" = "custom" ]; then COMPOSE_ARGS+=(-f "$TLS_COMPOSE_FILE"); fi
 
 say "Starting database"
+docker compose "${COMPOSE_ARGS[@]}" config >/dev/null || fail "Docker Compose configuration is invalid."
 docker compose "${COMPOSE_ARGS[@]}" up -d postgres
 
 say "Preparing web authentication schema"
