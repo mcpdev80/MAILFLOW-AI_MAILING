@@ -2,6 +2,10 @@
 
 import { ApiError, api } from "@/lib/api";
 import { authClient, useSession } from "@/lib/auth-client";
+import {
+  getBootstrapStatus,
+  type BootstrapStatus,
+} from "@/lib/bootstrap-api";
 import type { LLMProvider } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -66,6 +70,7 @@ function useOnboardingState(userId?: string) {
   const [step, setStep] = useState<OnboardingStep>("llm");
   const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [bootstrap, setBootstrap] = useState<BootstrapStatus | null>(null);
   const [providerForm, setProviderForm] =
     useState<ProviderForm>(emptyProviderForm);
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm);
@@ -74,6 +79,7 @@ function useOnboardingState(userId?: string) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     void loadProviders(setProviders, setAccountForm, setStep, setLoading);
+    void getBootstrapStatus().then(setBootstrap).catch(() => undefined);
   }, []);
   useEffect(() => {
     void loadMembers(userId, setMembers);
@@ -90,6 +96,7 @@ function useOnboardingState(userId?: string) {
     providers,
     setProviders,
     members,
+    bootstrap,
     providerForm,
     setProviderForm,
     accountForm,
