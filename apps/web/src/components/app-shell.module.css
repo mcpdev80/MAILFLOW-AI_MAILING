@@ -45,6 +45,7 @@
 .statusDegraded { background: var(--mf-danger-soft); color: var(--mf-danger); }
 .statusDot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .headerActions { gap: 16px; }
+.headerDivider { width: 1px; height: 16px; background: var(--mf-border); }
 .notificationLink { position: relative; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 6px; color: var(--mf-text-secondary); font-size: 10px; text-decoration: none; }
 .notificationLink:hover { background: var(--mf-surface-muted); }
 .notificationDot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border: 2px solid var(--mf-surface); border-radius: 50%; background: var(--mf-primary); }
@@ -53,6 +54,4 @@
 .statusFooter { position: sticky; bottom: 0; z-index: 20; display: flex; min-height: 44px; align-items: center; border-top: 1px solid var(--mf-border); background: var(--mf-surface); padding: 8px 24px; }
 
 /* Tablet/mobile layouts have dedicated Figma pages and are intentionally deferred. */
-@media (max-width: 900px) {
-  .shell { min-width: 1024px; }
-}
+@media (max-width: 900px) { .shell { min-width: 1024px; } }
