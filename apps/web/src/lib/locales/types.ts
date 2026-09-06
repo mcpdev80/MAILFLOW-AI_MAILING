@@ -8,6 +8,7 @@ import type { enMailActions } from "./en-mail-actions";
 import type { enModelSettings } from "./en-model-settings";
 import type { enNotifications } from "./en-notifications";
 import type { enSearch } from "./en-search";
+import type { enSecurity } from "./en-security";
 import type { enSettings } from "./en-settings";
 import type { enShell } from "./en-shell";
 
@@ -22,5 +23,6 @@ export type TranslationKey =
   | keyof typeof enModelSettings
   | keyof typeof enNotifications
   | keyof typeof enSearch
+  | keyof typeof enSecurity
   | keyof typeof enSettings
   | keyof typeof enShell;
