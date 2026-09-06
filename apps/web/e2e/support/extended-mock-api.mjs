@@ -55,6 +55,25 @@ function json(route, body, status = 200) {
 }
 
 export async function installExtendedMockApi(page) {
+  await page.route("**/api/auth/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.includes("passkey/list-user-passkeys")) return json(route, []);
+    if (path.includes("organization/list-members")) {
+      return json(route, {
+        members: [
+          {
+            id: "member-1",
+            userId: "user-1",
+            role: "owner",
+            user: { id: "user-1", name: "E2E User", email: "e2e@example.test" },
+          },
+        ],
+      });
+    }
+    if (path.includes("organization/list-invitations")) return json(route, []);
+    return route.fallback();
+  });
+
   await page.route("**/api/mf/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
