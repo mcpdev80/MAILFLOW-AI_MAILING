@@ -46,6 +46,7 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
     { href: "/app/review", label: "nav.review", fallback: "Review", glyph: "●", badge: reviewCount },
     { href: "/app/search", label: "nav.search", fallback: "Search", glyph: "●" },
     { href: "/app/processing", label: "nav.processing", fallback: "Processing", glyph: "■" },
+    { href: "/app/attachments", label: "nav.attachments", fallback: "Attachments", glyph: "□" },
     { href: "/app/accounts", label: "nav.mailboxes", fallback: "Mailboxes", glyph: "■" },
     { href: "/app/learning", label: "nav.learning", fallback: "Learning", glyph: "■" },
     { href: "/app/settings/preferences", label: "nav.settings", fallback: "Settings", glyph: "•" },
