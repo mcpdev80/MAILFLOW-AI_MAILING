@@ -69,6 +69,9 @@ function MailboxAccess({ controller }: { controller: Controller }) {
 
 function PrivateAccess({ controller }: { controller: Controller }) {
   const { t } = useI18n();
+  async function transfer() {
+    if (window.confirm(t("account.transferConfirm"))) await controller.transferPrivateMailbox();
+  }
   return (
     <section className="card" style={{ marginBottom: 20 }}>
       <h2 style={{ marginTop: 0 }}>{t("account.access")}</h2>
@@ -77,7 +80,7 @@ function PrivateAccess({ controller }: { controller: Controller }) {
       <button className="btn secondary" type="button" disabled={controller.busy} onClick={() => void controller.makeShared()}>{t("account.convertShared")}</button>
       <hr style={{ margin: "20px 0" }} />
       <OwnerPicker controller={controller} label={t("account.transferPrivate")} placeholder={t("account.selectMember")} excludeCurrent />
-      <button className="btn secondary" type="button" disabled={controller.busy || !controller.transferUserId} onClick={() => void confirmTransfer(controller)}>{t("account.transfer")}</button>
+      <button className="btn secondary" type="button" disabled={controller.busy || !controller.transferUserId} onClick={() => void transfer()}>{t("account.transfer")}</button>
     </section>
   );
 }
@@ -114,11 +117,6 @@ function OwnerPicker({ controller, label, placeholder, excludeCurrent = false }:
   );
 }
 
-async function confirmTransfer(controller: Controller) {
-  const { t } = translationOutsideComponent();
-  if (window.confirm(t("account.transferConfirm"))) await controller.transferPrivateMailbox();
-}
-
 function CycleOverview({ controller }: { controller: Controller }) {
   const { t } = useI18n();
   const stats = [[t("account.cycles"), controller.cycles.length], [t("account.emailsProcessed"), controller.totals.emails], [t("account.draftsSaved"), controller.totals.drafts], [t("account.errors"), controller.totals.errors]] as const;
@@ -151,8 +149,4 @@ function accountMessage(value: string | null, t: ReturnType<typeof useI18n>["t"]
     select_private_owner: t("account.selectPrivateOwner"), select_new_owner: t("account.selectNewOwner"),
   };
   return messages[value] ?? value;
-}
-
-function translationOutsideComponent(): ReturnType<typeof useI18n> {
-  throw new Error("translationOutsideComponent must not execute");
 }
