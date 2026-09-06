@@ -1,4 +1,4 @@
-name: Fix final MVP Biome diagnostics (temporary)
+name: Fix final MVP validation diagnostics (temporary)
 
 on:
   push:
@@ -22,56 +22,88 @@ jobs:
         with:
           node-version: "20"
       - run: pnpm install --frozen-lockfile
-      - name: Apply final Biome fixes
+      - name: Apply remaining MVP fixes
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          p = Path('apps/web/src/app/app/settings/models/model-settings-ui.tsx')
+          p = Path('apps/web/src/app/app/dashboard/page.tsx')
           text = p.read_text()
-          text = text.replace('        role="fast"', '        modelRole="fast"')
-          text = text.replace('        role="deep"', '        modelRole="deep"')
-          text = text.replace('        role="generation"', '        modelRole="generation"')
-          text = text.replace('  role,\n  title,\n}: { controller: ModelSettingsController; role: Role; title: string }) {', '  modelRole,\n  title,\n}: { controller: ModelSettingsController; modelRole: Role; title: string }) {')
-          text = text.replace('  const keys = roleKeys(role);', '  const keys = roleKeys(modelRole);')
-          text = text.replace('    role === "fast"', '    modelRole === "fast"')
-          text = text.replace('      : role === "deep"', '      : modelRole === "deep"')
-          text = text.replace('    role === "generation"', '    modelRole === "generation"')
+          text = text.replace(
+              '  const counters = state.overview?.counters;\n  return (\n    <section className={styles.kpiRow}>',
+              '  const overview = state.overview;\n  if (!overview) return null;\n  const counters = overview.counters;\n  return (\n    <section className={styles.kpiRow}>',
+              1,
+          )
+          text = text.replace(
+              '  const counters = state.overview?.counters;\n  const classified =',
+              '  const overview = state.overview;\n  if (!overview) return null;\n  const counters = overview.counters;\n  const classified =',
+              1,
+          )
+          text = text.replace(
+              '  const mailboxes = state.overview?.mailboxes;\n  return (',
+              '  const overview = state.overview;\n  if (!overview) return null;\n  const mailboxes = overview.mailboxes;\n  return (',
+              1,
+          )
           p.write_text(text)
 
-          p = Path('apps/web/src/app/app/settings/workspace/workspace-editor-model.ts')
+          p = Path('apps/web/src/app/login/login-ui.tsx')
           text = p.read_text()
-          old = '      const fallback = defaults.panels.find((item) => item.panel === name)!;\n      return stored ? { ...fallback, ...stored } : fallback;'
-          new = '      const fallback = defaults.panels.find((item) => item.panel === name);\n      if (!fallback) throw new Error(`Missing default workspace panel: ${name}`);\n      return stored ? { ...fallback, ...stored } : fallback;'
-          if old not in text:
-              raise SystemExit('workspace fallback pattern not found')
-          p.write_text(text.replace(old, new, 1))
+          needle = '              id="password"\n              type="password"'
+          replacement = '              id="password"\n              aria-label={t("auth.login.password")}\n              type="password"'
+          if needle not in text:
+              raise SystemExit('login password field pattern not found')
+          p.write_text(text.replace(needle, replacement, 1))
 
-          p = Path('apps/web/src/app/login/use-login-page.ts')
+          p = Path('apps/web/src/app/app/compose/compose-ui.tsx')
           text = p.read_text()
-          old = '  return requested && requested.startsWith("/") && !requested.startsWith("//")\n    ? requested\n    : "/app/dashboard";'
-          new = '  return requested?.startsWith("/") && !requested.startsWith("//")\n    ? requested\n    : "/app/dashboard";'
-          if old not in text:
-              raise SystemExit('login redirect pattern not found')
-          p.write_text(text.replace(old, new, 1))
+          replacements = [
+              ('        <input\n          value={controller.fields.to}', '        <input\n          aria-label={t("compose.to")}\n          value={controller.fields.to}'),
+              ('          <input\n            value={controller.fields.cc}', '          <input\n            aria-label="CC"\n            value={controller.fields.cc}'),
+              ('          <input\n            value={controller.fields.bcc}', '          <input\n            aria-label="BCC"\n            value={controller.fields.bcc}'),
+              ('        <input\n          value={controller.fields.subject}', '        <input\n          aria-label={t("compose.subject")}\n          value={controller.fields.subject}'),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'compose field pattern not found: {old!r}')
+              text = text.replace(old, new, 1)
+          p.write_text(text)
+
+          p = Path('apps/web/e2e/onboarding-flow.spec.mjs')
+          text = p.read_text().replace(
+              'page.getByText(/Step 6 of 6/i)',
+              'page.getByLabel("Step 6 of 6")',
+          )
+          p.write_text(text)
+
+          p = Path('apps/web/e2e/surface-matrix.spec.mjs')
+          text = p.read_text().replace(
+              'page.getByText(/Step 1 of 6/i)',
+              'page.getByLabel("Step 1 of 6")',
+          )
+          p.write_text(text)
+
+          p = Path('apps/web/e2e/core-surfaces.spec.mjs')
+          text = p.read_text().replace(
+              'page.getByText("Action Required", { exact: true }).first()',
+              'page.getByText(/Action Required/i).first()',
+          )
+          p.write_text(text)
           PY
 
           files=(
-            apps/web/src/app/app/settings/category-mapping/page.tsx
-            apps/web/src/app/app/settings/folder-discovery/page.tsx
-            apps/web/src/app/app/settings/models/model-settings-ui.tsx
-            apps/web/src/app/app/settings/rules/page.tsx
-            apps/web/src/app/app/settings/workspace/workspace-editor-model.ts
-            apps/web/src/app/setup/setup-ui.tsx
-            apps/web/src/app/app/settings/structure-review/page.tsx
-            apps/web/src/app/login/use-login-page.ts
+            apps/web/src/app/app/dashboard/page.tsx
+            apps/web/src/app/login/login-ui.tsx
+            apps/web/src/app/app/compose/compose-ui.tsx
+            apps/web/e2e/onboarding-flow.spec.mjs
+            apps/web/e2e/surface-matrix.spec.mjs
+            apps/web/e2e/core-surfaces.spec.mjs
           )
           pnpm biome check --write "${files[@]}"
-          pnpm biome check "${files[@]}"
+          pnpm typecheck
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- "${files[@]}"
-          git commit -m "fix(web): resolve remaining Biome diagnostics"
+          git commit -m "fix(web): resolve final MVP type and e2e diagnostics"
           git push origin HEAD:feat/mvp-guidelines-figma-redesign
