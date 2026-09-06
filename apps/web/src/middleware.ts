@@ -1,10 +1,9 @@
 /**
- * Protección de rutas en SaaS (`WEB_AUTH=on`): exige sesión para `/app/*` y
- * `/onboarding`. Comprobación optimista por cookie (Better Auth recomienda
- * `getSessionCookie` en middleware; la validación real ocurre en el servidor).
+ * Proteccion de rutas en SaaS (`WEB_AUTH=on`): exige sesion para `/app/*`,
+ * `/onboarding` y la aceptacion de invitaciones. La comprobacion por cookie es
+ * optimista; la validacion real de sesion ocurre en el servidor.
  *
- * En self-host (`WEB_AUTH=off`, por defecto) el middleware es un no-op: la web
- * funciona sin login, como hasta ahora.
+ * En self-host (`WEB_AUTH=off`, por defecto) el middleware es un no-op.
  */
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
@@ -23,5 +22,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/onboarding"],
+  matcher: ["/app/:path*", "/onboarding", "/accept-invitation/:path*"],
 };
