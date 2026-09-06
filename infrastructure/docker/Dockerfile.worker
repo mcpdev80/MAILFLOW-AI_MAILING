@@ -22,8 +22,8 @@ COPY --chown=appuser:appuser apps/api/app/ apps/api/app/
 COPY --chown=appuser:appuser apps/worker/worker/ apps/worker/worker/
 COPY --chown=appuser:appuser packages/core/mailflow_core/ packages/core/mailflow_core/
 
-# The worker imports `worker.main` and `app.*`; both paths must be available.
-ENV PYTHONPATH=/app/apps/worker:/app/apps/api
+# The worker imports `worker.*`, `app.*` and the shared `mailflow_core` package.
+ENV PYTHONPATH=/app/apps/worker:/app/apps/api:/app/packages/core
 
 USER appuser
 
