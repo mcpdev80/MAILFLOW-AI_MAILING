@@ -23,6 +23,7 @@ from app.routers import (
     audit_router,
     backfill_router,
     billing_router,
+    bootstrap_router,
     bulk_router,
     cycles_router,
     dashboard_router,
@@ -75,6 +76,7 @@ app.include_router(attachments_router)
 app.include_router(attention_router)
 app.include_router(audit_router)
 app.include_router(backfill_router)
+app.include_router(bootstrap_router)
 app.include_router(bulk_router)
 app.include_router(dashboard_router)
 app.include_router(lifecycle_router)
