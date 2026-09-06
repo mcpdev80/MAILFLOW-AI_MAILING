@@ -3,6 +3,7 @@
 import { api } from "@/lib/api";
 import type {
   Density,
+  SidePanelAlignment,
   Theme,
   UserPreferences,
   UserPreferencesUpdate,
@@ -24,6 +25,7 @@ type AppearanceContextValue = {
   theme: Theme;
   density: Density;
   workspaceLayout: WorkspaceLayout;
+  sidePanelAlignment: SidePanelAlignment;
   workspaceCustomConfig: WorkspaceCustomConfig | null;
   updateAppearance: (update: UserPreferencesUpdate) => Promise<void>;
 };
@@ -69,7 +71,8 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if ((preferences?.theme ?? "system") !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const sync = () => applyDocumentAppearance("system", preferences?.density ?? "comfortable");
+    const sync = () =>
+      applyDocumentAppearance("system", preferences?.density ?? "comfortable");
     media.addEventListener("change", sync);
     return () => media.removeEventListener("change", sync);
   }, [preferences?.density, preferences?.theme]);
@@ -86,6 +89,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       theme: preferences?.theme ?? "system",
       density: preferences?.density ?? "comfortable",
       workspaceLayout: preferences?.workspace_layout ?? "classic",
+      sidePanelAlignment: preferences?.side_panel_alignment ?? "left",
       workspaceCustomConfig: preferences?.workspace_custom_config ?? null,
       updateAppearance,
     }),
