@@ -17,6 +17,7 @@ import { deDashboard } from "./locales/de-dashboard";
 import { deDecision } from "./locales/de-decision";
 import { deMail } from "./locales/de-mail";
 import { deMailActions } from "./locales/de-mail-actions";
+import { deModelSettings } from "./locales/de-model-settings";
 import { deNotifications } from "./locales/de-notifications";
 import { deSearch } from "./locales/de-search";
 import { deSettings } from "./locales/de-settings";
@@ -28,6 +29,7 @@ import { enDashboard } from "./locales/en-dashboard";
 import { enDecision } from "./locales/en-decision";
 import { enMail } from "./locales/en-mail";
 import { enMailActions } from "./locales/en-mail-actions";
+import { enModelSettings } from "./locales/en-model-settings";
 import { enNotifications } from "./locales/en-notifications";
 import { enSearch } from "./locales/en-search";
 import { enSettings } from "./locales/en-settings";
@@ -39,6 +41,7 @@ import { esDashboard } from "./locales/es-dashboard";
 import { esDecision } from "./locales/es-decision";
 import { esMail } from "./locales/es-mail";
 import { esMailActions } from "./locales/es-mail-actions";
+import { esModelSettings } from "./locales/es-model-settings";
 import { esNotifications } from "./locales/es-notifications";
 import { esSearch } from "./locales/es-search";
 import { esSettings } from "./locales/es-settings";
@@ -63,6 +66,7 @@ const fallback = {
   ...enDecision,
   ...enMail,
   ...enMailActions,
+  ...enModelSettings,
   ...enNotifications,
   ...enSearch,
   ...enSettings,
@@ -77,6 +81,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...deDecision,
     ...deMail,
     ...deMailActions,
+    ...deModelSettings,
     ...deNotifications,
     ...deSearch,
     ...deSettings,
@@ -91,6 +96,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...esDecision,
     ...esMail,
     ...esMailActions,
+    ...esModelSettings,
     ...esNotifications,
     ...esSearch,
     ...esSettings,
