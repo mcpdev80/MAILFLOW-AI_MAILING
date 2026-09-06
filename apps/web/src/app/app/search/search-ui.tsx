@@ -28,6 +28,7 @@ export type SearchFilters = {
 
 type T = (key: TranslationKey) => string;
 type SetFilter = (key: keyof SearchFilters, value: string) => void;
+type EnumGroup = "category" | "importance" | "urgency" | "action_required";
 
 type SelectOption = { value: string; label: string };
 const CATEGORIES = [
@@ -85,7 +86,11 @@ function SelectField(props: {
   );
 }
 
-function enumOptions(t: T, group: string, values: string[]): SelectOption[] {
+function enumOptions(
+  t: T,
+  group: EnumGroup,
+  values: readonly string[],
+): SelectOption[] {
   return [
     { value: "", label: t("common.all") },
     ...values.map((value) => ({ value, label: enumLabel(t, group, value) })),
