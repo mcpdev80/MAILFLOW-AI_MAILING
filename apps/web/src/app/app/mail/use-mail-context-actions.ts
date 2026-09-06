@@ -22,6 +22,7 @@ import {
 } from "./mail-draft-actions";
 
 type AiResult = { title: string; body: string };
+type DirectMailAction = Extract<MailActionRequest["action"], MailActionId>;
 type ContextMenuState = {
   position: ContextMenuPosition;
   message: InboxMessage;
@@ -71,16 +72,18 @@ export function useMailContextActions(options: ContextActionOptions) {
   }
 
   async function executeContextAction(action: MailActionId, message: InboxMessage) {
-    if (isReplyAction(action)) return openReply(action, message);
-    if (action.startsWith("ai_reply")) return openReply("reply", message, action);
-    if (isInsightAction(action)) return showInsight(action, message, options, setAiResult, t);
-    if (action.startsWith("ai_translate_") || action === "ai_custom") {
-      return showGeneratedAI(action, message, options, setAiResult, t);
+    try {
+      if (isReplyAction(action)) return openReply(action, message);
+      if (action.startsWith("ai_reply")) return openReply("reply", message, action);
+      if (isInsightAction(action)) return showInsight(action, message, options, setAiResult, t);
+      if (action.startsWith("ai_translate_") || action === "ai_custom") return showGeneratedAI(action, message, options, setAiResult, t);
+      if (isDirectMailAction(action)) return options.runActionFor(message, { action });
+      if (action === "move") return moveFromContext(message, options, t("mail.movePrompt"));
+      if (action === "print_message" || action === "print_thread") return printMessage(action, await options.detailFor(message));
+      if (action === "message_details") setAiResult(messageDetails(await options.detailFor(message), t("mail.messageDetails")));
+    } catch (err) {
+      options.setError(apiErrorMessage(err, t("mail.actionFailed")));
     }
-    if (isDirectMailAction(action)) return options.runActionFor(message, { action });
-    if (action === "move") return moveFromContext(message, options, t("mail.movePrompt"));
-    if (action === "print_message" || action === "print_thread") return printMessage(action, await options.detailFor(message));
-    if (action === "message_details") setAiResult(messageDetails(await options.detailFor(message), t("mail.messageDetails")));
   }
 
   return {
@@ -102,7 +105,7 @@ function isInsightAction(action: MailActionId): boolean {
   return ["ai_summarize", "ai_key_points", "ai_todos", "ai_questions", "ai_deadlines"].includes(action);
 }
 
-function isDirectMailAction(action: MailActionId): action is MailActionRequest["action"] {
+function isDirectMailAction(action: MailActionId): action is DirectMailAction {
   return ["mark_read", "mark_unread", "flag", "unflag", "archive", "spam", "trash"].includes(action);
 }
 
