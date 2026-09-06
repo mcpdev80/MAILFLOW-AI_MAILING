@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Teardown may remove the directory the invoking shell is currently in.
+# Start from a stable directory so readline/tab completion and path hooks can resolve cwd.
+cd "$HOME"
+
 BRANCH="main"
 RAW_BASE="https://raw.githubusercontent.com/mcpdev80/MAILFLOW-AI_MAILING/$BRANCH/scripts"
 DEFAULT_INSTALL="$HOME/mailflow"
