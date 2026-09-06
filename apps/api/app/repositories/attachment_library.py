@@ -141,7 +141,9 @@ class AttachmentLibraryRepository:
         *,
         query: str | None = None,
         account_id: UUID | None = None,
+        folder_id: UUID | None = None,
         category: str | None = None,
+        document_type: str | None = None,
         mime_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -172,6 +174,8 @@ class AttachmentLibraryRepository:
         )
         if account_id is not None:
             statement = statement.where(AttachmentSource.account_id == account_id)
+        if folder_id is not None:
+            statement = statement.where(AttachmentPlacement.folder_id == folder_id)
         if category:
             statement = statement.where(
                 func.coalesce(
@@ -180,6 +184,8 @@ class AttachmentLibraryRepository:
                 )
                 == category
             )
+        if document_type:
+            statement = statement.where(AttachmentDocument.document_type == document_type)
         if mime_type:
             statement = statement.where(AttachmentDocument.mime_type == mime_type)
         if query and query.strip():
