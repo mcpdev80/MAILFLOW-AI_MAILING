@@ -1,0 +1,77 @@
+name: Fix final MVP Biome diagnostics (temporary)
+
+on:
+  push:
+    branches:
+      - feat/mvp-guidelines-figma-redesign
+    paths:
+      - .github/workflows/fix-final-biome-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/mvp-guidelines-figma-redesign
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pnpm install --frozen-lockfile
+      - name: Apply final Biome fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('apps/web/src/app/app/settings/models/model-settings-ui.tsx')
+          text = p.read_text()
+          text = text.replace('        role="fast"', '        modelRole="fast"')
+          text = text.replace('        role="deep"', '        modelRole="deep"')
+          text = text.replace('        role="generation"', '        modelRole="generation"')
+          text = text.replace('  role,\n  title,\n}: { controller: ModelSettingsController; role: Role; title: string }) {', '  modelRole,\n  title,\n}: { controller: ModelSettingsController; modelRole: Role; title: string }) {')
+          text = text.replace('  const keys = roleKeys(role);', '  const keys = roleKeys(modelRole);')
+          text = text.replace('    role === "fast"', '    modelRole === "fast"')
+          text = text.replace('      : role === "deep"', '      : modelRole === "deep"')
+          text = text.replace('    role === "generation"', '    modelRole === "generation"')
+          p.write_text(text)
+
+          p = Path('apps/web/src/app/app/settings/workspace/workspace-editor-model.ts')
+          text = p.read_text()
+          old = '      const fallback = defaults.panels.find((item) => item.panel === name)!;\n      return stored ? { ...fallback, ...stored } : fallback;'
+          new = '      const fallback = defaults.panels.find((item) => item.panel === name);\n      if (!fallback) throw new Error(`Missing default workspace panel: ${name}`);\n      return stored ? { ...fallback, ...stored } : fallback;'
+          if old not in text:
+              raise SystemExit('workspace fallback pattern not found')
+          p.write_text(text.replace(old, new, 1))
+
+          p = Path('apps/web/src/app/login/use-login-page.ts')
+          text = p.read_text()
+          old = '  return requested && requested.startsWith("/") && !requested.startsWith("//")\n    ? requested\n    : "/app/dashboard";'
+          new = '  return requested?.startsWith("/") && !requested.startsWith("//")\n    ? requested\n    : "/app/dashboard";'
+          if old not in text:
+              raise SystemExit('login redirect pattern not found')
+          p.write_text(text.replace(old, new, 1))
+          PY
+
+          files=(
+            apps/web/src/app/app/settings/category-mapping/page.tsx
+            apps/web/src/app/app/settings/folder-discovery/page.tsx
+            apps/web/src/app/app/settings/models/model-settings-ui.tsx
+            apps/web/src/app/app/settings/rules/page.tsx
+            apps/web/src/app/app/settings/workspace/workspace-editor-model.ts
+            apps/web/src/app/setup/setup-ui.tsx
+            apps/web/src/app/app/settings/structure-review/page.tsx
+            apps/web/src/app/login/use-login-page.ts
+          )
+          pnpm biome check --write "${files[@]}"
+          pnpm biome check "${files[@]}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "${files[@]}"
+          git commit -m "fix(web): resolve remaining Biome diagnostics"
+          git push origin HEAD:feat/mvp-guidelines-figma-redesign
