@@ -26,6 +26,7 @@ import { deMembers } from "./locales/de-members";
 import { deModelSettings } from "./locales/de-model-settings";
 import { deNotifications } from "./locales/de-notifications";
 import { deOnboarding } from "./locales/de-onboarding";
+import { deOperations } from "./locales/de-operations";
 import { deSearch } from "./locales/de-search";
 import { deSecurity } from "./locales/de-security";
 import { deSettings } from "./locales/de-settings";
@@ -45,6 +46,7 @@ import { enMembers } from "./locales/en-members";
 import { enModelSettings } from "./locales/en-model-settings";
 import { enNotifications } from "./locales/en-notifications";
 import { enOnboarding } from "./locales/en-onboarding";
+import { enOperations } from "./locales/en-operations";
 import { enSearch } from "./locales/en-search";
 import { enSecurity } from "./locales/en-security";
 import { enSettings } from "./locales/en-settings";
@@ -64,6 +66,7 @@ import { esMembers } from "./locales/es-members";
 import { esModelSettings } from "./locales/es-model-settings";
 import { esNotifications } from "./locales/es-notifications";
 import { esOnboarding } from "./locales/es-onboarding";
+import { esOperations } from "./locales/es-operations";
 import { esSearch } from "./locales/es-search";
 import { esSecurity } from "./locales/es-security";
 import { esSettings } from "./locales/es-settings";
@@ -96,6 +99,7 @@ const fallback = {
   ...enModelSettings,
   ...enNotifications,
   ...enOnboarding,
+  ...enOperations,
   ...enSearch,
   ...enSecurity,
   ...enSettings,
@@ -118,6 +122,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...deModelSettings,
     ...deNotifications,
     ...deOnboarding,
+    ...deOperations,
     ...deSearch,
     ...deSecurity,
     ...deSettings,
@@ -140,6 +145,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...esModelSettings,
     ...esNotifications,
     ...esOnboarding,
+    ...esOperations,
     ...esSearch,
     ...esSecurity,
     ...esSettings,
