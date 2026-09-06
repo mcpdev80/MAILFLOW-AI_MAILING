@@ -31,9 +31,35 @@ export type AccountForm = {
   shared_user_ids: string[];
 };
 
+type OnboardingState = ReturnType<typeof useOnboardingState>;
+
 export function useOnboardingPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const userId = session?.user?.id;
+  const state = useOnboardingState(userId);
+  const submitProvider = useProviderSubmission(state);
+  const submitAccount = useAccountSubmission(state, userId, router);
+  const connectOAuth = useOAuthConnection(state, userId);
+  const toggleSharedUser = useCallback((memberId: string, checked: boolean) => {
+    state.setAccountForm((current) => ({
+      ...current,
+      shared_user_ids: checked
+        ? [...new Set([...current.shared_user_ids, memberId])]
+        : current.shared_user_ids.filter((id) => id !== memberId),
+    }));
+  }, [state.setAccountForm]);
+  return {
+    ...state,
+    hasUserIdentity: Boolean(userId),
+    submitProvider,
+    submitAccount,
+    connectOAuth,
+    toggleSharedUser,
+  };
+}
+
+function useOnboardingState(userId?: string) {
   const [step, setStep] = useState<OnboardingStep>("llm");
   const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
@@ -42,74 +68,74 @@ export function useOnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
   useEffect(() => { void loadProviders(setProviders, setAccountForm, setStep, setLoading); }, []);
-  useEffect(() => { void loadMembers(session?.user?.id, setMembers); }, [session?.user?.id]);
-
+  useEffect(() => { void loadMembers(userId, setMembers); }, [userId]);
   const currentMember = useMemo(
-    () => members.find((member) => memberUserId(member) === session?.user?.id),
-    [members, session?.user?.id],
+    () => members.find((member) => memberUserId(member) === userId),
+    [members, userId],
   );
   const canCreateShared = currentMember?.role === "owner" || currentMember?.role === "admin";
+  return {
+    step, setStep, providers, setProviders, members, providerForm, setProviderForm,
+    accountForm, setAccountForm, loading, error, setError, busy, setBusy, canCreateShared,
+  };
+}
 
-  const submitProvider = useCallback(async () => {
-    setBusy(true);
-    setError(null);
+function useProviderSubmission(state: OnboardingState) {
+  return useCallback(async () => {
+    state.setBusy(true);
+    state.setError(null);
     try {
       const created = await api.createProvider({
-        ...providerForm,
-        api_key: providerForm.api_key || null,
+        ...state.providerForm,
+        api_key: state.providerForm.api_key || null,
       });
-      setProviders((current) => [...current, created]);
-      setAccountForm((current) => ({ ...current, llm_provider_id: created.id }));
-      setStep("account");
+      state.setProviders((current) => [...current, created]);
+      state.setAccountForm((current) => ({ ...current, llm_provider_id: created.id }));
+      state.setStep("account");
     } catch (err) {
-      setError(messageOf(err, "onboarding_provider_failed"));
+      state.setError(messageOf(err, "onboarding_provider_failed"));
     } finally {
-      setBusy(false);
+      state.setBusy(false);
     }
-  }, [providerForm]);
+  }, [state]);
+}
 
-  const submitAccount = useCallback(async () => {
-    setBusy(true);
-    setError(null);
+function useAccountSubmission(
+  state: OnboardingState,
+  userId: string | undefined,
+  router: ReturnType<typeof useRouter>,
+) {
+  return useCallback(async () => {
+    state.setBusy(true);
+    state.setError(null);
     try {
-      await api.createAccount(accountPayload(accountForm, session?.user?.id));
-      setStep("done");
+      await api.createAccount(accountPayload(state.accountForm, userId));
+      state.setStep("done");
       window.setTimeout(() => router.push("/app/dashboard"), 900);
     } catch (err) {
-      setError(messageOf(err, "onboarding_account_failed"));
+      state.setError(messageOf(err, "onboarding_account_failed"));
     } finally {
-      setBusy(false);
+      state.setBusy(false);
     }
-  }, [accountForm, router, session?.user?.id]);
+  }, [router, state, userId]);
+}
 
-  const connectOAuth = useCallback(async (provider: "gmail" | "microsoft") => {
-    setBusy(true);
-    setError(null);
+function useOAuthConnection(state: OnboardingState, userId?: string) {
+  return useCallback(async (provider: "gmail" | "microsoft") => {
+    state.setBusy(true);
+    state.setError(null);
     try {
-      const result = await api.oauthAuthorizeUrl(provider, ownershipOptions(accountForm, session?.user?.id));
+      const result = await api.oauthAuthorizeUrl(
+        provider,
+        ownershipOptions(state.accountForm, userId),
+      );
       window.location.href = result.authorize_url;
     } catch (err) {
-      setError(messageOf(err, "onboarding_oauth_failed"));
-      setBusy(false);
+      state.setError(messageOf(err, "onboarding_oauth_failed"));
+      state.setBusy(false);
     }
-  }, [accountForm, session?.user?.id]);
-
-  function toggleSharedUser(userId: string, checked: boolean) {
-    setAccountForm((current) => ({
-      ...current,
-      shared_user_ids: checked
-        ? [...new Set([...current.shared_user_ids, userId])]
-        : current.shared_user_ids.filter((id) => id !== userId),
-    }));
-  }
-
-  return {
-    step, providers, members, providerForm, setProviderForm, accountForm, setAccountForm,
-    loading, error, busy, canCreateShared, hasUserIdentity: Boolean(session?.user?.id),
-    submitProvider, submitAccount, connectOAuth, toggleSharedUser,
-  };
+  }, [state, userId]);
 }
 
 export type OnboardingController = ReturnType<typeof useOnboardingPage>;
@@ -147,7 +173,10 @@ async function loadProviders(
   }
 }
 
-async function loadMembers(userId: string | undefined, setMembers: (items: OrganizationMember[]) => void) {
+async function loadMembers(
+  userId: string | undefined,
+  setMembers: (items: OrganizationMember[]) => void,
+) {
   if (!userId) return;
   try {
     const result = await authClient.organization.listMembers();
@@ -167,7 +196,10 @@ function accountPayload(form: AccountForm, userId?: string) {
     password: form.password,
     interval_minutes: Number(form.interval_minutes),
     llm_provider_id: form.llm_provider_id || null,
-    ...(userId ? { ownership_mode: form.ownership_mode, shared_user_ids: form.ownership_mode === "shared" ? form.shared_user_ids : [] } : {}),
+    ...(userId ? {
+      ownership_mode: form.ownership_mode,
+      shared_user_ids: form.ownership_mode === "shared" ? form.shared_user_ids : [],
+    } : {}),
   };
 }
 
