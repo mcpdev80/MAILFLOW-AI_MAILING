@@ -15,6 +15,7 @@ import { deAccount } from "./locales/de-account";
 import { deCompose } from "./locales/de-compose";
 import { deDashboard } from "./locales/de-dashboard";
 import { deDecision } from "./locales/de-decision";
+import { deDrafts } from "./locales/de-drafts";
 import { deMail } from "./locales/de-mail";
 import { deMailActions } from "./locales/de-mail-actions";
 import { deMembers } from "./locales/de-members";
@@ -30,6 +31,7 @@ import { enAccount } from "./locales/en-account";
 import { enCompose } from "./locales/en-compose";
 import { enDashboard } from "./locales/en-dashboard";
 import { enDecision } from "./locales/en-decision";
+import { enDrafts } from "./locales/en-drafts";
 import { enMail } from "./locales/en-mail";
 import { enMailActions } from "./locales/en-mail-actions";
 import { enMembers } from "./locales/en-members";
@@ -45,6 +47,7 @@ import { esAccount } from "./locales/es-account";
 import { esCompose } from "./locales/es-compose";
 import { esDashboard } from "./locales/es-dashboard";
 import { esDecision } from "./locales/es-decision";
+import { esDrafts } from "./locales/es-drafts";
 import { esMail } from "./locales/es-mail";
 import { esMailActions } from "./locales/es-mail-actions";
 import { esMembers } from "./locales/es-members";
@@ -73,6 +76,7 @@ const fallback = {
   ...enCompose,
   ...enDashboard,
   ...enDecision,
+  ...enDrafts,
   ...enMail,
   ...enMailActions,
   ...enMembers,
@@ -91,6 +95,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...deCompose,
     ...deDashboard,
     ...deDecision,
+    ...deDrafts,
     ...deMail,
     ...deMailActions,
     ...deMembers,
@@ -109,6 +114,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...esCompose,
     ...esDashboard,
     ...esDecision,
+    ...esDrafts,
     ...esMail,
     ...esMailActions,
     ...esMembers,
