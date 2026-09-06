@@ -11,25 +11,34 @@ function initialValue(params: URLSearchParams, key: string): string {
   return params.get(key) ?? "";
 }
 
-function createInitialFilters(params: URLSearchParams): SearchFilters {
+export function emptySearchFilters(): SearchFilters {
   return {
-    q: initialValue(params, "q"),
-    sender: initialValue(params, "sender"),
-    account_id: initialValue(params, "account_id"),
-    category: initialValue(params, "category"),
-    subcategory: initialValue(params, "subcategory"),
-    importance: initialValue(params, "importance"),
-    urgency: initialValue(params, "urgency"),
-    action_required: initialValue(params, "action_required"),
-    review_required: initialValue(params, "review_required"),
-    suspicious_content: initialValue(params, "suspicious_content"),
-    tag: initialValue(params, "tag"),
-    destination_folder: initialValue(params, "destination_folder"),
-    classification_source: initialValue(params, "classification_source"),
-    processed_state: initialValue(params, "processed_state"),
-    date_from: initialValue(params, "date_from"),
-    date_to: initialValue(params, "date_to"),
+    q: "",
+    sender: "",
+    subject: "",
+    account_id: "",
+    category: "",
+    subcategory: "",
+    importance: "",
+    urgency: "",
+    action_required: "",
+    review_required: "",
+    suspicious_content: "",
+    tag: "",
+    destination_folder: "",
+    classification_source: "",
+    processed_state: "",
+    date_from: "",
+    date_to: "",
   };
+}
+
+function createInitialFilters(params: URLSearchParams): SearchFilters {
+  const filters = emptySearchFilters();
+  for (const key of Object.keys(filters) as Array<keyof SearchFilters>) {
+    filters[key] = initialValue(params, key);
+  }
+  return filters;
 }
 
 function toParams(filters: SearchFilters): URLSearchParams {
@@ -82,5 +91,20 @@ export function useSearchPage() {
     setFilters((current) => ({ ...current, [key]: value }));
   }, []);
 
-  return { filters, accounts, result, error, loading, setFilter, runSearch };
+  const reset = useCallback(() => {
+    const next = emptySearchFilters();
+    setFilters(next);
+    void runSearch(next);
+  }, [runSearch]);
+
+  return {
+    filters,
+    accounts,
+    result,
+    error,
+    loading,
+    setFilter,
+    runSearch,
+    reset,
+  };
 }
