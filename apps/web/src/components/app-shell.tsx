@@ -216,7 +216,10 @@ function Header({
   const user = useSession().data?.user;
   const action =
     pathname === "/app/dashboard" || pathname.startsWith("/app/mail")
-      ? { href: "/onboarding?step=mailbox", label: t("shell.addMailbox") }
+      ? {
+          href: "/onboarding?step=mailbox&new=1",
+          label: t("shell.addMailbox"),
+        }
       : null;
   return (
     <header className={styles.header} data-testid="app-header">
