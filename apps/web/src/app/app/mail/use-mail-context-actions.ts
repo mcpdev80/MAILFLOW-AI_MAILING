@@ -128,10 +128,10 @@ function contextExecutor(
       if (action.startsWith("ai_translate_") || action === "ai_custom") {
         return showGeneratedAI(action, message, options, setAiResult, t);
       }
-      if (isDirectMailAction(action))
-        return options.runActionFor(message, { action });
       if (action === "move")
         return moveFromContext(message, options, t("mail.movePrompt"));
+      if (isDirectMailAction(action))
+        return options.runActionFor(message, { action });
       if (action === "print_message" || action === "print_thread") {
         return printMessage(action, await options.detailFor(message));
       }
