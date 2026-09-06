@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BRANCH="feat/mvp-guidelines-figma-redesign"
+BRANCH="main"
 RAW_BASE="https://raw.githubusercontent.com/mcpdev80/MAILFLOW-AI_MAILING/$BRANCH/scripts"
 DEFAULT_INSTALL="$HOME/mailflow"
 

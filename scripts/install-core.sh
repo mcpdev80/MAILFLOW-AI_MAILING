@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/mcpdev80/MAILFLOW-AI_MAILING.git"
-BRANCH="feat/mvp-guidelines-figma-redesign"
+BRANCH="main"
 INSTALL_DIR_DEFAULT="$HOME/mailflow"
 COMPOSE_FILE="infrastructure/docker-compose.yml"
 TLS_COMPOSE_FILE="infrastructure/docker-compose.custom-tls.yml"
@@ -152,7 +152,7 @@ prompt() {
 prompt_path() {
   local label="$1" default="$2" value
   if [ -r /dev/tty ]; then
-    IFS= read -e -r -p "$label [$default]: " value < /dev/tty || true
+    IFS= read -e -r -i "$default" -p "$label: " value < /dev/tty || true
   else
     value=""
   fi
@@ -510,7 +510,7 @@ case "$TLS_MODE" in
     ;;
   2)
     TLS_MODE="custom"
-    TLS_INPUT="$(prompt_path "$(msg cert_dir)" "$HOME")"
+    TLS_INPUT="$(prompt_path "$(msg cert_dir)" "$HOME/")"
     TLS_SOURCE_DIR="$(resolve_path "$TLS_INPUT" "$HOME")"
     validate_certificate_folder "$TLS_SOURCE_DIR"
     TLS_PREVIEW_DIR="$(mktemp -d)"
