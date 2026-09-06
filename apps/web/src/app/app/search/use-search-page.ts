@@ -13,23 +13,11 @@ function initialValue(params: URLSearchParams, key: string): string {
 
 export function emptySearchFilters(): SearchFilters {
   return {
-    q: "",
-    sender: "",
-    subject: "",
-    account_id: "",
-    category: "",
-    subcategory: "",
-    importance: "",
-    urgency: "",
-    action_required: "",
-    review_required: "",
-    suspicious_content: "",
-    tag: "",
-    destination_folder: "",
-    classification_source: "",
-    processed_state: "",
-    date_from: "",
-    date_to: "",
+    q: "", sender: "", subject: "", account_id: "", category: "",
+    subcategory: "", importance: "", urgency: "", action_required: "",
+    review_required: "", suspicious_content: "", tag: "",
+    destination_folder: "", classification_source: "", processed_state: "",
+    date_from: "", date_to: "",
   };
 }
 
@@ -57,12 +45,38 @@ export function useSearchPage() {
     [searchParams],
   );
   const [filters, setFilters] = useState(() => createInitialFilters(initial));
+  const accounts = useSearchAccounts();
+  const execution = useSearchExecution();
+  useInitialSearch(filters, execution.runSearch);
+  const setFilter = useCallback((key: keyof SearchFilters, value: string) => {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }, []);
+  const reset = useCallback(() => {
+    const next = emptySearchFilters();
+    setFilters(next);
+    void execution.runSearch(next);
+  }, [execution.runSearch]);
+  return {
+    filters,
+    accounts,
+    ...execution,
+    setFilter,
+    reset,
+  };
+}
+
+function useSearchAccounts(): EmailAccount[] {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
+  useEffect(() => {
+    api.listAccounts().then(setAccounts).catch(() => setAccounts([]));
+  }, []);
+  return accounts;
+}
+
+function useSearchExecution() {
   const [result, setResult] = useState<MessageSearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const firstRun = useRef(false);
-
   const runSearch = useCallback(async (next: SearchFilters) => {
     setLoading(true);
     setError(null);
@@ -76,35 +90,14 @@ export function useSearchPage() {
       setLoading(false);
     }
   }, []);
+  return { result, error, loading, runSearch };
+}
 
-  useEffect(() => {
-    api.listAccounts().then(setAccounts).catch(() => setAccounts([]));
-  }, []);
-
+function useInitialSearch(filters: SearchFilters, runSearch: (next: SearchFilters) => Promise<void>) {
+  const firstRun = useRef(false);
   useEffect(() => {
     if (firstRun.current) return;
     firstRun.current = true;
     void runSearch(filters);
   }, [filters, runSearch]);
-
-  const setFilter = useCallback((key: keyof SearchFilters, value: string) => {
-    setFilters((current) => ({ ...current, [key]: value }));
-  }, []);
-
-  const reset = useCallback(() => {
-    const next = emptySearchFilters();
-    setFilters(next);
-    void runSearch(next);
-  }, [runSearch]);
-
-  return {
-    filters,
-    accounts,
-    result,
-    error,
-    loading,
-    setFilter,
-    runSearch,
-    reset,
-  };
 }
