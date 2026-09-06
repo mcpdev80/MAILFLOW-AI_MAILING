@@ -1,5 +1,11 @@
 """Re-export models so Alembic can discover them through Base.metadata."""
 
+from app.models.attachment_library import (
+    AttachmentDocument,
+    AttachmentFolder,
+    AttachmentMemory,
+    AttachmentSource,
+)
 from app.models.attention import NotificationEvent, NotificationPreference
 from app.models.audit_log import AuditLog
 from app.models.backfill import BackfillFailure, BackfillJob
@@ -20,6 +26,10 @@ from app.models.user_preference import UserPreference
 
 __all__ = [
     "Base",
+    "AttachmentDocument",
+    "AttachmentFolder",
+    "AttachmentMemory",
+    "AttachmentSource",
     "AuditLog",
     "BackfillFailure",
     "BackfillJob",
