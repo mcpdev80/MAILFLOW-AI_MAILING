@@ -50,8 +50,10 @@ async def get_user_preferences(
 
 
 def _apply(row: UserPreference, payload: UserPreferencesUpdate) -> None:
-    values = payload.model_dump(mode="json", exclude_none=True)
+    values = payload.model_dump(mode="json", exclude_unset=True)
     for key, value in values.items():
+        if value is None and key != "workspace_custom_config":
+            continue
         setattr(row, key, value)
 
 
