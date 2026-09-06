@@ -84,7 +84,13 @@ async function useEnglish(page) {
 
 async function mockAuth(page, { userId, email, role, initiallySignedIn = true }) {
   let signedIn = initiallySignedIn;
-  const calls = { signup: 0, signIn: 0, createOrganization: 0, acceptInvitation: 0 };
+  const calls = {
+    signup: 0,
+    signIn: 0,
+    createOrganization: 0,
+    acceptInvitation: 0,
+    setActiveOrganization: 0,
+  };
 
   await page.route("**/api/auth/**", async (route) => {
     const request = route.request();
@@ -134,7 +140,11 @@ async function mockAuth(page, { userId, email, role, initiallySignedIn = true })
             id: `membership-${userId}`,
             userId,
             role,
-            user: { id: userId, email, name: role === "owner" ? "Owner" : "Member" },
+            user: {
+              id: userId,
+              email,
+              name: role === "owner" ? "Owner" : "Member",
+            },
           },
         ],
       });
@@ -151,7 +161,14 @@ async function mockAuth(page, { userId, email, role, initiallySignedIn = true })
     }
     if (path.includes("organization/accept-invitation")) {
       calls.acceptInvitation += 1;
-      return json(route, { invitation: { id: "inv-member-1", status: "accepted" }, member: { userId, role: "member" } });
+      return json(route, {
+        invitation: { id: "inv-member-1", status: "accepted" },
+        member: { userId, role: "member" },
+      });
+    }
+    if (path.includes("organization/set-active")) {
+      calls.setActiveOrganization += 1;
+      return json(route, { id: "auth-org-1", name: "Mailflow Test Org" });
     }
     if (path.includes("organization/list-invitations")) return json(route, []);
     return json(route, {});
@@ -169,7 +186,8 @@ async function mockMailflow(page, { existingProvider, userId, email }) {
     const path = new URL(request.url()).pathname.replace(/^\/api\/mf/, "");
     const method = request.method();
 
-    if (path === "/user/preferences" && method === "GET") return json(route, preferences());
+    if (path === "/user/preferences" && method === "GET")
+      return json(route, preferences());
     if (path === "/llm-providers" && method === "GET") {
       return json(route, configuredProvider ? [configuredProvider] : []);
     }
@@ -210,7 +228,11 @@ async function mockMailflow(page, { existingProvider, userId, email }) {
         inference_warning: null,
       });
     }
-    return json(route, { detail: `Unmocked onboarding endpoint: ${method} ${path}` }, 501);
+    return json(
+      route,
+      { detail: `Unmocked onboarding endpoint: ${method} ${path}` },
+      501,
+    );
   });
 
   return calls;
@@ -292,7 +314,7 @@ test("member onboarding skips provider administration and can only create a priv
   expect(mfCalls.accountPayload?.shared_user_ids).toEqual([]);
 });
 
-test("invited member has a login-preserving invitation entry path", async ({ page }) => {
+test("invited member logs in, accepts invitation and completes onboarding", async ({ page }) => {
   await useEnglish(page);
   const authCalls = await mockAuth(page, {
     userId: "member-1",
@@ -300,18 +322,33 @@ test("invited member has a login-preserving invitation entry path", async ({ pag
     role: "member",
     initiallySignedIn: false,
   });
-  await mockMailflow(page, {
+  const mfCalls = await mockMailflow(page, {
     existingProvider: true,
     userId: "member-1",
     email: "member@example.test",
   });
 
   await page.goto("/accept-invitation/inv-member-1");
-  await expect(page).toHaveURL(/\/login\?redirect=%2Faccept-invitation%2Finv-member-1$/);
+  await expect(page).toHaveURL(
+    /\/login\?redirect=%2Faccept-invitation%2Finv-member-1$/,
+  );
   await page.locator("#email").fill("member@example.test");
   await page.locator("#password").fill("member-password-123");
   await page.locator('form button[type="submit"]').click();
 
   await expect(page).toHaveURL(/\/accept-invitation\/inv-member-1$/);
+  await expect(page.getByRole("button", { name: "Accept invitation" })).toBeVisible();
+  await page.getByRole("button", { name: "Accept invitation" }).click();
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await expect(page.locator("#provider-label")).toHaveCount(0);
+  await expect(page.locator("#imap-host")).toBeVisible();
+
+  await finishPrivateMailbox(page, "member@example.test");
+  await expect(page).toHaveURL(/\/app\/dashboard$/, { timeout: 3000 });
+
   expect(authCalls.signIn).toBe(1);
+  expect(authCalls.acceptInvitation).toBe(1);
+  expect(authCalls.setActiveOrganization).toBe(1);
+  expect(mfCalls.createProvider).toBe(0);
+  expect(mfCalls.createAccount).toBe(1);
 });
