@@ -109,6 +109,32 @@ async def test_partial_workspace_update_preserves_locale(session) -> None:
 
 
 @pytest.mark.asyncio
+async def test_custom_workspace_config_can_be_cleared(session) -> None:
+    org = await _organization(session, "Reset Workspace")
+    identity = RequestIdentity(org=org, user_id="user-a")
+    await update_user_preferences(
+        session,
+        identity,
+        UserPreferencesUpdate(
+            workspace_layout="custom",
+            workspace_custom_config=_custom_layout(),
+        ),
+    )
+
+    updated = await update_user_preferences(
+        session,
+        identity,
+        UserPreferencesUpdate(
+            workspace_layout="classic",
+            workspace_custom_config=None,
+        ),
+    )
+
+    assert updated.workspace_layout == "classic"
+    assert updated.workspace_custom_config is None
+
+
+@pytest.mark.asyncio
 async def test_single_user_preferences_use_stable_actor_key(session) -> None:
     org = await _organization(session, "Single Preferences")
     identity = RequestIdentity(org=org, user_id=None)
