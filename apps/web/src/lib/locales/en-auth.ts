@@ -1,0 +1,27 @@
+export const enAuth = {
+  "auth.login.title": "Sign in",
+  "auth.login.passkey": "Sign in with passkey",
+  "auth.login.passkeyHint":
+    "Use Windows Hello, Touch ID, your phone, or a security key.",
+  "auth.login.passwordHint":
+    "Email and password remain available for migration and account recovery.",
+  "auth.login.email": "Email",
+  "auth.login.password": "Password",
+  "auth.login.passwordAction": "Sign in with password",
+  "auth.login.signingIn": "Signing in…",
+  "auth.login.noAccount": "Don't have an account?",
+  "auth.login.create": "Create account",
+  "auth.login.failed": "Could not sign in",
+  "auth.login.passkeyFailed": "Could not sign in with passkey",
+  "auth.signup.title": "Create account",
+  "auth.signup.name": "Your name",
+  "auth.signup.organization": "Organization name",
+  "auth.signup.email": "Email",
+  "auth.signup.password": "Password",
+  "auth.signup.action": "Create account",
+  "auth.signup.creating": "Creating…",
+  "auth.signup.hasAccount": "Already have an account?",
+  "auth.signup.login": "Sign in",
+  "auth.signup.accountFailed": "Could not create account",
+  "auth.signup.organizationFailed": "Could not create organization",
+} as const;

@@ -1,0 +1,29 @@
+import type { TranslationKey } from "./types";
+
+export const deAuth: Partial<Record<TranslationKey, string>> = {
+  "auth.login.title": "Anmelden",
+  "auth.login.passkey": "Mit Passkey anmelden",
+  "auth.login.passkeyHint":
+    "Nutze Windows Hello, Touch ID, dein Telefon oder einen Sicherheitsschlüssel.",
+  "auth.login.passwordHint":
+    "E-Mail und Passwort bleiben für Migration und Kontowiederherstellung verfügbar.",
+  "auth.login.email": "E-Mail",
+  "auth.login.password": "Passwort",
+  "auth.login.passwordAction": "Mit Passwort anmelden",
+  "auth.login.signingIn": "Anmeldung läuft…",
+  "auth.login.noAccount": "Noch kein Konto?",
+  "auth.login.create": "Konto erstellen",
+  "auth.login.failed": "Anmeldung fehlgeschlagen",
+  "auth.login.passkeyFailed": "Anmeldung mit Passkey fehlgeschlagen",
+  "auth.signup.title": "Konto erstellen",
+  "auth.signup.name": "Dein Name",
+  "auth.signup.organization": "Name der Organisation",
+  "auth.signup.email": "E-Mail",
+  "auth.signup.password": "Passwort",
+  "auth.signup.action": "Konto erstellen",
+  "auth.signup.creating": "Konto wird erstellt…",
+  "auth.signup.hasAccount": "Du hast bereits ein Konto?",
+  "auth.signup.login": "Anmelden",
+  "auth.signup.accountFailed": "Konto konnte nicht erstellt werden",
+  "auth.signup.organizationFailed": "Organisation konnte nicht erstellt werden",
+};

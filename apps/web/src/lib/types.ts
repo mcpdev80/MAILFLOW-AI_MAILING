@@ -360,14 +360,59 @@ export interface Cycle {
 }
 
 export type UserLocale = "de" | "en" | "es";
+export type Theme = "light" | "dark" | "system";
+export type Density = "comfortable" | "compact";
+export type WorkspaceLayout =
+  | "classic"
+  | "vertical"
+  | "focus"
+  | "compact"
+  | "wide"
+  | "custom";
+export type SidePanelAlignment = "left" | "right";
+export type WorkspacePanel =
+  | "accounts"
+  | "folders"
+  | "message_list"
+  | "message_content";
+export type WorkspaceDock = "left" | "center" | "right" | "top" | "bottom";
+export type ActionBarDock = "top" | "bottom";
+export type SystemStatusPosition = "top" | "bottom" | "hidden";
+
+export interface WorkspacePanelConfig {
+  panel: WorkspacePanel;
+  dock: WorkspaceDock;
+  order: number;
+  size_px: number | null;
+  visible: boolean;
+}
+
+export interface WorkspaceCustomConfig {
+  version: 1;
+  panels: WorkspacePanelConfig[];
+  message_content_overlay: boolean;
+  show_resize_handles: boolean;
+  action_bar_dock: ActionBarDock;
+  system_status_position: SystemStatusPosition;
+}
 
 export interface UserPreferences {
   locale: UserLocale;
   locale_configured: boolean;
+  theme: Theme;
+  density: Density;
+  workspace_layout: WorkspaceLayout;
+  side_panel_alignment: SidePanelAlignment;
+  workspace_custom_config: WorkspaceCustomConfig | null;
 }
 
 export interface UserPreferencesUpdate {
-  locale: UserLocale;
+  locale?: UserLocale;
+  theme?: Theme;
+  density?: Density;
+  workspace_layout?: WorkspaceLayout;
+  side_panel_alignment?: SidePanelAlignment;
+  workspace_custom_config?: WorkspaceCustomConfig;
 }
 
 export interface CycleEnqueued {

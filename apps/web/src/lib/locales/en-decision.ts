@@ -1,0 +1,18 @@
+export const enDecision = {
+  "decision.enabled": "Enabled",
+  "decision.disabled": "Disabled",
+  "decision.superseded": "Superseded",
+  "decision.trust": "Trust",
+  "decision.used": "Used",
+  "decision.lastUsed": "Last used",
+  "decision.source": "Source",
+  "decision.subcategory": "Subcategory",
+  "decision.importance": "Importance",
+  "decision.urgency": "Urgency",
+  "decision.actionRequired": "Action required",
+  "decision.subjectPattern": "Subject pattern",
+  "decision.routingTarget": "Routing target",
+  "decision.saveCorrection": "Save correction",
+  "decision.loadFailed": "Could not load learned decisions.",
+  "decision.updateFailed": "Could not update learned decision.",
+} as const;

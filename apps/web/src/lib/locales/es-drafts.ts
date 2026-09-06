@@ -1,0 +1,30 @@
+import type { TranslationKey } from "./types";
+
+export const esDrafts: Partial<Record<TranslationKey, string>> = {
+  "drafts.title": "Borradores",
+  "drafts.description":
+    "Mensajes salientes guardados de tus buzones autorizados.",
+  "drafts.compose": "Redactar",
+  "drafts.loading": "Cargando…",
+  "drafts.empty": "No hay borradores guardados.",
+  "drafts.subject": "Asunto",
+  "drafts.recipients": "Destinatarios",
+  "drafts.state": "Estado",
+  "drafts.updated": "Actualizado",
+  "drafts.open": "Abrir",
+  "drafts.discard": "Descartar",
+  "drafts.discardConfirm": "¿Descartar este borrador?",
+  "drafts.loadFailed": "No se pudieron cargar los borradores",
+  "drafts.discardFailed": "No se pudo descartar el borrador",
+  "drafts.noSubject": "(sin asunto)",
+  "drafts.attachments": "{count} adjunto(s)",
+  "drafts.type.new": "mensaje nuevo",
+  "drafts.type.reply": "respuesta",
+  "drafts.type.reply_all": "responder a todos",
+  "drafts.type.forward": "reenvío",
+  "drafts.status.draft": "borrador",
+  "drafts.status.sending": "enviando",
+  "drafts.status.sent": "enviado",
+  "drafts.status.failed": "fallido",
+  "drafts.status.discarded": "descartado",
+};

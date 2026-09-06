@@ -1,0 +1,73 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: rgb(9 9 11 / 30%);
+  padding: 32px;
+}
+
+.overlay :global(main.container) {
+  width: min(700px, calc(100vw - 64px));
+  max-width: 700px !important;
+  max-height: calc(100vh - 64px);
+  margin: 0 !important;
+  overflow: auto;
+  border: 1px solid var(--mf-border);
+  border-radius: 12px;
+  background: var(--mf-surface);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 20%);
+  padding: 0 !important;
+}
+
+.overlay :global(main.container > header) {
+  min-height: 54px;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--mf-border);
+  padding: 12px 16px;
+}
+
+.overlay :global(main.container > header h1) {
+  margin: 0 !important;
+  font-size: 16px;
+}
+
+.overlay :global(main.container > header .muted) {
+  font-size: 11px;
+}
+
+.overlay :global(main.container > .alert) {
+  margin: 12px 16px 0;
+}
+
+.overlay :global(main.container > section.card) {
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 0 12px 12px !important;
+  box-shadow: none !important;
+  background: var(--mf-surface) !important;
+}
+
+.overlay :global(main.container input),
+.overlay :global(main.container select) {
+  min-height: 32px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.overlay :global(main.container input:focus),
+.overlay :global(main.container select:focus) {
+  border-color: var(--mf-border);
+  background: var(--mf-bg);
+}
+
+.overlay :global(main.container footer) {
+  background: var(--mf-surface-muted);
+}
+
+@media (max-height: 760px) {
+  .overlay { place-items: start center; padding-block: 20px; }
+  .overlay :global(main.container) { max-height: calc(100vh - 40px); }
+}

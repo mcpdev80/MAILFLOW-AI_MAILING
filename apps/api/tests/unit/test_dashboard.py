@@ -226,6 +226,14 @@ async def test_search_filters_and_does_not_leak_private_mailbox(session) -> None
     assert result.items[0].account_id == own.id
     assert result.items[0].classification_source == "decision_memory"
 
+    subject = await search_messages(session, identity, subject="September")
+    assert subject.total == 1
+    assert subject.items[0].subject == "Invoice September"
+
+    subject_miss = await search_messages(session, identity, subject="Team")
+    assert subject_miss.total == 1
+    assert subject_miss.items[0].subject == "Team update"
+
     tagged = await search_messages(session, identity, tag="invoice")
     assert tagged.total == 1
     assert tagged.items[0].subject == "Invoice September"
@@ -233,7 +241,7 @@ async def test_search_filters_and_does_not_leak_private_mailbox(session) -> None
     missing_tag = await search_messages(session, identity, tag="voice")
     assert missing_tag.total == 0
 
-    hidden = await search_messages(session, identity, query="foreign private")
+    hidden = await search_messages(session, identity, subject="foreign private")
     assert hidden.total == 0
     assert hidden.items == []
 

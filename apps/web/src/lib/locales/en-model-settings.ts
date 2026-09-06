@@ -1,0 +1,23 @@
+export const enModelSettings = {
+  "models.back": "Dashboard",
+  "models.title": "Model roles",
+  "models.description":
+    "Fast classification handles the early stages, deep classification handles ambiguous cases, and generation is used for writing tasks. Role-specific endpoints are optional and fall back to the provider defaults.",
+  "models.loading": "Loading model settings…",
+  "models.empty": "No LLM provider is configured yet.",
+  "models.configure": "Configure provider",
+  "models.provider": "Provider profile",
+  "models.fast": "Fast classification",
+  "models.deep": "Deep classification",
+  "models.generation": "Generation",
+  "models.model": "Model",
+  "models.endpoint": "Endpoint override",
+  "models.apiKey": "API key override",
+  "models.configured": "Configured",
+  "models.sharedKey": "Use shared key",
+  "models.save": "Save model roles",
+  "models.saving": "Saving…",
+  "models.saved": "Model roles updated.",
+  "models.loadFailed": "Could not load LLM providers.",
+  "models.saveFailed": "Could not save model roles.",
+} as const;

@@ -215,11 +215,7 @@ async def require_identity(
         default=None, alias="X-MailFlow-Actor-Signature"
     ),
 ) -> RequestIdentity:
-    """Resolve a trusted human actor for mailbox-scoped authorization.
-
-    The signed authentication time allows sensitive endpoints to require recent
-    authentication without trusting a browser-provided timestamp.
-    """
+    """Resolve a trusted human actor for mailbox-scoped authorization."""
     if settings.AUTH_MODE != "multi":
         return RequestIdentity(org=org, user_id=None)
 
@@ -291,3 +287,59 @@ async def require_identity(
         role=actor_role,
         auth_time=auth_time,
     )
+
+
+def require_admin_role(identity: RequestIdentity) -> None:
+    """Reject non-admin human actors while preserving direct API-key access."""
+    if identity.user_id is not None and identity.role not in {"owner", "admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="organization_admin_required",
+        )
+
+
+async def require_org_admin(
+    request: Request,
+    org: Organization = Depends(require_org),
+    actor_user_id: str | None = Header(default=None, alias="X-MailFlow-Actor-User-Id"),
+    actor_org_id: str | None = Header(default=None, alias="X-MailFlow-Actor-Org-Id"),
+    actor_auth_org_id: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Auth-Org-Id"
+    ),
+    actor_role: str | None = Header(default=None, alias="X-MailFlow-Actor-Role"),
+    actor_auth_time: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Auth-Time"
+    ),
+    actor_timestamp: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Timestamp"
+    ),
+    actor_signature: str | None = Header(
+        default=None, alias="X-MailFlow-Actor-Signature"
+    ),
+) -> Organization:
+    """Require owner/admin for BFF calls; treat a bare org API key as privileged."""
+    actor_values = [
+        actor_user_id,
+        actor_org_id,
+        actor_auth_org_id,
+        actor_role,
+        actor_auth_time,
+        actor_timestamp,
+        actor_signature,
+    ]
+    if settings.AUTH_MODE != "multi" or not any(actor_values):
+        return org
+
+    identity = await require_identity(
+        request,
+        org,
+        actor_user_id,
+        actor_org_id,
+        actor_auth_org_id,
+        actor_role,
+        actor_auth_time,
+        actor_timestamp,
+        actor_signature,
+    )
+    require_admin_role(identity)
+    return org

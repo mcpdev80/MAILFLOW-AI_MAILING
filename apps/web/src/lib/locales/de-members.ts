@@ -1,0 +1,31 @@
+import type { TranslationKey } from "./types";
+
+export const deMembers: Partial<Record<TranslationKey, string>> = {
+  "members.back": "Dashboard",
+  "members.title": "Teammitglieder",
+  "members.members": "Mitglieder",
+  "members.empty": "Noch keine Mitglieder.",
+  "members.inviteTitle": "Per E-Mail einladen",
+  "members.emailPlaceholder": "person@firma.de",
+  "members.role.member": "Mitglied",
+  "members.role.admin": "Administrator",
+  "members.invite": "Einladen",
+  "members.inviting": "Wird eingeladen…",
+  "members.pending": "Ausstehende Einladungen",
+  "members.loadFailed": "Organisationsmitglieder konnten nicht geladen werden.",
+  "members.inviteFailed": "Einladung konnte nicht gesendet werden.",
+  "invitation.title": "Einladung zur Organisation",
+  "invitation.loading": "Einladung wird geladen…",
+  "invitation.organization": "Organisation",
+  "invitation.email": "Eingeladene E-Mail-Adresse",
+  "invitation.role": "Rolle",
+  "invitation.accept": "Einladung annehmen",
+  "invitation.accepting": "Wird angenommen…",
+  "invitation.decline": "Ablehnen",
+  "invitation.declining": "Wird abgelehnt…",
+  "invitation.accepted": "Einladung wurde angenommen.",
+  "invitation.declined": "Einladung wurde abgelehnt.",
+  "invitation.invalid":
+    "Diese Einladung ist ungültig, abgelaufen oder nicht mehr verfügbar.",
+  "invitation.failed": "Die Einladung konnte nicht verarbeitet werden.",
+};

@@ -1,0 +1,31 @@
+import type { TranslationKey } from "./types";
+
+export const esSecurity: Partial<Record<TranslationKey, string>> = {
+  "security.title": "Seguridad",
+  "security.description":
+    "Las passkeys autentican tu usuario existente de Mailflow. No cambian los permisos de los buzones ni sustituyen credenciales IMAP, OAuth o API.",
+  "security.addTitle": "Registrar una passkey",
+  "security.deviceName": "Nombre del dispositivo",
+  "security.devicePlaceholder": "p. ej. portátil, teléfono o llave USB",
+  "security.add": "Añadir passkey",
+  "security.registered": "Passkeys registradas",
+  "security.empty": "Todavía no hay passkeys registradas.",
+  "security.unnamed": "Passkey sin nombre",
+  "security.created": "Creada",
+  "security.type": "Tipo",
+  "security.backedUp": "Sincronizada / respaldada",
+  "security.rename": "Renombrar",
+  "security.delete": "Eliminar",
+  "security.renamePrompt": "Nombre de la passkey",
+  "security.deleteConfirm": '¿Eliminar la passkey "{name}"?',
+  "security.recentAuth":
+    "Vuelve a autenticarte antes de eliminar métodos de acceso.",
+  "security.signInAgain": "Iniciar sesión de nuevo",
+  "security.recoveryTitle": "Recuperación",
+  "security.recovery":
+    "Mantén más de una passkey cuando sea posible. El inicio de sesión con email y contraseña permanece disponible como vía de recuperación durante la migración. Mailflow no elimina automáticamente tu contraseña al añadir una passkey.",
+  "security.loadFailed": "No se pudieron cargar las passkeys.",
+  "security.addFailed": "No se pudo registrar la passkey.",
+  "security.renameFailed": "No se pudo cambiar el nombre de la passkey.",
+  "security.deleteFailed": "No se pudo eliminar la passkey.",
+};

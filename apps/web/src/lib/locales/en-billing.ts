@@ -1,0 +1,22 @@
+export const enBilling = {
+  "billing.back": "Dashboard",
+  "billing.title": "Billing",
+  "billing.currentPlan": "Current plan",
+  "billing.seats": "seats",
+  "billing.selfHost": "self-host",
+  "billing.mailboxes": "mailboxes",
+  "billing.emailsToday": "emails today",
+  "billing.unlimited": "Unlimited",
+  "billing.manage": "Manage subscription",
+  "billing.upgradePro": "Upgrade to Pro",
+  "billing.teamSeats": "Team seats",
+  "billing.minimum": "min",
+  "billing.upgradeTeam": "Upgrade to Team ({count} seats)",
+  "billing.manageCancel": "Manage / cancel subscription",
+  "billing.selfHostedInfo":
+    "This is a self-hosted instance — no plan limits apply. Billing is only used on the managed SaaS.",
+  "billing.loadFailed": "Could not load billing",
+  "billing.notConfigured": "Billing is not configured on this server.",
+  "billing.checkoutFailed": "Checkout failed",
+  "billing.portalFailed": "Could not open billing portal",
+} as const;

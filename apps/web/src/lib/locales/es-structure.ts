@@ -1,0 +1,93 @@
+export const esStructure = {
+  "structure.folderDiscovery": "Descubrimiento de carpetas",
+  "structure.folderDiscoverySubtitle":
+    "Escanea el buzón y decide qué carpetas reales deben reutilizarse o crearse.",
+  "structure.step1": "Paso 1 de 3",
+  "structure.step2": "Paso 2 de 3",
+  "structure.step3": "Paso 3 de 3",
+  "structure.mailbox": "Buzón",
+  "structure.language": "Idioma",
+  "structure.scanning": "Escaneando…",
+  "structure.scanAgain": "Escanear de nuevo",
+  "structure.discoverFolders": "Descubrir carpetas",
+  "structure.startDiscovery":
+    "Inicia el descubrimiento para inspeccionar la estructura real del buzón. En este paso no se cambia nada.",
+  "structure.folder": "Carpeta",
+  "structure.mailboxName": "Nombre del buzón",
+  "structure.action": "Acción",
+  "structure.match": "coincidencia",
+  "structure.confidence": "confianza",
+  "structure.noExistingMatch": "Sin coincidencia existente",
+  "structure.reuseExisting": "Reutilizar existente",
+  "structure.createNew": "Crear nueva",
+  "structure.tagSuggestions": "Sugerencias de etiquetas",
+  "structure.tagMappingsDiscovered":
+    "asignación(es) de etiquetas detectadas que se incluirán en la revisión.",
+  "structure.existingFoldersFound": "carpetas existentes encontradas",
+  "structure.proposedMappings": "asignaciones propuestas",
+  "structure.nextCategoryMapping": "Siguiente: asignación de categorías",
+  "structure.unableLoadMailboxes": "No se pudieron cargar los buzones",
+  "structure.discoveryFailed": "Falló el descubrimiento de carpetas",
+  "structure.categoryMapping": "Asignación de categorías",
+  "structure.categoryMappingSubtitle":
+    "Asigna las categorías de clasificación de Mailflow a la estructura de carpetas detectada.",
+  "structure.noDraft":
+    "No hay un borrador de descubrimiento. Empieza con el descubrimiento de carpetas.",
+  "structure.openDiscovery": "Abrir descubrimiento de carpetas",
+  "structure.noRoutes":
+    "La propuesta no contiene rutas de categorías. Puedes continuar y revisar solo los cambios de carpetas/etiquetas.",
+  "structure.classification": "Clasificación",
+  "structure.targetFolder": "Carpeta de destino",
+  "structure.classificationRoutes": "ruta(s) de clasificación",
+  "structure.targetFolders": "carpeta(s) de destino",
+  "structure.back": "Atrás",
+  "structure.nextReview": "Siguiente: revisar y aplicar",
+  "structure.reviewApply": "Revisar y aplicar",
+  "structure.reviewApplySubtitle":
+    "Revisa cada asignación de carpeta, etiqueta y clasificación antes de aplicar cambios.",
+  "structure.noReview": "No hay cambios de estructura pendientes de revisión.",
+  "structure.startFolderDiscovery": "Iniciar descubrimiento de carpetas",
+  "structure.applied": "Estructura aplicada",
+  "structure.appliedSubtitle":
+    "Mailflow aplicó las asignaciones revisadas de carpetas, etiquetas y clasificación. Las carpetas existentes se reutilizaron cuando se seleccionó.",
+  "structure.reused": "reutilizadas",
+  "structure.created": "creadas",
+  "structure.tagMappings": "asignaciones de etiquetas",
+  "structure.backFoldersTags": "Volver a Carpetas y etiquetas",
+  "structure.foldersMapped": "carpetas asignadas",
+  "structure.toCreate": "por crear",
+  "structure.toReuse": "por reutilizar",
+  "structure.folderName": "Nombre de carpeta",
+  "structure.mappedCategories": "Categorías asignadas",
+  "structure.status": "Estado",
+  "structure.safetyNotice":
+    "Las carpetas existentes no se renombran ni eliminan. Aplicar solo crea las carpetas/etiquetas faltantes seleccionadas y actualiza la configuración de enrutamiento de clasificación guardada por Mailflow.",
+  "structure.applying": "Aplicando…",
+  "structure.applyChanges": "Aplicar cambios",
+  "structure.unableApply": "No se pudieron aplicar los cambios de estructura",
+  "structure.foldersTags": "Carpetas y etiquetas",
+  "structure.foldersTagsSubtitle":
+    "Gestiona la estructura de carpetas y las asignaciones de clasificación de cada buzón conectado.",
+  "structure.loadingMailboxStructure": "Cargando estructura del buzón…",
+  "structure.connectMailboxFirst":
+    "Conecta un buzón antes de configurar carpetas y etiquetas.",
+  "structure.mappedSystemFolders": "Carpetas del sistema asignadas",
+  "structure.mappedSystemFoldersSubtitle":
+    "Estos valores proceden directamente de la configuración del buzón. El descubrimiento nunca renombra ni elimina carpetas existentes.",
+  "structure.discoverStructure": "Descubrir estructura",
+  "structure.system": "Sistema",
+  "structure.activeMapping": "Asignación activa",
+  "structure.smartDiscovery":
+    "Descubrimiento inteligente y asignación de categorías",
+  "structure.smartDiscoverySubtitle":
+    "Mailflow puede inspeccionar el árbol real de carpetas, sugerir reutilizar/crear y asignar categorías de clasificación. Los cambios se revisan antes de aplicarse.",
+  "structure.mailboxDetails": "Detalles del buzón",
+  "structure.startSetup": "Iniciar configuración en 3 pasos",
+  "structure.roleInbox": "Bandeja de entrada",
+  "structure.roleDrafts": "Borradores",
+  "structure.roleUnclassified": "Sin clasificar",
+  "structure.detailInbox": "Carpeta principal de correo entrante",
+  "structure.detailDrafts": "Almacenamiento de borradores usado por Mailflow",
+  "structure.detailUnclassified":
+    "Destino de respaldo para mensajes sin una asignación segura",
+} as const;

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.secret_storage import validate_stored_secrets
 
-EXPECTED_SCHEMA_REVISION = "025"
+EXPECTED_SCHEMA_REVISION = "026"
 
 
 class RestoreValidationError(RuntimeError):
@@ -38,7 +38,6 @@ async def _table_exists(session: AsyncSession, table_name: str) -> bool:
 async def validate_schema_revision(session: AsyncSession) -> str:
     if not await _table_exists(session, "alembic_version"):
         raise RestoreValidationError("Database has no Alembic schema revision")
-
     revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
     if revision != EXPECTED_SCHEMA_REVISION:
         raise RestoreValidationError(
