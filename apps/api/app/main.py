@@ -18,7 +18,6 @@ from app.observability import init_sentry
 from app.restore_validation import RestoreValidationError, validate_schema_revision
 from app.routers import (
     accounts_router,
-    attachments_router,
     attention_router,
     audit_router,
     backfill_router,
@@ -72,7 +71,6 @@ if settings.CORS_ORIGINS:
     )
 
 app.include_router(accounts_router)
-app.include_router(attachments_router)
 app.include_router(attention_router)
 app.include_router(audit_router)
 app.include_router(backfill_router)
