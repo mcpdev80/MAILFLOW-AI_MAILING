@@ -3,6 +3,15 @@ import { installExtendedMockApi } from "./support/extended-mock-api.mjs";
 import { installMockApi } from "./support/mock-api.mjs";
 
 async function prepare(page) {
+  await page.context().addCookies([
+    {
+      name: "better-auth.session_token",
+      value: "session-token-user-1",
+      url: "http://localhost:3000",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
   await installMockApi(page);
   await installExtendedMockApi(page);
 }
@@ -44,14 +53,15 @@ test("mailbox navigation resolves the account index to a real mailbox", async ({
   ).toBeVisible();
 });
 
-test("onboarding renders against provider/account contracts", async ({
-  page,
-}) => {
+test("onboarding renders the canonical six-step flow", async ({ page }) => {
   await page.goto("/onboarding");
   await expect(
-    page.getByRole("heading", { name: "Get started" }),
+    page.getByRole("heading", { name: "Welcome to Mailflow" }),
   ).toBeVisible();
+  await expect(page.getByText(/Step 1 of 6/i)).toBeVisible();
+  await page.getByRole("button", { name: "Connect your mailbox" }).click();
   await expect(
-    page.getByText("2. Connect a mailbox", { exact: true }),
+    page.getByRole("heading", { name: "Connect your mailbox" }),
   ).toBeVisible();
+  await expect(page.getByText(/Step 2 of 6/i)).toBeVisible();
 });
