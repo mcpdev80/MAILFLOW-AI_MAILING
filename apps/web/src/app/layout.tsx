@@ -1,6 +1,7 @@
 import { AppearanceProvider } from "@/lib/appearance-preferences";
 import { I18nProvider } from "@/lib/i18n";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <AppearanceProvider>
-          <I18nProvider>{children}</I18nProvider>
+          <I18nProvider>
+            <Suspense fallback={null}>{children}</Suspense>
+          </I18nProvider>
         </AppearanceProvider>
       </body>
     </html>
