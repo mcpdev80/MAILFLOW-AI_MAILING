@@ -3,6 +3,7 @@
 **Open source AI email assistant. Use any LLM. Your inbox, your rules, your privacy.**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Sponsor MailFlow](https://img.shields.io/badge/Sponsor-MailFlow-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/mcpdev80)
 
 MailFlow automatically classifies incoming emails, supports AI-assisted mail workflows, and can run with local or hosted LLMs.
 
