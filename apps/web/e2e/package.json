@@ -1,0 +1,13 @@
+{
+  "name": "@mailflow/web-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test -c playwright.config.mjs",
+    "test:ui": "playwright test -c playwright.config.mjs --ui",
+    "test:headed": "playwright test -c playwright.config.mjs --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
