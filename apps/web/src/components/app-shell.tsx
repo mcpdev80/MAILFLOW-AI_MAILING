@@ -77,7 +77,7 @@ function Header({ state, showStatus }: { state: ShellState; showStatus: boolean 
   const pathname = usePathname();
   const { t } = useI18n();
   const user = useSession().data?.user;
-  const action = pathname === "/app/dashboard" || pathname.startsWith("/app/mail") ? { href: "/onboarding?step=mailbox", label: "Add Mailbox" } : null;
+  const action = pathname === "/app/dashboard" || pathname.startsWith("/app/mail") ? { href: "/onboarding?step=mailbox", label: t("shell.addMailbox") } : null;
   return (
     <header className={styles.header} data-testid="app-header">
       {showStatus ? <StatusPill state={state} /> : <span />}
@@ -85,7 +85,7 @@ function Header({ state, showStatus }: { state: ShellState; showStatus: boolean 
         {action && <Link className="btn" href={action.href}>{action.label}</Link>}
         {action && <span className={styles.headerDivider} />}
         <Link href="/app/notifications" className={styles.notificationLink} aria-label={t("shell.notifications")}><span aria-hidden="true">●</span>{state.notificationCount != null && state.notificationCount > 0 && <span className={styles.notificationDot} />}</Link>
-        <Link href="/app/settings/profile" className={styles.headerAvatar} aria-label={user?.name || user?.email || "Profile"}>{initials(user?.name, user?.email)}</Link>
+        <Link href="/app/settings/profile" className={styles.headerAvatar} aria-label={user?.name || user?.email || t("shell.profile")}>{initials(user?.name, user?.email)}</Link>
       </div>
     </header>
   );
