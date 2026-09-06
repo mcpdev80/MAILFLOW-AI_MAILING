@@ -452,9 +452,7 @@ test("forward creates a clean draft with forwarded content and no thread reply h
   expect(flow.createPayload().body_text).toContain(
     "---------- Forwarded message ----------",
   );
-  expect(flow.createPayload().body_text).toContain(
-    "From: sender@example.test",
-  );
+  expect(flow.createPayload().body_text).toContain("From: sender@example.test");
   expect(flow.createPayload().body_text).toContain(
     "The project update is ready for review.",
   );
