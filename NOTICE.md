@@ -22,6 +22,10 @@ Copyright in the original upstream portions remains with their original author(s
 
 Copyright in modifications and new functionality authored in this fork remains with the respective author(s), including **Marcel Pfingstgräf** for his original contributions, unless rights have been explicitly assigned otherwise.
 
+**Copyright © 2026 Marcel Pfingstgräf — original modifications and additions authored by him in this fork.**
+
+This scoped copyright notice does not claim ownership of upstream code, third-party code, dependencies, or contributions authored by others.
+
 This notice does not transfer, replace, or alter any copyright ownership.
 
 See [`COPYRIGHT.md`](COPYRIGHT.md) for a concise statement of copyright scope.
