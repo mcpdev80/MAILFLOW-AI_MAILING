@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import require_org
+from app.auth import require_org, require_org_admin
 from app.crypto import encrypt_secret
 from app.database import get_session
 from app.llm_schemas import LLMProviderCreate, LLMProviderOut, LLMProviderUpdate
@@ -68,7 +68,7 @@ async def list_providers(
 @router.post("", response_model=LLMProviderOut, status_code=status.HTTP_201_CREATED)
 async def create_provider(
     payload: LLMProviderCreate,
-    org: Organization = Depends(require_org),
+    org: Organization = Depends(require_org_admin),
     session: AsyncSession = Depends(get_session),
 ) -> LLMProviderOut:
     compatibility_classification = (
@@ -124,7 +124,7 @@ async def get_provider(
 async def update_provider(
     provider_id: UUID,
     payload: LLMProviderUpdate,
-    org: Organization = Depends(require_org),
+    org: Organization = Depends(require_org_admin),
     session: AsyncSession = Depends(get_session),
 ) -> LLMProviderOut:
     provider = await _get_owned(provider_id, org, session)
@@ -155,7 +155,7 @@ async def update_provider(
 @router.delete("/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_provider(
     provider_id: UUID,
-    org: Organization = Depends(require_org),
+    org: Organization = Depends(require_org_admin),
     session: AsyncSession = Depends(get_session),
 ) -> None:
     provider = await _get_owned(provider_id, org, session)
