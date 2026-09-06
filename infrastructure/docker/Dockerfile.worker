@@ -15,6 +15,8 @@ COPY --chown=appuser:appuser apps/api/pyproject.toml apps/api/
 COPY --chown=appuser:appuser apps/worker/pyproject.toml apps/worker/
 COPY --chown=appuser:appuser packages/core/pyproject.toml packages/core/
 
+# Build the virtualenv as the same unprivileged user that runs the worker.
+USER appuser
 RUN uv sync --no-dev
 
 # Worker code and shared dependencies already receive their final ownership.
@@ -25,6 +27,6 @@ COPY --chown=appuser:appuser packages/core/mailflow_core/ packages/core/mailflow
 # The worker imports `worker.*`, `app.*` and the shared `mailflow_core` package.
 ENV PYTHONPATH=/app/apps/worker:/app/apps/api:/app/packages/core
 
-USER appuser
-
-CMD ["uv", "run", "arq", "worker.main.WorkerSettings"]
+# Call the installed executable directly. `uv run` performs an implicit sync at
+# runtime and was trying to add dev packages to the immutable production venv.
+CMD ["/app/.venv/bin/arq", "worker.main.WorkerSettings"]
