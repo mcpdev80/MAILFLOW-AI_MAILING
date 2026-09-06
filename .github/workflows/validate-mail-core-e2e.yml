@@ -1,0 +1,48 @@
+name: Mail Core Validation
+
+on:
+  push:
+    branches:
+      - feat/mvp-guidelines-figma-redesign
+    paths:
+      - .github/workflows/validate-mail-core-e2e.yml
+      - apps/web/src/app/app/mail/**
+      - apps/web/src/lib/api.ts
+      - apps/web/src/lib/types.ts
+      - apps/web/e2e/core-surfaces.spec.mjs
+      - apps/web/e2e/support/mock-api.mjs
+      - apps/web/e2e/playwright.config.mjs
+
+jobs:
+  mail-core-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check mail core web changes
+        run: >-
+          pnpm biome check
+          apps/web/src/app/app/mail
+          apps/web/e2e/core-surfaces.spec.mjs
+          apps/web/e2e/support/mock-api.mjs
+      - run: pnpm --filter @mailflow/web typecheck
+      - run: npm --prefix apps/web/e2e install --no-package-lock --ignore-scripts
+      - name: Install Chromium
+        working-directory: apps/web/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run mail core paths
+        working-directory: apps/web/e2e
+        run: npx playwright test core-surfaces.spec.mjs -c playwright.config.mjs
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mail-core-playwright-report
+          path: apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 3
