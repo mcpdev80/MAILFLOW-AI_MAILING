@@ -62,4 +62,9 @@ export const enMail = {
   "mail.noDeadline": "No deadline detected.",
   "mail.translation": "Translation",
   "mail.messageDetails": "Message details",
+  "mail.print": "Print",
+  "mail.printInvalid": "Invalid print request.",
+  "mail.from": "From",
+  "mail.date": "Date",
+  "mail.attachmentsLabel": "Attachments",
 } as const;
