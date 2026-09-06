@@ -1,5 +1,6 @@
 import type { en } from "./en";
 import type { enAccount } from "./en-account";
+import type { enAuth } from "./en-auth";
 import type { enBilling } from "./en-billing";
 import type { enCompose } from "./en-compose";
 import type { enDashboard } from "./en-dashboard";
@@ -19,6 +20,7 @@ import type { enShell } from "./en-shell";
 export type TranslationKey =
   | keyof typeof en
   | keyof typeof enAccount
+  | keyof typeof enAuth
   | keyof typeof enBilling
   | keyof typeof enCompose
   | keyof typeof enDashboard
