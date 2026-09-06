@@ -36,16 +36,20 @@ export function InvitationUi({ invitationId }: { invitationId: string }) {
         <h1>{t("invitation.title")}</h1>
         {invitation.organizationName && (
           <p>
-            <strong>{t("invitation.organization")}:</strong> {invitation.organizationName}
+            <strong>{t("invitation.organization")}:</strong>{" "}
+            {invitation.organizationName}
           </p>
         )}
         <p>
           <strong>{t("invitation.email")}:</strong> {invitation.email}
         </p>
         <p>
-          <strong>{t("invitation.role")}:</strong> {roleLabel(invitation.role, t)}
+          <strong>{t("invitation.role")}:</strong>{" "}
+          {roleLabel(invitation.role, t)}
         </p>
-        {state.error && <div className="alert error">{t("invitation.failed")}</div>}
+        {state.error && (
+          <div className="alert error">{t("invitation.failed")}</div>
+        )}
         <div className="row">
           <button
             className="btn"
@@ -53,7 +57,9 @@ export function InvitationUi({ invitationId }: { invitationId: string }) {
             disabled={state.busy !== null}
             onClick={() => void state.accept()}
           >
-            {state.busy === "accept" ? t("invitation.accepting") : t("invitation.accept")}
+            {state.busy === "accept"
+              ? t("invitation.accepting")
+              : t("invitation.accept")}
           </button>
           <button
             className="btn secondary"
@@ -61,7 +67,9 @@ export function InvitationUi({ invitationId }: { invitationId: string }) {
             disabled={state.busy !== null}
             onClick={() => void state.decline()}
           >
-            {state.busy === "decline" ? t("invitation.declining") : t("invitation.decline")}
+            {state.busy === "decline"
+              ? t("invitation.declining")
+              : t("invitation.decline")}
           </button>
         </div>
       </section>
@@ -79,10 +87,7 @@ function StatusCard({ text }: { text: string }) {
   );
 }
 
-function roleLabel(
-  role: string,
-  t: ReturnType<typeof useI18n>["t"],
-): string {
+function roleLabel(role: string, t: ReturnType<typeof useI18n>["t"]): string {
   if (role === "member") return t("members.role.member");
   if (role === "admin") return t("members.role.admin");
   return role;

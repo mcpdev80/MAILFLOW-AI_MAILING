@@ -25,6 +25,7 @@ export const deMembers: Partial<Record<TranslationKey, string>> = {
   "invitation.declining": "Wird abgelehnt…",
   "invitation.accepted": "Einladung wurde angenommen.",
   "invitation.declined": "Einladung wurde abgelehnt.",
-  "invitation.invalid": "Diese Einladung ist ungültig, abgelaufen oder nicht mehr verfügbar.",
+  "invitation.invalid":
+    "Diese Einladung ist ungültig, abgelaufen oder nicht mehr verfügbar.",
   "invitation.failed": "Die Einladung konnte nicht verarbeitet werden.",
 };

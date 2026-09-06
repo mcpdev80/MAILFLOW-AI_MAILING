@@ -82,12 +82,17 @@ async function useEnglish(page) {
   });
 }
 
-async function mockAuth(page, { userId, email, role, initiallySignedIn = true }) {
+async function mockAuth(
+  page,
+  { userId, email, role, initiallySignedIn = true },
+) {
   let signedIn = initiallySignedIn;
+  let invited = false;
   const calls = {
     signup: 0,
     signIn: 0,
     createOrganization: 0,
+    inviteMember: 0,
     acceptInvitation: 0,
     setActiveOrganization: 0,
   };
@@ -105,7 +110,11 @@ async function mockAuth(page, { userId, email, role, initiallySignedIn = true })
           activeOrganizationId: "auth-org-1",
           createdAt: now,
         },
-        user: { id: userId, name: role === "owner" ? "Owner" : "Member", email },
+        user: {
+          id: userId,
+          name: role === "owner" ? "Owner" : "Member",
+          email,
+        },
       });
     }
     if (path.endsWith("/sign-up/email")) {
@@ -149,6 +158,17 @@ async function mockAuth(page, { userId, email, role, initiallySignedIn = true })
         ],
       });
     }
+    if (path.includes("organization/invite-member")) {
+      calls.inviteMember += 1;
+      invited = true;
+      return json(route, {
+        id: "inv-member-1",
+        email: "member@example.test",
+        role: "member",
+        status: "pending",
+        organizationId: "auth-org-1",
+      });
+    }
     if (path.includes("organization/get-invitation")) {
       return json(route, {
         id: "inv-member-1",
@@ -170,7 +190,21 @@ async function mockAuth(page, { userId, email, role, initiallySignedIn = true })
       calls.setActiveOrganization += 1;
       return json(route, { id: "auth-org-1", name: "Mailflow Test Org" });
     }
-    if (path.includes("organization/list-invitations")) return json(route, []);
+    if (path.includes("organization/list-invitations")) {
+      return json(
+        route,
+        invited
+          ? [
+              {
+                id: "inv-member-1",
+                email: "member@example.test",
+                role: "member",
+                status: "pending",
+              },
+            ]
+          : [],
+      );
+    }
     return json(route, {});
   });
 
@@ -193,7 +227,10 @@ async function mockMailflow(page, { existingProvider, userId, email }) {
     }
     if (path === "/llm-providers" && method === "POST") {
       calls.createProvider += 1;
-      configuredProvider = { ...provider(), ...(request.postDataJSON?.() ?? {}) };
+      configuredProvider = {
+        ...provider(),
+        ...(request.postDataJSON?.() ?? {}),
+      };
       return json(route, configuredProvider, 201);
     }
     if (path === "/accounts" && method === "POST") {
@@ -246,7 +283,9 @@ async function finishPrivateMailbox(page, email) {
   await form.locator('button[type="submit"]').click();
 }
 
-test("owner first run creates organization, provider and first mailbox", async ({ page }) => {
+test("owner first run configures Mailflow and invites a member", async ({
+  page,
+}) => {
   await useEnglish(page);
   const authCalls = await mockAuth(page, {
     userId: "owner-1",
@@ -273,21 +312,31 @@ test("owner first run creates organization, provider and first mailbox", async (
   await page.locator("#provider-url").fill("http://127.0.0.1:18080/v1");
   await page.locator("#classification-model").fill("local-classifier");
   await page.locator("#generation-model").fill("local-generator");
-  const providerForm = page.locator("#provider-label").locator("xpath=ancestor::form");
+  const providerForm = page
+    .locator("#provider-label")
+    .locator("xpath=ancestor::form");
   await providerForm.locator('button[type="submit"]').click();
 
   await expect(page.locator("#imap-host")).toBeVisible();
   await finishPrivateMailbox(page, "owner@example.test");
   await expect(page).toHaveURL(/\/app\/dashboard$/, { timeout: 3000 });
 
+  await page.goto("/app/settings/members");
+  await page.locator('input[type="email"]').fill("member@example.test");
+  await page.locator('form button[type="submit"]').click();
+  await expect(page.getByText("member@example.test")).toBeVisible();
+
   expect(authCalls.signup).toBe(1);
   expect(authCalls.createOrganization).toBe(1);
+  expect(authCalls.inviteMember).toBe(1);
   expect(mfCalls.createProvider).toBe(1);
   expect(mfCalls.createAccount).toBe(1);
   expect(mfCalls.accountPayload?.ownership_mode).toBe("private");
 });
 
-test("member onboarding skips provider administration and can only create a private mailbox", async ({ page }) => {
+test("member onboarding skips provider administration and can only create a private mailbox", async ({
+  page,
+}) => {
   await useEnglish(page);
   await mockAuth(page, {
     userId: "member-1",
@@ -303,7 +352,9 @@ test("member onboarding skips provider administration and can only create a priv
   await page.goto("/onboarding");
   await expect(page.locator("#imap-host")).toBeVisible();
   await expect(page.locator("#provider-label")).toHaveCount(0);
-  await expect(page.locator('#ownership-mode option[value="shared"]')).toHaveCount(0);
+  await expect(
+    page.locator('#ownership-mode option[value="shared"]'),
+  ).toHaveCount(0);
 
   await finishPrivateMailbox(page, "member@example.test");
   await expect(page).toHaveURL(/\/app\/dashboard$/, { timeout: 3000 });
@@ -314,7 +365,9 @@ test("member onboarding skips provider administration and can only create a priv
   expect(mfCalls.accountPayload?.shared_user_ids).toEqual([]);
 });
 
-test("invited member logs in, accepts invitation and completes onboarding", async ({ page }) => {
+test("invited member logs in, accepts invitation and completes onboarding", async ({
+  page,
+}) => {
   await useEnglish(page);
   const authCalls = await mockAuth(page, {
     userId: "member-1",
@@ -337,7 +390,9 @@ test("invited member logs in, accepts invitation and completes onboarding", asyn
   await page.locator('form button[type="submit"]').click();
 
   await expect(page).toHaveURL(/\/accept-invitation\/inv-member-1$/);
-  await expect(page.getByRole("button", { name: "Accept invitation" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Accept invitation" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Accept invitation" }).click();
   await expect(page).toHaveURL(/\/onboarding$/);
   await expect(page.locator("#provider-label")).toHaveCount(0);

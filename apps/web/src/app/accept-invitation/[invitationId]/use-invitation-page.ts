@@ -34,7 +34,9 @@ export function useInvitationPage(invitationId: string) {
         }
         const parsed = invitationInfo(result.data);
         setInvitation(parsed);
-        setState(parsed.status === "pending" ? "ready" : terminalState(parsed.status));
+        setState(
+          parsed.status === "pending" ? "ready" : terminalState(parsed.status),
+        );
       })
       .catch(() => active && setState("invalid"));
     return () => {
@@ -46,7 +48,9 @@ export function useInvitationPage(invitationId: string) {
     if (!invitation) return;
     setBusy("accept");
     setError(null);
-    const result = await authClient.organization.acceptInvitation({ invitationId });
+    const result = await authClient.organization.acceptInvitation({
+      invitationId,
+    });
     if (result.error) {
       setError(result.error.message ?? "invitation_accept_failed");
       setBusy(null);
@@ -67,7 +71,9 @@ export function useInvitationPage(invitationId: string) {
   const decline = useCallback(async () => {
     setBusy("decline");
     setError(null);
-    const result = await authClient.organization.rejectInvitation({ invitationId });
+    const result = await authClient.organization.rejectInvitation({
+      invitationId,
+    });
     if (result.error) {
       setError(result.error.message ?? "invitation_reject_failed");
       setBusy(null);

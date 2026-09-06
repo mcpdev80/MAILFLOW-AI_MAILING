@@ -26,6 +26,7 @@ export const esMembers: Partial<Record<TranslationKey, string>> = {
   "invitation.declining": "Rechazando…",
   "invitation.accepted": "Invitación aceptada.",
   "invitation.declined": "Invitación rechazada.",
-  "invitation.invalid": "Esta invitación no es válida, ha caducado o ya no está disponible.",
+  "invitation.invalid":
+    "Esta invitación no es válida, ha caducado o ya no está disponible.",
   "invitation.failed": "No se pudo procesar la invitación.",
 };

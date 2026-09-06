@@ -23,6 +23,7 @@ export const enMembers = {
   "invitation.declining": "Declining…",
   "invitation.accepted": "Invitation accepted.",
   "invitation.declined": "Invitation declined.",
-  "invitation.invalid": "This invitation is invalid, expired, or no longer available.",
+  "invitation.invalid":
+    "This invitation is invalid, expired, or no longer available.",
   "invitation.failed": "The invitation could not be processed.",
 } as const;
