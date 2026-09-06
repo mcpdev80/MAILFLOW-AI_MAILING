@@ -1,0 +1,48 @@
+.benefits { display: grid; gap: 16px; }
+.benefit { display: grid; grid-template-columns: 32px 1fr; gap: 14px; align-items: center; min-height: 67px; border: 1px solid #1e222b; border-radius: 8px; background: #111318; padding: 16px; }
+.benefitIcon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; background: #1e1b4b; color: #818cf8; font-size: 15px; }
+.benefit h3 { margin: 0 0 3px; color: #f4f4f5; font-size: 14px; font-weight: 600; }
+.benefit p { margin: 0; color: #a1a1aa; font-size: 12px; line-height: 1.4; }
+.providerGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.provider { min-height: 83px; display: grid; place-items: center; align-content: center; gap: 10px; border: 1.5px solid #1e222b; border-radius: 8px; background: #111318; color: #a1a1aa; padding: 14px; font-size: 14px; font-weight: 500; }
+.providerActive { border-color: #4f46e5; background: rgb(79 70 229 / 5%); color: #f4f4f5; }
+.providerIcon { font-size: 22px; line-height: 1; }
+.connectionCard { display: grid; gap: 16px; border: 1px solid #1e222b; border-radius: 8px; background: #111318; padding: 20px; }
+.connectionCard h3 { margin: 0; color: #f4f4f5; font-size: 13px; font-weight: 600; }
+.connectionCard p { margin: 0; color: #a1a1aa; font-size: 12px; line-height: 1.5; }
+.oauthButton { min-height: 40px; border: 1px solid #334155; border-radius: 6px; background: #1e293b; color: #fff; font-size: 13px; font-weight: 600; }
+.connected { display: flex; align-items: center; gap: 8px; color: #10b981; font-size: 12px; font-weight: 500; }
+.radioCards { display: grid; gap: 12px; }
+.radioCard { display: grid; grid-template-columns: 18px 1fr; gap: 12px; align-items: start; border: 1px solid #1e222b; border-radius: 8px; background: #111318; padding: 16px; color: #a1a1aa; text-align: left; }
+.radioCardActive { border: 1.5px solid #4f46e5; background: rgb(79 70 229 / 5%); color: #f4f4f5; }
+.radioDot { width: 16px; height: 16px; border: 1.5px solid #71717a; border-radius: 50%; }
+.radioCardActive .radioDot { border: 5px solid #4f46e5; }
+.radioTitle { display: block; margin-bottom: 4px; font-size: 14px; font-weight: 600; }
+.radioCopy { display: block; color: #a1a1aa; font-size: 13px; line-height: 1.4; }
+.members { display: grid; gap: 8px; margin-top: 10px; border-top: 1px solid #1e222b; padding-top: 12px; }
+.member { display: flex; align-items: center; gap: 8px; color: #a1a1aa; font-size: 12px; }
+.member input { width: 14px; height: 14px; min-height: 0; accent-color: #4f46e5; }
+.behaviorRows { display: grid; gap: 12px; }
+.behaviorRow { min-height: 61px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid #1e222b; border-radius: 8px; background: #111318; padding: 14px; }
+.behaviorTitle { display: block; margin-bottom: 2px; color: #f4f4f5; font-size: 13px; font-weight: 600; }
+.behaviorCopy { display: block; color: #a1a1aa; font-size: 12px; }
+.toggle { position: relative; width: 40px; height: 20px; flex: 0 0 40px; border: 0; border-radius: 10px; background: #4f46e5; }
+.toggle::after { content: ""; position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+.policy { border-radius: 6px; background: #27272a; color: #f4f4f5; padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+.never { border: 1px solid #78716c; background: #1c1917; color: #d6d3d1; }
+.safety { display: flex; align-items: center; gap: 8px; color: #a1a1aa; font-size: 12px; }
+.switchCard { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1.5px solid #4f46e5; border-radius: 8px; background: rgb(79 70 229 / 5%); padding: 16px; }
+.switchCard strong { display: block; color: #f4f4f5; font-size: 14px; }
+.switchCard span { color: #a1a1aa; font-size: 12px; }
+.switchButton { position: relative; width: 40px; height: 20px; flex: 0 0 40px; border: 0; border-radius: 10px; background: #27272a; }
+.switchButtonOn { background: #4f46e5; }
+.switchButton::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: white; transition: left 120ms ease; }
+.switchButtonOn::after { left: 22px; }
+.summary { display: grid; gap: 8px; border: 1px solid #1e222b; border-radius: 8px; background: #111318; padding: 16px; }
+.summaryTitle { margin-bottom: 4px; color: #a1a1aa; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+.summaryRow { display: flex; align-items: center; justify-content: space-between; gap: 14px; color: #a1a1aa; font-size: 13px; }
+.summaryValue { display: flex; align-items: center; gap: 6px; color: #f4f4f5; font-weight: 600; }
+.readyPanel { display: grid; justify-items: center; gap: 10px; border: 1px solid #10b981; border-radius: 8px; background: rgb(16 185 129 / 10%); padding: 20px; text-align: center; }
+.readyCheck { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: #10b981; color: white; font-size: 18px; font-weight: 700; }
+.readyPanel strong { color: #f4f4f5; font-size: 15px; }
+.readyPanel span { color: #a1a1aa; font-size: 12px; }
