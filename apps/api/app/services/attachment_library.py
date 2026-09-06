@@ -20,10 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.attachment_library_config import attachment_library_settings
 from app.attachment_storage import AttachmentStorage, attachment_storage
+from app.llm_runtime import build_llm_client
 from app.models.attachment_library import AttachmentMemory, AttachmentPlacement
 from app.models.email_account import EmailAccount
+from app.models.llm_provider import LLMProvider
 from app.repositories.attachment_library import AttachmentLibraryRepository
 from app.secrets import redact_text
+from app.services.attachment_document_ai import analyze_attachment_document
 
 log = logging.getLogger("mailflow.attachments")
 
@@ -55,6 +58,27 @@ def _extracted_text(attachment, payload: bytes) -> str | None:
     except Exception as exc:  # extraction must never break mail processing
         log.info("Attachment text extraction skipped: %s", redact_text(str(exc)))
         return None
+
+
+def _should_run_document_ai(*, document_type: str, confidence: float, extracted_text: str | None) -> bool:
+    if confidence >= attachment_library_settings.ATTACHMENT_LIBRARY_AI_THRESHOLD:
+        return False
+    if len((extracted_text or "").strip()) < attachment_library_settings.ATTACHMENT_LIBRARY_AI_MIN_TEXT_CHARS:
+        return False
+    return document_type in {"pdf_document", "document", "image"}
+
+
+async def _load_document_client(session: AsyncSession, account: EmailAccount):
+    if account.llm_provider_id is None:
+        return None
+    provider = await session.get(LLMProvider, account.llm_provider_id)
+    if provider is None:
+        return None
+    return build_llm_client(
+        provider,
+        for_generation=False,
+        account_id=account.id,
+    )
 
 
 async def _apply_private_attachment_memory(
@@ -170,9 +194,9 @@ async def ingest_message_attachments(
     """Persist attachment observations and safe unique binaries.
 
     Blocked/ignored/unsupported items are metadata-only observations. Their bytes
-    are intentionally never fetched into the global library. Safe documents get
-    initial organization metadata from the already-computed message AI context,
-    avoiding a second LLM request during ingestion.
+    are intentionally never fetched into the global library. Safe documents start
+    with cheap metadata derived from the already-computed mail classification. Only
+    ambiguous text-bearing documents receive one focused document-model request.
     """
     if not attachment_library_settings.ATTACHMENT_LIBRARY_ENABLED:
         return
@@ -182,6 +206,8 @@ async def ingest_message_attachments(
     repo = AttachmentLibraryRepository(session)
     spam_verdict = email_data.auth_signals.spam_verdict
     received_at = _received_at(email_data.date)
+    document_client = None
+    document_client_loaded = False
 
     for attachment in email_data.attachments:
         if await repo.find_source(account.id, source_folder, email_data.uid, attachment.part_id):
@@ -248,6 +274,47 @@ async def ingest_message_attachments(
                 document.ai_subcategory = metadata.subcategory
                 document.ai_confidence = metadata.confidence
                 document.ai_tags = list(metadata.tags)
+
+                if _should_run_document_ai(
+                    document_type=metadata.document_type,
+                    confidence=metadata.confidence,
+                    extracted_text=extracted_text,
+                ):
+                    if not document_client_loaded:
+                        document_client = await _load_document_client(session, account)
+                        document_client_loaded = True
+                    if document_client is not None:
+                        try:
+                            ai = analyze_attachment_document(
+                                document_client,
+                                filename=attachment.filename,
+                                mime_type=attachment.mime_type,
+                                extracted_text=extracted_text,
+                                email_category=classification.category,
+                                email_subcategory=classification.subcategory,
+                                sender=email_data.from_email,
+                                subject=email_data.subject,
+                            )
+                            # Only accept a model result that is at least as confident
+                            # as the cheap seed. A weak second opinion must not reduce
+                            # useful existing metadata.
+                            if ai.confidence >= metadata.confidence:
+                                document.document_type = ai.document_type
+                                document.ai_category = ai.category
+                                document.ai_subcategory = ai.subcategory
+                                document.ai_confidence = ai.confidence
+                                document.ai_tags = list(
+                                    dict.fromkeys([*metadata.tags, *ai.tags])
+                                )
+                        except Exception as exc:  # focused AI is optional
+                            log.warning(
+                                "Attachment document AI skipped for account=%s uid=%s part=%s: %s",
+                                account.id,
+                                email_data.uid,
+                                attachment.part_id,
+                                redact_text(str(exc)),
+                            )
+
                 document.analysis_status = "ready"
 
             await repo.add_source_if_missing(
