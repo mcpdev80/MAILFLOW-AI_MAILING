@@ -2,26 +2,6 @@
 
 Mailflow is open source under AGPL-3.0.
 
-## Contribution licensing and authorship
-
-By submitting a contribution to this repository, you agree that your contribution may be distributed as part of this project under the **AGPL-3.0**, consistent with the license of the repository.
-
-You retain copyright in your original contribution unless you explicitly assign it otherwise.
-
-By submitting a contribution, you represent that you have the right to submit it under these terms. Do not contribute code, documentation, media, or other material that you do not have permission to license under terms compatible with this project.
-
-Do not remove existing copyright, license, provenance, warranty, or modification notices unless the change is legally justified and clearly documented in the pull request.
-
-Contributions should identify material copied or adapted from third-party sources and state the applicable license and source where required.
-
-## AI-assisted contributions
-
-AI-assisted development tools may be used. Contributors remain responsible for everything they submit, including review, correctness, security, licensing, confidentiality, and third-party rights.
-
-If generative AI materially assisted a contribution, disclose that fact in the pull request description. The disclosure should name the tool when known and briefly describe how it was used, for example for implementation suggestions, refactoring, tests, debugging, or documentation.
-
-Do not treat an AI system as a legal author or copyright holder. Do not use AI-generated suggestions to bypass copyright, confidentiality, contractual, or licensing obligations. See [`../AI_ASSISTANCE.md`](../AI_ASSISTANCE.md) for the project's transparency statement.
-
 ## Development setup
 
 ### Prerequisites
@@ -80,9 +60,7 @@ pnpm biome check .
 2. Add or update tests for changed domain behavior.
 3. Run the smallest useful local/targeted validation while developing.
 4. Before merge, run the required full CI once on the final intended revision.
-5. Document third-party code or assets introduced by the change, including license information where applicable.
-6. Disclose material use of generative AI in the PR description.
-7. Open or update the PR against `main` with a clear description of behavior and migration impact.
+5. Open or update the PR against `main` with a clear description of behavior and migration impact.
 
 ## Commit messages
 
