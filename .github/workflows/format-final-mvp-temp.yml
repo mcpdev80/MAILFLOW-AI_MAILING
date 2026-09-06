@@ -33,7 +33,7 @@ jobs:
           mapfile -t pyfiles < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.py$' || true)
           mapfile -t webfiles < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.(js|jsx|mjs|cjs|ts|tsx|mts|cts|json|jsonc)$' || true)
           if (( ${#pyfiles[@]} )); then uv run ruff format "${pyfiles[@]}"; fi
-          if (( ${#webfiles[@]} )); then pnpm biome check --write "${webfiles[@]}"; fi
+          if (( ${#webfiles[@]} )); then pnpm biome format --write "${webfiles[@]}"; fi
           if git diff --quiet; then echo "No formatting changes needed."; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
