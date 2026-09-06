@@ -1,6 +1,7 @@
 export const enShell = {
   "nav.search": "Search",
   "nav.processing": "Processing",
+  "nav.attachments": "Attachments",
   "nav.mailboxes": "Mailboxes",
   "nav.learning": "Learning",
   "shell.systemStatus": "System Status",
