@@ -116,7 +116,7 @@ docker compose -f "$COMPOSE_FILE" up -d --build
 say "Waiting for the stack to become ready"
 ready=0
 for _ in $(seq 1 30); do
-  if curl -kfsS "$PUBLIC_URL/health" >/dev/null 2>&1; then
+  if docker compose -f "$COMPOSE_FILE" exec -T api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)" >/dev/null 2>&1; then
     ready=1
     break
   fi
@@ -127,7 +127,7 @@ if [ "$ready" -eq 1 ]; then
   printf '\nMailflow is ready.\n\nOpen: %s\n\n' "$PUBLIC_URL"
   printf '%s\n' "Next: create your first user in the browser and continue with the in-app onboarding."
 else
-  printf '\nMailflow started, but the health check is not ready yet.\n\n'
+  printf '\nMailflow started, but the API health check is not ready yet.\n\n'
   printf '%s\n' "Run this to inspect the services:"
   printf '  cd %q && docker compose -f %q ps\n' "$INSTALL_DIR" "$COMPOSE_FILE"
   printf '%s\n' "And this for logs:"
