@@ -2,13 +2,14 @@
 
 import {
   type AttachmentDetail,
+  type AttachmentDocument,
   type AttachmentFolder,
   attachmentDownloadUrl,
   sourceMailUrl,
 } from "@/lib/attachments-api";
 import { useI18n } from "@/lib/i18n";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import styles from "./attachments.module.css";
 import { useAttachmentsPage } from "./use-attachments-page";
 
@@ -36,27 +37,92 @@ function FolderTree({
   const { t } = useI18n();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const roots = folders.filter((folder) => folder.parent_id == null);
+
+  const startRename = (folder: AttachmentFolder) => {
+    setRenamingId(folder.id);
+    setRenameValue(folder.name);
+  };
+
   const renderFolder = (
     folder: AttachmentFolder,
     depth = 0,
   ): React.ReactNode => (
-    <div key={folder.id}>
-      <button
-        type="button"
-        className={`${styles.folderRow} ${selected === folder.id ? styles.folderActive : ""}`}
-        style={{ paddingLeft: 10 + depth * 16 }}
-        onClick={() => onSelect(folder.id)}
-      >
-        <span>▸</span>
-        <span className={styles.folderName}>{folder.name}</span>
-        <small>{folder.managed_by === "ai" ? "AI" : ""}</small>
-      </button>
+    <div key={folder.id} className={styles.folderEntry}>
+      {renamingId === folder.id ? (
+        <form
+          className={styles.inlineRename}
+          style={{ marginLeft: depth * 16 }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!renameValue.trim()) return;
+            void onRename(folder.id, renameValue.trim()).then(() => {
+              setRenamingId(null);
+              setRenameValue("");
+            });
+          }}
+        >
+          <input
+            value={renameValue}
+            onChange={(event) => setRenameValue(event.target.value)}
+            aria-label={t("attachments.rename")}
+            autoFocus
+          />
+          <button type="submit">{t("attachments.save")}</button>
+          <button type="button" onClick={() => setRenamingId(null)}>
+            {t("attachments.cancel")}
+          </button>
+        </form>
+      ) : (
+        <div className={styles.folderLine}>
+          <button
+            type="button"
+            className={`${styles.folderRow} ${selected === folder.id ? styles.folderActive : ""}`}
+            style={{ paddingLeft: 10 + depth * 16 }}
+            onClick={() => onSelect(folder.id)}
+          >
+            <span aria-hidden="true">▸</span>
+            <span className={styles.folderName}>{folder.name}</span>
+            <small>
+              {folder.managed_by === "ai" ? t("attachments.aiBadge") : ""}
+            </small>
+          </button>
+          {folder.managed_by !== "ai" && (
+            <details className={styles.folderMenu}>
+              <summary aria-label={t("attachments.folderActions")}>•••</summary>
+              <div className={styles.contextMenu}>
+                <button type="button" onClick={() => startRename(folder)}>
+                  {t("attachments.rename")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelect(folder.id);
+                    setCreating(true);
+                  }}
+                >
+                  {t("attachments.createSubfolder")}
+                </button>
+                <button
+                  type="button"
+                  className={styles.destructive}
+                  onClick={() => void onDelete(folder.id)}
+                >
+                  {t("attachments.delete")}
+                </button>
+              </div>
+            </details>
+          )}
+        </div>
+      )}
       {folders
         .filter((child) => child.parent_id === folder.id)
         .map((child) => renderFolder(child, depth + 1))}
     </div>
   );
+
   return (
     <aside className={styles.folderPanel}>
       <div className={styles.panelTitle}>{t("attachments.folders")}</div>
@@ -70,26 +136,6 @@ function FolderTree({
       <div className={styles.folderList}>
         {roots.map((folder) => renderFolder(folder))}
       </div>
-      {selected && (
-        <div className={styles.folderActions}>
-          <button
-            type="button"
-            onClick={() => {
-              const current = folders.find((item) => item.id === selected);
-              const next = window.prompt(
-                t("attachments.rename"),
-                current?.name ?? "",
-              );
-              if (next?.trim()) void onRename(selected, next.trim());
-            }}
-          >
-            {t("attachments.rename")}
-          </button>
-          <button type="button" onClick={() => void onDelete(selected)}>
-            {t("attachments.delete")}
-          </button>
-        </div>
-      )}
       {creating ? (
         <form
           className={styles.newFolder}
@@ -106,6 +152,8 @@ function FolderTree({
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={t("attachments.newFolder")}
+            aria-label={t("attachments.newFolder")}
+            autoFocus
           />
           <div>
             <button type="submit">{t("attachments.save")}</button>
@@ -143,8 +191,9 @@ function DetailPanel({
   const [remember, setRemember] = useState(false);
   const isImage = detail.mime_type.startsWith("image/");
   const isPdf = detail.mime_type === "application/pdf";
+
   return (
-    <section className={styles.detailPanel}>
+    <section className={styles.detailPanel} aria-label={t("attachments.details")}>
       <div className={styles.detailHeader}>
         <div>
           <h2>{detail.canonical_filename}</h2>
@@ -200,14 +249,26 @@ function DetailPanel({
           </strong>
         </div>
       </div>
+      {detail.tags.length > 0 && (
+        <div className={styles.tags}>
+          {detail.tags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
+      )}
       <div className={styles.moveBox}>
+        <label htmlFor="attachment-folder-picker">
+          {t("attachments.organizeIn")}
+        </label>
         <select
+          id="attachment-folder-picker"
           value={moveTo}
           onChange={(event) => setMoveTo(event.target.value)}
         >
           <option value="">{t("attachments.noFolder")}</option>
           {folders.map((folder) => (
             <option value={folder.id} key={folder.id}>
+              {folder.managed_by === "ai" ? "AI · " : ""}
               {folder.name}
             </option>
           ))}
@@ -232,6 +293,7 @@ function DetailPanel({
         </button>
       </div>
       <div className={styles.sources}>
+        <h3>{t("attachments.sources")}</h3>
         {detail.sources.map((source) => (
           <Link
             href={sourceMailUrl(source)}
@@ -241,6 +303,7 @@ function DetailPanel({
             <span>
               <strong>{source.from_email}</strong>
               <small>{source.subject}</small>
+              <small>{source.source_filename}</small>
             </span>
             <span>
               {source.received_at
@@ -257,10 +320,60 @@ function DetailPanel({
   );
 }
 
+function DocumentCard({
+  document,
+  onOpen,
+}: {
+  document: AttachmentDocument;
+  onOpen: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <button type="button" className={styles.card} onClick={onOpen}>
+      <div className={styles.fileIcon}>
+        {document.mime_type === "application/pdf"
+          ? "PDF"
+          : document.mime_type.startsWith("image/")
+            ? "IMG"
+            : "DOC"}
+      </div>
+      <div className={styles.cardBody}>
+        <strong>{document.canonical_filename}</strong>
+        <span>{document.document_type ?? document.mime_type}</span>
+        <span>{document.category ?? t("attachments.noFolder")}</span>
+        <small>
+          {formatBytes(document.size_bytes)} ·{" "}
+          {t("attachments.foundIn").replace(
+            "{count}",
+            String(document.source_count),
+          )}
+        </small>
+      </div>
+    </button>
+  );
+}
+
 export function AttachmentsUI() {
   const { t } = useI18n();
   const state = useAttachmentsPage();
   const selected = state.selected;
+  const categoryOptions = useMemo(
+    () =>
+      [...new Set(state.documents.map((item) => item.category).filter(Boolean))].sort(
+        (left, right) => String(left).localeCompare(String(right)),
+      ) as string[],
+    [state.documents],
+  );
+  const typeOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          state.documents.map((item) => item.document_type).filter(Boolean),
+        ),
+      ].sort((left, right) => String(left).localeCompare(String(right))) as string[],
+    [state.documents],
+  );
+
   return (
     <main className={styles.page}>
       <div className={styles.header}>
@@ -273,8 +386,57 @@ export function AttachmentsUI() {
           value={state.query}
           onChange={(event) => state.setQuery(event.target.value)}
           placeholder={t("attachments.search")}
+          aria-label={t("attachments.search")}
         />
       </div>
+
+      <div className={styles.toolbar}>
+        <div className={styles.filters}>
+          <select
+            value={state.category ?? ""}
+            onChange={(event) => state.setCategory(event.target.value || null)}
+            aria-label={t("attachments.category")}
+          >
+            <option value="">{t("attachments.allCategories")}</option>
+            {categoryOptions.map((value) => (
+              <option value={value} key={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+          <select
+            value={state.documentType ?? ""}
+            onChange={(event) => state.setDocumentType(event.target.value || null)}
+            aria-label={t("attachments.type")}
+          >
+            <option value="">{t("attachments.allTypes")}</option>
+            {typeOptions.map((value) => (
+              <option value={value} key={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className={styles.viewToggle} aria-label={t("attachments.view")}>
+          <button
+            type="button"
+            className={state.view === "grid" ? styles.viewActive : ""}
+            onClick={() => state.setView("grid")}
+            aria-pressed={state.view === "grid"}
+          >
+            {t("attachments.grid")}
+          </button>
+          <button
+            type="button"
+            className={state.view === "list" ? styles.viewActive : ""}
+            onClick={() => state.setView("list")}
+            aria-pressed={state.view === "list"}
+          >
+            {t("attachments.list")}
+          </button>
+        </div>
+      </div>
+
       {state.blocked.length > 0 && (
         <details className={styles.securityNotice}>
           <summary>
@@ -293,21 +455,36 @@ export function AttachmentsUI() {
                   <small>
                     {item.from_email} · {item.subject}
                   </small>
+                  <small>
+                    {item.received_at
+                      ? new Date(item.received_at).toLocaleString()
+                      : ""}
+                  </small>
                 </span>
                 <span>
                   <small>{t("attachments.blockedReason")}</small>
                   {item.safety_reason ?? "—"}
+                  <Link href={sourceMailUrl(item)}>
+                    {t("attachments.openSource")}
+                  </Link>
                 </span>
               </div>
             ))}
           </div>
         </details>
       )}
+
+      {state.savedDecision && (
+        <div className={styles.toast} role="status">
+          {t("attachments.decisionSaved")}
+        </div>
+      )}
       {state.error && (
         <div className={styles.error}>
           {t("attachments.error")}: {state.error}
         </div>
       )}
+
       <div className={styles.workspace}>
         <FolderTree
           folders={state.folders}
@@ -321,37 +498,39 @@ export function AttachmentsUI() {
           {state.loading ? (
             <div className={styles.empty}>{t("attachments.loading")}</div>
           ) : state.documents.length === 0 ? (
-            <div className={styles.empty}>{t("attachments.empty")}</div>
-          ) : (
+            <div className={styles.empty}>
+              <strong>{t("attachments.empty")}</strong>
+              <span>{t("attachments.emptyHint")}</span>
+            </div>
+          ) : state.view === "grid" ? (
             <div className={styles.grid}>
+              {state.documents.map((document) => (
+                <DocumentCard
+                  key={document.id}
+                  document={document}
+                  onOpen={() => void state.openDocument(document.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.documentList}>
               {state.documents.map((document) => (
                 <button
                   type="button"
+                  className={styles.listRow}
                   key={document.id}
-                  className={styles.card}
                   onClick={() => void state.openDocument(document.id)}
                 >
-                  <div className={styles.fileIcon}>
-                    {document.mime_type === "application/pdf"
-                      ? "PDF"
-                      : document.mime_type.startsWith("image/")
-                        ? "IMG"
-                        : "DOC"}
-                  </div>
-                  <div className={styles.cardBody}>
-                    <strong>{document.canonical_filename}</strong>
-                    <span>{document.document_type ?? document.mime_type}</span>
-                    <span>
-                      {document.category ?? t("attachments.noFolder")}
-                    </span>
-                    <small>
-                      {formatBytes(document.size_bytes)} ·{" "}
-                      {t("attachments.foundIn").replace(
-                        "{count}",
-                        String(document.source_count),
-                      )}
-                    </small>
-                  </div>
+                  <strong>{document.canonical_filename}</strong>
+                  <span>{document.document_type ?? document.mime_type}</span>
+                  <span>{document.category ?? t("attachments.noFolder")}</span>
+                  <span>{formatBytes(document.size_bytes)}</span>
+                  <span>
+                    {t("attachments.foundIn").replace(
+                      "{count}",
+                      String(document.source_count),
+                    )}
+                  </span>
                 </button>
               ))}
             </div>
