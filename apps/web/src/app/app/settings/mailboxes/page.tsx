@@ -20,7 +20,10 @@ export default function MailboxSettingsPage() {
       <section className={s.panel}>
         <header className={s.panelHeader} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
           <div><h2>Connected Mailboxes</h2><p>Configure connection pipelines, credentials and indexing bounds for your email accounts.</p></div>
-          <Link className="btn" href="/onboarding?step=mailbox">＋ Add Mailbox</Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link className="btn secondary" href="/app/settings/folders">Folders & Tags</Link>
+            <Link className="btn" href="/onboarding?step=mailbox">＋ Add Mailbox</Link>
+          </div>
         </header>
         {error && <div className="alert error">{error}</div>}
         {loading ? <div className="empty">Loading mailboxes…</div> : accounts.length === 0 ? <div className="empty">No connected mailboxes yet.</div> : (
