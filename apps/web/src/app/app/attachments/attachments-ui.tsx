@@ -193,7 +193,10 @@ function DetailPanel({
   const isPdf = detail.mime_type === "application/pdf";
 
   return (
-    <section className={styles.detailPanel} aria-label={t("attachments.details")}>
+    <section
+      className={styles.detailPanel}
+      aria-label={t("attachments.details")}
+    >
       <div className={styles.detailHeader}>
         <div>
           <h2>{detail.canonical_filename}</h2>
@@ -359,8 +362,12 @@ export function AttachmentsUI() {
   const selected = state.selected;
   const categoryOptions = useMemo(
     () =>
-      [...new Set(state.documents.map((item) => item.category).filter(Boolean))].sort(
-        (left, right) => String(left).localeCompare(String(right)),
+      [
+        ...new Set(
+          state.documents.map((item) => item.category).filter(Boolean),
+        ),
+      ].sort((left, right) =>
+        String(left).localeCompare(String(right)),
       ) as string[],
     [state.documents],
   );
@@ -370,7 +377,9 @@ export function AttachmentsUI() {
         ...new Set(
           state.documents.map((item) => item.document_type).filter(Boolean),
         ),
-      ].sort((left, right) => String(left).localeCompare(String(right))) as string[],
+      ].sort((left, right) =>
+        String(left).localeCompare(String(right)),
+      ) as string[],
     [state.documents],
   );
 
@@ -406,7 +415,9 @@ export function AttachmentsUI() {
           </select>
           <select
             value={state.documentType ?? ""}
-            onChange={(event) => state.setDocumentType(event.target.value || null)}
+            onChange={(event) =>
+              state.setDocumentType(event.target.value || null)
+            }
             aria-label={t("attachments.type")}
           >
             <option value="">{t("attachments.allTypes")}</option>
