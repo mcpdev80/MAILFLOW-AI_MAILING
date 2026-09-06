@@ -5,7 +5,9 @@ set -euo pipefail
 # Start from a stable directory so readline/tab completion and path hooks can resolve cwd.
 cd "$HOME"
 
-BRANCH="${MAILFLOW_INSTALL_REF:-${1:-main}}"
+# This installer belongs to the test-mvp branch. Keep the selected ref for
+# existing installs, fresh installs, resume and teardown.
+BRANCH="test-mvp"
 export MAILFLOW_INSTALL_REF="$BRANCH"
 RAW_BASE="https://raw.githubusercontent.com/mcpdev80/MAILFLOW-AI_MAILING/$BRANCH/scripts"
 DEFAULT_INSTALL="$HOME/mailflow"
