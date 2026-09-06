@@ -12,16 +12,19 @@ import {
 } from "react";
 import { de } from "./locales/de";
 import { deDashboard } from "./locales/de-dashboard";
+import { deMailActions } from "./locales/de-mail-actions";
 import { deSearch } from "./locales/de-search";
 import { deSettings } from "./locales/de-settings";
 import { deShell } from "./locales/de-shell";
 import { en } from "./locales/en";
 import { enDashboard } from "./locales/en-dashboard";
+import { enMailActions } from "./locales/en-mail-actions";
 import { enSearch } from "./locales/en-search";
 import { enSettings } from "./locales/en-settings";
 import { enShell } from "./locales/en-shell";
 import { es } from "./locales/es";
 import { esDashboard } from "./locales/es-dashboard";
+import { esMailActions } from "./locales/es-mail-actions";
 import { esSearch } from "./locales/es-search";
 import { esSettings } from "./locales/es-settings";
 import { esShell } from "./locales/es-shell";
@@ -40,14 +43,29 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 const fallback = {
   ...en,
   ...enDashboard,
+  ...enMailActions,
   ...enSearch,
   ...enSettings,
   ...enShell,
 };
 const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
-  de: { ...de, ...deDashboard, ...deSearch, ...deSettings, ...deShell },
+  de: {
+    ...de,
+    ...deDashboard,
+    ...deMailActions,
+    ...deSearch,
+    ...deSettings,
+    ...deShell,
+  },
   en: fallback,
-  es: { ...es, ...esDashboard, ...esSearch, ...esSettings, ...esShell },
+  es: {
+    ...es,
+    ...esDashboard,
+    ...esMailActions,
+    ...esSearch,
+    ...esSettings,
+    ...esShell,
+  },
 };
 
 export function detectBrowserLocale(languages?: readonly string[]): Locale {
