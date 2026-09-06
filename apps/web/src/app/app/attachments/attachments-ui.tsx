@@ -43,6 +43,7 @@ function FolderTree({
   ): React.ReactNode => (
     <div key={folder.id}>
       <button
+        type="button"
         className={`${styles.folderRow} ${selected === folder.id ? styles.folderActive : ""}`}
         style={{ paddingLeft: 10 + depth * 16 }}
         onClick={() => onSelect(folder.id)}
@@ -60,6 +61,7 @@ function FolderTree({
     <aside className={styles.folderPanel}>
       <div className={styles.panelTitle}>{t("attachments.folders")}</div>
       <button
+        type="button"
         className={`${styles.folderRow} ${selected == null ? styles.folderActive : ""}`}
         onClick={() => onSelect(null)}
       >
@@ -71,6 +73,7 @@ function FolderTree({
       {selected && (
         <div className={styles.folderActions}>
           <button
+            type="button"
             onClick={() => {
               const current = folders.find((item) => item.id === selected);
               const next = window.prompt(
@@ -82,7 +85,7 @@ function FolderTree({
           >
             {t("attachments.rename")}
           </button>
-          <button onClick={() => void onDelete(selected)}>
+          <button type="button" onClick={() => void onDelete(selected)}>
             {t("attachments.delete")}
           </button>
         </div>
@@ -102,7 +105,6 @@ function FolderTree({
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            autoFocus
             placeholder={t("attachments.newFolder")}
           />
           <div>
@@ -114,6 +116,7 @@ function FolderTree({
         </form>
       ) : (
         <button
+          type="button"
           className={styles.createFolder}
           onClick={() => setCreating(true)}
         >
@@ -149,7 +152,11 @@ function DetailPanel({
             {formatBytes(detail.size_bytes)} · {detail.mime_type}
           </p>
         </div>
-        <button onClick={onClose} aria-label={t("attachments.cancel")}>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t("attachments.cancel")}
+        >
           ×
         </button>
       </div>
@@ -209,13 +216,17 @@ function DetailPanel({
           <input
             type="checkbox"
             checked={remember}
+            disabled={!moveTo}
             onChange={(event) => setRemember(event.target.checked)}
           />{" "}
           {t("attachments.remember")}
         </label>
         <button
+          type="button"
           className="btn"
-          onClick={() => void onMove(moveTo || null, remember)}
+          onClick={() =>
+            void onMove(moveTo || null, Boolean(moveTo) && remember)
+          }
         >
           {t("attachments.move")}
         </button>
@@ -249,6 +260,7 @@ function DetailPanel({
 export function AttachmentsUI() {
   const { t } = useI18n();
   const state = useAttachmentsPage();
+  const selected = state.selected;
   return (
     <main className={styles.page}>
       <div className={styles.header}>
@@ -314,6 +326,7 @@ export function AttachmentsUI() {
             <div className={styles.grid}>
               {state.documents.map((document) => (
                 <button
+                  type="button"
                   key={document.id}
                   className={styles.card}
                   onClick={() => void state.openDocument(document.id)}
@@ -344,13 +357,13 @@ export function AttachmentsUI() {
             </div>
           )}
         </section>
-        {state.selected && (
+        {selected && (
           <DetailPanel
-            detail={state.selected}
+            detail={selected}
             folders={state.folders}
             onClose={() => state.setSelected(null)}
             onMove={(folderId, remember) =>
-              state.moveDocument(state.selected!.id, folderId, remember)
+              state.moveDocument(selected.id, folderId, remember)
             }
           />
         )}
