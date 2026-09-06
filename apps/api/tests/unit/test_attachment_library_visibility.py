@@ -142,6 +142,19 @@ async def test_deduplicated_document_exposes_only_callers_authorized_sources(ses
     assert rows_a[0][2] == 1
     assert rows_b[0][2] == 1
 
+    hidden_search = await repo.list_accessible_documents(
+        _identity(org, "user-b"), query="alice-private-name"
+    )
+    visible_search = await repo.list_accessible_documents(
+        _identity(org, "user-b"), query="bob-visible-name"
+    )
+    canonical_search = await repo.list_accessible_documents(
+        _identity(org, "user-b"), query="internal-origin-name"
+    )
+    assert hidden_search == []
+    assert canonical_search == []
+    assert [row[0].id for row in visible_search] == [document.id]
+
 
 @pytest.mark.asyncio
 async def test_shared_attachment_requires_explicit_can_use_grant(session):
