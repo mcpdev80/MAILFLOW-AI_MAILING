@@ -8,6 +8,7 @@ from app.routers.attention import router as attention_router
 from app.routers.audit import router as audit_router
 from app.routers.backfill import router as backfill_router
 from app.routers.billing import router as billing_router
+from app.routers.bootstrap import router as bootstrap_router
 from app.routers.bulk import router as bulk_router
 from app.routers.cycles import router as cycles_router
 from app.routers.dashboard import router as dashboard_router
@@ -33,6 +34,7 @@ __all__ = [
     "audit_router",
     "backfill_router",
     "billing_router",
+    "bootstrap_router",
     "bulk_router",
     "cycles_router",
     "dashboard_router",
