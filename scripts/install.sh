@@ -5,6 +5,7 @@ REPO_URL="https://github.com/mcpdev80/MAILFLOW-AI_MAILING.git"
 BRANCH="feat/mvp-guidelines-figma-redesign"
 INSTALL_DIR_DEFAULT="$HOME/mailflow"
 COMPOSE_FILE="infrastructure/docker-compose.yml"
+TLS_COMPOSE_FILE="infrastructure/docker-compose.custom-tls.yml"
 
 say() { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
@@ -19,6 +20,20 @@ prompt() {
     value=""
   fi
   printf '%s' "${value:-$default}"
+}
+
+choose_tls() {
+  local value
+  if [ -r /dev/tty ]; then
+    printf '\nTLS certificate:\n' > /dev/tty
+    printf '  1) Automatic (recommended: Caddy manages local/public certificates)\n' > /dev/tty
+    printf '  2) Use my own certificate and private key\n' > /dev/tty
+    printf 'Choice [1]: ' > /dev/tty
+    IFS= read -r value < /dev/tty || true
+  else
+    value="1"
+  fi
+  printf '%s' "${value:-1}"
 }
 
 secret_hex() {
@@ -50,6 +65,23 @@ docker info >/dev/null 2>&1 || fail "Docker is installed but not reachable. Star
 
 INSTALL_DIR="$(prompt "Install directory" "$INSTALL_DIR_DEFAULT")"
 PUBLIC_URL="$(prompt "Public URL for this installation" "https://localhost")"
+TLS_MODE="$(choose_tls)"
+
+case "$TLS_MODE" in
+  1)
+    TLS_MODE="automatic"
+    ;;
+  2)
+    TLS_MODE="custom"
+    TLS_CERT_FILE="$(prompt "Certificate/full-chain file" "/etc/ssl/mailflow/fullchain.pem")"
+    TLS_KEY_FILE="$(prompt "Private-key file" "/etc/ssl/mailflow/privkey.pem")"
+    [ -r "$TLS_CERT_FILE" ] || fail "Certificate file is not readable: $TLS_CERT_FILE"
+    [ -r "$TLS_KEY_FILE" ] || fail "Private-key file is not readable: $TLS_KEY_FILE"
+    ;;
+  *)
+    fail "Invalid TLS choice. Use 1 or 2."
+    ;;
+esac
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   say "Updating existing checkout in $INSTALL_DIR"
@@ -84,6 +116,14 @@ set_env API_INTERNAL_URL "http://api:8000" .env
 set_env API_DOCS_ENABLED "false" .env
 set_env WORKER_MAX_EMAILS_PER_CYCLE "10" .env
 
+if [ "$TLS_MODE" = "custom" ]; then
+  set_env TLS_CERT_FILE "$TLS_CERT_FILE" .env
+  set_env TLS_KEY_FILE "$TLS_KEY_FILE" .env
+else
+  set_env TLS_CERT_FILE "" .env
+  set_env TLS_KEY_FILE "" .env
+fi
+
 case "$PUBLIC_URL" in
   https://localhost|http://localhost)
     set_env BETTER_AUTH_URL "$PUBLIC_URL" .env
@@ -104,19 +144,24 @@ case "$PUBLIC_URL" in
     ;;
 esac
 
+COMPOSE_ARGS=(-f "$COMPOSE_FILE")
+if [ "$TLS_MODE" = "custom" ]; then
+  COMPOSE_ARGS+=(-f "$TLS_COMPOSE_FILE")
+fi
+
 say "Starting database"
-docker compose -f "$COMPOSE_FILE" up -d postgres
+docker compose "${COMPOSE_ARGS[@]}" up -d postgres
 
 say "Preparing web authentication schema"
-docker compose -f "$COMPOSE_FILE" --profile migrate run --rm web-migrate
+docker compose "${COMPOSE_ARGS[@]}" --profile migrate run --rm web-migrate
 
 say "Building and starting Mailflow"
-docker compose -f "$COMPOSE_FILE" up -d --build
+docker compose "${COMPOSE_ARGS[@]}" up -d --build
 
 say "Waiting for the stack to become ready"
 ready=0
 for _ in $(seq 1 30); do
-  if docker compose -f "$COMPOSE_FILE" exec -T api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)" >/dev/null 2>&1; then
+  if docker compose "${COMPOSE_ARGS[@]}" exec -T api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)" >/dev/null 2>&1; then
     ready=1
     break
   fi
@@ -125,12 +170,23 @@ done
 
 if [ "$ready" -eq 1 ]; then
   printf '\nMailflow is ready.\n\nOpen: %s\n\n' "$PUBLIC_URL"
+  if [ "$TLS_MODE" = "automatic" ]; then
+    printf '%s\n' "TLS: automatic certificate management enabled."
+  else
+    printf '%s\n' "TLS: custom certificate enabled."
+  fi
   printf '%s\n' "Next: create your first user in the browser and continue with the in-app onboarding."
 else
   printf '\nMailflow started, but the API health check is not ready yet.\n\n'
   printf '%s\n' "Run this to inspect the services:"
-  printf '  cd %q && docker compose -f %q ps\n' "$INSTALL_DIR" "$COMPOSE_FILE"
+  printf '  cd %q && docker compose' "$INSTALL_DIR"
+  printf ' -f %q' "$COMPOSE_FILE"
+  if [ "$TLS_MODE" = "custom" ]; then printf ' -f %q' "$TLS_COMPOSE_FILE"; fi
+  printf ' ps\n'
   printf '%s\n' "And this for logs:"
-  printf '  cd %q && docker compose -f %q logs --tail=100 api web worker edge\n' "$INSTALL_DIR" "$COMPOSE_FILE"
+  printf '  cd %q && docker compose' "$INSTALL_DIR"
+  printf ' -f %q' "$COMPOSE_FILE"
+  if [ "$TLS_MODE" = "custom" ]; then printf ' -f %q' "$TLS_COMPOSE_FILE"; fi
+  printf ' logs --tail=100 api web worker edge\n'
   exit 1
 fi
