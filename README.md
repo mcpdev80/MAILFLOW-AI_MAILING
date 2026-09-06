@@ -39,6 +39,8 @@ MailFlow is developed independently in spare time and remains open source under 
 
 If MailFlow saves you time, you use it regularly, or your organization depends on it, you can support continued development through GitHub Sponsors. Sponsorship helps fund development time, CI and test infrastructure, compatibility testing with local and hosted LLMs, security work, documentation, localization, and project infrastructure.
 
+[❤️ Sponsor MailFlow](https://github.com/sponsors/mcpdev80)
+
 Sponsorship is completely optional and does **not** buy proprietary features, guaranteed feature delivery, priority support, an SLA, or a different software license.
 
 See [`SPONSORS.md`](SPONSORS.md) for the sponsorship policy and suggested support levels.
