@@ -5,6 +5,10 @@
   background: var(--mf-bg);
 }
 
+.shell[data-layout="focus"] {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -52,6 +56,30 @@
 .headerAvatar { width: 28px; height: 28px; font-size: 10px; text-decoration: none; }
 .main { min-width: 0; flex: 1; background: var(--mf-bg); }
 .statusFooter { position: sticky; bottom: 0; z-index: 20; display: flex; min-height: 44px; align-items: center; border-top: 1px solid var(--mf-border); background: var(--mf-surface); padding: 8px 24px; }
+
+.shell[data-layout="focus"] .sidebar {
+  padding: 16px 12px;
+}
+.shell[data-layout="focus"] .brand {
+  justify-content: center;
+}
+.shell[data-layout="focus"] .brandText,
+.shell[data-layout="focus"] .navLabel,
+.shell[data-layout="focus"] .badge,
+.shell[data-layout="focus"] .profileMeta,
+.shell[data-layout="focus"] .profileChevron,
+.shell[data-layout="focus"] .separator {
+  display: none;
+}
+.shell[data-layout="focus"] .navItem {
+  justify-content: center;
+  padding-inline: 12px;
+}
+.shell[data-layout="focus"] .profile {
+  display: flex;
+  justify-content: center;
+  padding-inline: 0;
+}
 
 /* Tablet/mobile layouts have dedicated Figma pages and are intentionally deferred. */
 @media (max-width: 900px) { .shell { min-width: 1024px; } }
