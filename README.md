@@ -37,6 +37,14 @@ MailFlow has evolved substantially beyond the original upstream baseline. Curren
 
 See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for development setup and contribution guidance.
 
+## AI-assisted development
+
+Development of this fork has included assistance from **ChatGPT by OpenAI** for planning, implementation support, testing, debugging, analysis, and documentation.
+
+AI is used as a development tool, not identified as a legal author or copyright holder. The human maintainer directs, reviews, tests, selects, and integrates changes and assumes responsibility for those decisions.
+
+For the detailed transparency and provenance statement, see [`AI_ASSISTANCE.md`](AI_ASSISTANCE.md).
+
 ## License
 
 This repository is distributed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE`](LICENSE).
@@ -53,9 +61,9 @@ This repository is derived from the original **MailFlow** project created by **J
 
 **Modification notice:** this fork contains substantial modifications and new functionality made from **September 2026 onward**, including work authored by **Marcel Pfingstgräf** and other contributors.
 
-Copyright in the original upstream portions remains with the respective upstream author(s). Copyright in later modifications and new contributions remains with the respective author(s) unless explicitly assigned otherwise.
+Copyright in the original upstream portions remains with the respective upstream author(s). Copyright in later modifications and new contributions remains with the respective human author(s), where copyright subsists, unless explicitly assigned otherwise.
 
-For detailed provenance and copyright scope, see [`NOTICE.md`](NOTICE.md) and [`COPYRIGHT.md`](COPYRIGHT.md).
+For detailed provenance and copyright scope, see [`NOTICE.md`](NOTICE.md), [`COPYRIGHT.md`](COPYRIGHT.md), and [`AI_ASSISTANCE.md`](AI_ASSISTANCE.md).
 
 ## For forks and derivative works
 
