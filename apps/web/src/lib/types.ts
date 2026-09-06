@@ -375,7 +375,9 @@ export type WorkspacePanel =
   | "folders"
   | "message_list"
   | "message_content";
-export type WorkspaceDock = "left" | "center" | "right";
+export type WorkspaceDock = "left" | "center" | "right" | "top" | "bottom";
+export type ActionBarDock = "top" | "bottom";
+export type SystemStatusPosition = "top" | "bottom" | "hidden";
 
 export interface WorkspacePanelConfig {
   panel: WorkspacePanel;
@@ -390,6 +392,8 @@ export interface WorkspaceCustomConfig {
   panels: WorkspacePanelConfig[];
   message_content_overlay: boolean;
   show_resize_handles: boolean;
+  action_bar_dock: ActionBarDock;
+  system_status_position: SystemStatusPosition;
 }
 
 export interface UserPreferences {
