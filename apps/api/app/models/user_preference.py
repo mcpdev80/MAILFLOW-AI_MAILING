@@ -34,6 +34,9 @@ class UserPreference(Base):
     workspace_layout: Mapped[str] = mapped_column(
         String(16), default="classic", server_default="classic"
     )
+    side_panel_alignment: Mapped[str] = mapped_column(
+        String(16), default="left", server_default="left"
+    )
     workspace_custom_config: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True
     )
