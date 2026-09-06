@@ -1,12 +1,7 @@
 name: CI
 
-# CI is intentionally manual on normal branches. This feature branch temporarily
-# enables push-triggered validation so the final backend validation can run.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/global-attachments-center-backend
 
 jobs:
   lint-python:
