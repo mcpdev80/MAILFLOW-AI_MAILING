@@ -51,6 +51,7 @@ export function LoginUi({ state }: { state: LoginState }) {
             </span>
             <input
               id="password"
+              aria-label={t("auth.login.password")}
               type="password"
               autoComplete="current-password webauthn"
               required

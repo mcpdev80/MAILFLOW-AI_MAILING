@@ -147,6 +147,7 @@ function AddressFields({
         }
       >
         <input
+          aria-label={t("compose.to")}
           value={controller.fields.to}
           disabled={disabled}
           placeholder="name@example.com"
@@ -156,6 +157,7 @@ function AddressFields({
       {controller.fields.showCcBcc && (
         <FieldRow label="CC">
           <input
+            aria-label="CC"
             value={controller.fields.cc}
             disabled={disabled}
             onChange={(e) => patch({ cc: e.target.value })}
@@ -165,6 +167,7 @@ function AddressFields({
       {controller.fields.showCcBcc && (
         <FieldRow label="BCC">
           <input
+            aria-label="BCC"
             value={controller.fields.bcc}
             disabled={disabled}
             onChange={(e) => patch({ bcc: e.target.value })}
@@ -173,6 +176,7 @@ function AddressFields({
       )}
       <FieldRow label={t("compose.subject")}>
         <input
+          aria-label={t("compose.subject")}
           value={controller.fields.subject}
           disabled={disabled}
           onChange={(e) => patch({ subject: e.target.value })}

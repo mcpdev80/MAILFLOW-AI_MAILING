@@ -58,7 +58,7 @@ test("onboarding renders the canonical six-step flow", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Welcome to Mailflow" }),
   ).toBeVisible();
-  await expect(page.getByText(/Step 1 of 6/i)).toBeVisible();
+  await expect(page.getByLabel("Step 1 of 6")).toBeVisible();
   await page.getByRole("button", { name: "Connect your mailbox" }).click();
   await expect(
     page.getByRole("heading", { name: "Connect your mailbox" }),

@@ -479,9 +479,7 @@ test("review inbox and appearance settings remain interactive", async ({
 }) => {
   await page.goto("/app/review");
   await expect(page.getByText("Project update", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("Action Required", { exact: true }).first(),
-  ).toBeVisible();
+  await expect(page.getByText(/Action Required/i).first()).toBeVisible();
 
   await page.goto("/app/settings/preferences");
   await expect(

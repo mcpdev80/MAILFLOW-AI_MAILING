@@ -93,7 +93,9 @@ function DashboardContent({ state }: { state: DashboardState }) {
 
 function DashboardKpis({ state }: { state: DashboardState }) {
   const { t } = useI18n();
-  const counters = state.overview?.counters;
+  const overview = state.overview;
+  if (!overview) return null;
+  const counters = overview.counters;
   return (
     <section className={styles.kpiRow}>
       <KpiCard
@@ -121,7 +123,9 @@ function DashboardKpis({ state }: { state: DashboardState }) {
 
 function DashboardMiniStats({ state }: { state: DashboardState }) {
   const { t } = useI18n();
-  const counters = state.overview?.counters;
+  const overview = state.overview;
+  if (!overview) return null;
+  const counters = overview.counters;
   const classified =
     counters.decision_memory + counters.fast_model + counters.deep_model;
   return (
@@ -166,7 +170,9 @@ function DashboardGrid({ state }: { state: DashboardState }) {
 
 function MailboxSection({ state }: { state: DashboardState }) {
   const { t } = useI18n();
-  const mailboxes = state.overview?.mailboxes;
+  const overview = state.overview;
+  if (!overview) return null;
+  const mailboxes = overview.mailboxes;
   return (
     <section className={styles.mailboxSection}>
       <h2>{t("dashboard.mailboxConnections")}</h2>
