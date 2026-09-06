@@ -4,6 +4,7 @@ export const esShell = {
   "nav.mailboxes": "Buzones",
   "nav.learning": "Aprendizaje",
   "shell.systemStatus": "Estado del sistema",
+  "shell.checking": "Comprobando…",
   "shell.operational": "Todos los sistemas operativos",
   "shell.degraded": "Servicio degradado",
   "shell.notifications": "Notificaciones",
