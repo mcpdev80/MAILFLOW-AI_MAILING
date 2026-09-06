@@ -369,6 +369,7 @@ export type WorkspaceLayout =
   | "compact"
   | "wide"
   | "custom";
+export type SidePanelAlignment = "left" | "right";
 export type WorkspacePanel =
   | "accounts"
   | "folders"
@@ -397,6 +398,7 @@ export interface UserPreferences {
   theme: Theme;
   density: Density;
   workspace_layout: WorkspaceLayout;
+  side_panel_alignment: SidePanelAlignment;
   workspace_custom_config: WorkspaceCustomConfig | null;
 }
 
@@ -405,6 +407,7 @@ export interface UserPreferencesUpdate {
   theme?: Theme;
   density?: Density;
   workspace_layout?: WorkspaceLayout;
+  side_panel_alignment?: SidePanelAlignment;
   workspace_custom_config?: WorkspaceCustomConfig;
 }
 
