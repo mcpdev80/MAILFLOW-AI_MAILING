@@ -57,7 +57,7 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
         <nav className={styles.nav} aria-label="Mailflow">
           {items.map((item, index) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return <div key={item.href}>{index === 4 && <div className={styles.separator} />}<Link href={item.href} className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}><span className={styles.navGlyph} aria-hidden="true">{item.glyph}</span><span className={styles.navLabel}>{item.label ? t(item.label) : item.fallback}</span>{item.badge != null && item.badge > 0 && <span className={styles.badge}>{item.badge}</span>}</Link></div>;
+            return <div key={item.href}>{index === 4 && <div className={styles.separator} />}<Link href={item.href} className={`${styles.navItem} ${active ? styles.navItemActive : ""}`} title={item.label ? t(item.label) : item.fallback}><span className={styles.navGlyph} aria-hidden="true">{item.glyph}</span><span className={styles.navLabel}>{item.label ? t(item.label) : item.fallback}</span>{item.badge != null && item.badge > 0 && <span className={styles.badge}>{item.badge}</span>}</Link></div>;
           })}
         </nav>
       </div>
@@ -76,7 +76,7 @@ function Header({ state, showStatus }: { state: ShellState; showStatus: boolean 
   const pathname = usePathname();
   const { t } = useI18n();
   const user = useSession().data?.user;
-  const action = pathname === "/app/dashboard" ? { href: "/onboarding?step=mailbox", label: "Add Mailbox" } : null;
+  const action = pathname === "/app/dashboard" || pathname.startsWith("/app/mail") ? { href: "/onboarding?step=mailbox", label: "Add Mailbox" } : null;
   return (
     <header className={styles.header} data-testid="app-header">
       {showStatus ? <StatusPill state={state} /> : <span />}
@@ -94,5 +94,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const state = useShellState();
   const appearance = useAppearance();
   const statusPosition = appearance.workspaceLayout === "custom" ? (appearance.workspaceCustomConfig?.system_status_position ?? "top") : "top";
-  return <div className={styles.shell} data-testid="app-shell"><Sidebar reviewCount={state.reviewCount} /><div className={styles.content}><Header state={state} showStatus={statusPosition === "top"} /><div className={styles.main} data-testid="app-content">{children}</div>{statusPosition === "bottom" && <footer className={styles.statusFooter}><StatusPill state={state} /></footer>}</div></div>;
+  return <div className={styles.shell} data-layout={appearance.workspaceLayout} data-testid="app-shell"><Sidebar reviewCount={state.reviewCount} /><div className={styles.content}><Header state={state} showStatus={statusPosition === "top"} /><div className={styles.main} data-testid="app-content">{children}</div>{statusPosition === "bottom" && <footer className={styles.statusFooter}><StatusPill state={state} /></footer>}</div></div>;
 }
