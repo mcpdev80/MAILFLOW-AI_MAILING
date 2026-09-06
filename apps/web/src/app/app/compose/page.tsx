@@ -1,8 +1,8 @@
 "use client";
 
 import { Suspense } from "react";
-import { ComposeUi } from "./compose-ui";
 import styles from "./compose-overlay.module.css";
+import { ComposeUi } from "./compose-ui";
 import { useComposePage } from "./use-compose-page";
 
 function ComposePageContent() {

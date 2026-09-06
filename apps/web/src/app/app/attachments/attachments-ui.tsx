@@ -68,7 +68,6 @@ function FolderTree({
             value={renameValue}
             onChange={(event) => setRenameValue(event.target.value)}
             aria-label={t("attachments.rename")}
-            autoFocus
           />
           <button type="submit">{t("attachments.save")}</button>
           <button type="button" onClick={() => setRenamingId(null)}>
@@ -153,7 +152,6 @@ function FolderTree({
             onChange={(event) => setName(event.target.value)}
             placeholder={t("attachments.newFolder")}
             aria-label={t("attachments.newFolder")}
-            autoFocus
           />
           <div>
             <button type="submit">{t("attachments.save")}</button>

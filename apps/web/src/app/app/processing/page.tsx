@@ -2,7 +2,7 @@
 
 import page from "@/components/figma-page.module.css";
 import { api } from "@/lib/api";
-import { backfillApi, type BackfillJob } from "@/lib/backfill-api";
+import { type BackfillJob, backfillApi } from "@/lib/backfill-api";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 import type { EmailAccount } from "@/lib/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
