@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from urllib.parse import quote
 from uuid import UUID
 
@@ -85,12 +86,7 @@ async def list_attachments(
         detail = await repo.get_accessible_document(identity, document.id)
         filename = detail[2][0].source_filename if detail and detail[2] else None
         items.append(
-            _item(
-                document,
-                placement,
-                source_count,
-                display_filename=filename,
-            )
+            _item(document, placement, source_count, display_filename=filename)
         )
     return items
 
@@ -270,7 +266,7 @@ async def download_attachment_document(
         raise HTTPException(status_code=404, detail="attachment_not_found")
     document, _placement, sources = result
     try:
-        payload = attachment_storage.read(document.storage_key)
+        payload = await asyncio.to_thread(attachment_storage.read, document.storage_key)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="attachment_binary_not_found") from exc
     display_name = sources[0].source_filename if sources else document.canonical_filename
