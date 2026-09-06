@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
 import {
   MAIL_ACTION_GROUPS,
   type MailActionDefinition,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/mail-actions";
 import type { MailboxCapabilities } from "@/lib/types";
 import { useEffect, useMemo, useRef, useState } from "react";
+import styles from "./mail-context-menu.module.css";
 
 export interface ContextMenuPosition {
   x: number;
@@ -49,9 +51,7 @@ function useVisibleGroups(seen: boolean, flagged: boolean) {
     () =>
       MAIL_ACTION_GROUPS.map((group) => ({
         ...group,
-        actions: group.actions.filter((action) =>
-          actionVisible(action, seen, flagged),
-        ),
+        actions: group.actions.filter((action) => actionVisible(action, seen, flagged)),
       })),
     [flagged, seen],
   );
@@ -78,46 +78,35 @@ function focusByKey(
   target.focus();
 }
 
-function ActionButton({
-  action,
-  allowed,
-  expanded,
-  onRun,
-  onKeyDown,
-}: {
+function ActionButton(props: {
   action: MailActionDefinition;
   allowed: boolean;
   expanded: boolean;
   onRun: () => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
+      className={styles.actionButton}
       type="button"
       role="menuitem"
-      disabled={!allowed}
-      aria-disabled={!allowed}
-      aria-haspopup={action.submenu?.length ? "menu" : undefined}
-      aria-expanded={action.submenu?.length ? expanded : undefined}
-      data-destructive={action.destructive || undefined}
-      data-ai={action.ai || undefined}
-      onKeyDown={onKeyDown}
-      onClick={onRun}
+      disabled={!props.allowed}
+      aria-disabled={!props.allowed}
+      aria-haspopup={props.action.submenu?.length ? "menu" : undefined}
+      aria-expanded={props.action.submenu?.length ? props.expanded : undefined}
+      data-destructive={props.action.destructive || undefined}
+      data-ai={props.action.ai || undefined}
+      onKeyDown={props.onKeyDown}
+      onClick={props.onRun}
     >
-      {action.label}
+      {t(props.action.labelKey)}
+      {props.action.submenu?.length ? <span className={styles.chevron}>›</span> : null}
     </button>
   );
 }
 
-function GroupMenu({
-  group,
-  capabilities,
-  expanded,
-  openSubmenu,
-  setOpenSubmenu,
-  run,
-  onKeyDown,
-}: {
+function GroupMenu(props: {
   group: Group;
   capabilities: MailboxCapabilities | null | undefined;
   expanded: boolean;
@@ -126,37 +115,33 @@ function GroupMenu({
   run: (action: MailActionDefinition) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
 }) {
-  if (!expanded) return null;
+  if (!props.expanded) return null;
   return (
-    <div role="menu" data-mail-menu-group={group.id}>
-      {group.actions.map((action) => {
-        const allowed = capabilityAllowed(action, capabilities);
-        const submenuOpen = openSubmenu === action.id;
+    <div role="menu">
+      {props.group.actions.map((action) => {
+        const submenuOpen = props.openSubmenu === action.id;
         return (
           <div key={action.id}>
             <ActionButton
               action={action}
-              allowed={allowed}
+              allowed={capabilityAllowed(action, props.capabilities)}
               expanded={submenuOpen}
               onRun={() => {
-                if (action.submenu?.length) {
-                  setOpenSubmenu(submenuOpen ? null : action.id);
-                } else {
-                  run(action);
-                }
+                if (action.submenu?.length) props.setOpenSubmenu(submenuOpen ? null : action.id);
+                else props.run(action);
               }}
-              onKeyDown={onKeyDown}
+              onKeyDown={props.onKeyDown}
             />
             {submenuOpen && action.submenu?.length ? (
-              <div role="menu">
+              <div className={styles.submenu} role="menu">
                 {action.submenu.map((child) => (
                   <ActionButton
                     key={`${action.id}-${child.id}`}
                     action={child}
-                    allowed={capabilityAllowed(child, capabilities)}
+                    allowed={capabilityAllowed(child, props.capabilities)}
                     expanded={false}
-                    onRun={() => run(child)}
-                    onKeyDown={onKeyDown}
+                    onRun={() => props.run(child)}
+                    onKeyDown={props.onKeyDown}
                   />
                 ))}
               </div>
@@ -169,22 +154,22 @@ function GroupMenu({
 }
 
 export function MailContextMenu(props: MailContextMenuProps) {
-  const { position, capabilities, seen, flagged, onAction, onClose } = props;
+  const { t } = useI18n();
   const menuRef = useRef<HTMLDivElement>(null);
-  const groups = useVisibleGroups(seen, flagged);
+  const groups = useVisibleGroups(props.seen, props.flagged);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
   useEffect(() => {
     const pointer = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) onClose();
+      if (!menuRef.current?.contains(event.target as Node)) props.onClose();
     };
     const key = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
       if (openSubmenu) setOpenSubmenu(null);
       else if (openGroup) setOpenGroup(null);
-      else onClose();
+      else props.onClose();
     };
     window.addEventListener("pointerdown", pointer);
     window.addEventListener("keydown", key);
@@ -192,7 +177,7 @@ export function MailContextMenu(props: MailContextMenuProps) {
       window.removeEventListener("pointerdown", pointer);
       window.removeEventListener("keydown", key);
     };
-  }, [onClose, openGroup, openSubmenu]);
+  }, [openGroup, openSubmenu, props.onClose]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -200,45 +185,45 @@ export function MailContextMenu(props: MailContextMenuProps) {
     });
   }, []);
 
-  const run = (action: MailActionDefinition) => {
-    if (!capabilityAllowed(action, capabilities)) return;
-    void onAction(action.id);
-    onClose();
-  };
-  const onKeyDown = (event: React.KeyboardEvent<HTMLElement>) =>
-    focusByKey(event, menuRef.current);
+  function run(action: MailActionDefinition) {
+    if (!capabilityAllowed(action, props.capabilities)) return;
+    void props.onAction(action.id);
+    props.onClose();
+  }
 
   return (
     <div
       ref={menuRef}
+      className={styles.menu}
       role="menu"
-      aria-label="Message actions"
-      data-mail-context-menu
-      style={{ position: "fixed", left: position.x, top: position.y }}
+      aria-label={t("mail.group.more")}
+      style={{ position: "fixed", left: props.position.x, top: props.position.y }}
     >
       {groups.map((group) => (
-        <div key={group.id}>
+        <div className={styles.group} key={group.id}>
           <button
+            className={styles.groupButton}
             type="button"
             role="menuitem"
             aria-haspopup="menu"
             aria-expanded={openGroup === group.id}
-            onKeyDown={onKeyDown}
+            onKeyDown={(event) => focusByKey(event, menuRef.current)}
             onClick={() => {
               setOpenGroup(openGroup === group.id ? null : group.id);
               setOpenSubmenu(null);
             }}
           >
-            {group.label}
+            {t(group.labelKey)}
+            <span className={styles.chevron}>›</span>
           </button>
           <GroupMenu
             group={group}
-            capabilities={capabilities}
+            capabilities={props.capabilities}
             expanded={openGroup === group.id}
             openSubmenu={openSubmenu}
             setOpenSubmenu={setOpenSubmenu}
             run={run}
-            onKeyDown={onKeyDown}
+            onKeyDown={(event) => focusByKey(event, menuRef.current)}
           />
         </div>
       ))}
