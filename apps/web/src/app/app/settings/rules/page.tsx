@@ -2,6 +2,7 @@
 
 import { SettingsShell, settingsShellStyles as s } from "@/components/settings-shell";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import { rulesApi, type DomainRule, type InternalDomain, type KeywordRule } from "@/lib/rules-api";
 import type { EmailAccount } from "@/lib/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -9,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 type RuleTab = "domain" | "keyword" | "internal";
 
 export default function RulesSettingsPage() {
+  const { t } = useI18n();
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [accountId, setAccountId] = useState("");
   const [domainRules, setDomainRules] = useState<DomainRule[]>([]);
@@ -37,9 +39,9 @@ export default function RulesSettingsPage() {
       setKeywordRules(keyword);
       setInternalDomains(internal);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load rules");
+      setError(err instanceof Error ? err.message : t("rules.unableLoad"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void (async () => {
@@ -48,10 +50,10 @@ export default function RulesSettingsPage() {
         setAccounts(rows);
         if (rows[0]) setAccountId((current) => current || rows[0].id);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to load mailboxes");
+        setError(err instanceof Error ? err.message : t("rules.unableLoadMailboxes"));
       }
     })();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (accountId) void loadRules(accountId);
@@ -68,7 +70,7 @@ export default function RulesSettingsPage() {
       const rows = await api.listAccounts();
       setAccounts(rows);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update mailbox policy");
+      setError(err instanceof Error ? err.message : t("rules.unableUpdatePolicy"));
     } finally {
       setBusy(false);
     }
@@ -87,7 +89,7 @@ export default function RulesSettingsPage() {
       setDomain("");
       await loadRules(accountId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create rule");
+      setError(err instanceof Error ? err.message : t("rules.unableCreate"));
     } finally {
       setBusy(false);
     }
@@ -108,7 +110,7 @@ export default function RulesSettingsPage() {
       setKeywords("");
       await loadRules(accountId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create rule");
+      setError(err instanceof Error ? err.message : t("rules.unableCreate"));
     } finally {
       setBusy(false);
     }
@@ -122,7 +124,7 @@ export default function RulesSettingsPage() {
       setInternalDomain("");
       await loadRules(accountId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create internal domain");
+      setError(err instanceof Error ? err.message : t("rules.unableCreateInternal"));
     } finally {
       setBusy(false);
     }
@@ -137,7 +139,7 @@ export default function RulesSettingsPage() {
       if (kind === "internal") await rulesApi.deleteInternalDomain(accountId, id);
       await loadRules(accountId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete rule");
+      setError(err instanceof Error ? err.message : t("rules.unableDelete"));
     } finally {
       setBusy(false);
     }
@@ -148,11 +150,11 @@ export default function RulesSettingsPage() {
       <section className={s.panel}>
         <header className={s.panelHeader}>
           <div>
-            <h2>Rules & Actions</h2>
-            <p>Automate classification and mailbox actions using the real Mailflow rule engine.</p>
+            <h2>{t("rules.title")}</h2>
+            <p>{t("rules.subtitle")}</p>
           </div>
           <label className="field" style={{ minWidth: 260 }}>
-            Mailbox
+            {t("rules.mailbox")}
             <select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
               {accounts.map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
             </select>
@@ -160,19 +162,19 @@ export default function RulesSettingsPage() {
         </header>
 
         {error && <div className="alert error">{error}</div>}
-        {!selected ? <div className="empty">No mailbox configured.</div> : <>
+        {!selected ? <div className="empty">{t("rules.noMailbox")}</div> : <>
           <div className={s.section}>
-            <h3 className={s.sectionTitle}>Mailbox action policies</h3>
-            <p className={s.sectionCopy}>Choose whether safe move and archive actions happen automatically, require review, or stay disabled.</p>
+            <h3 className={s.sectionTitle}>{t("rules.actionPolicies")}</h3>
+            <p className={s.sectionCopy}>{t("rules.actionPoliciesSubtitle")}</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 14 }}>
-              <label className="field">Move to folders
+              <label className="field">{t("rules.move")}
                 <select disabled={busy} value={selected.move_policy} onChange={(event) => void updatePolicy(selected, { move_policy: event.target.value as "off" | "review" | "automatic" })}>
-                  <option value="automatic">Automatic when safe</option><option value="review">Review first</option><option value="off">Off</option>
+                  <option value="automatic">{t("rules.automaticSafe")}</option><option value="review">{t("rules.reviewFirst")}</option><option value="off">{t("rules.off")}</option>
                 </select>
               </label>
-              <label className="field">Archive
+              <label className="field">{t("rules.archive")}
                 <select disabled={busy} value={selected.archive_policy} onChange={(event) => void updatePolicy(selected, { archive_policy: event.target.value as "off" | "review" | "automatic" })}>
-                  <option value="automatic">Automatic when safe</option><option value="review">Review first</option><option value="off">Off</option>
+                  <option value="automatic">{t("rules.automaticSafe")}</option><option value="review">{t("rules.reviewFirst")}</option><option value="off">{t("rules.off")}</option>
                 </select>
               </label>
             </div>
@@ -182,36 +184,36 @@ export default function RulesSettingsPage() {
             <div style={{ display: "flex", gap: 18, borderBottom: "1px solid var(--mf-border)", marginBottom: 18 }}>
               {(["domain", "keyword", "internal"] as RuleTab[]).map((item) => (
                 <button key={item} className="btn secondary" type="button" onClick={() => setTab(item)} style={{ border: 0, borderBottom: tab === item ? "2px solid var(--mf-primary)" : "2px solid transparent", borderRadius: 0, color: tab === item ? "var(--mf-primary)" : "var(--mf-text-muted)", background: "transparent" }}>
-                  {item === "domain" ? "Domain rules" : item === "keyword" ? "Keyword rules" : "Internal domains"}
+                  {item === "domain" ? t("rules.domainRules") : item === "keyword" ? t("rules.keywordRules") : t("rules.internalDomains")}
                 </button>
               ))}
             </div>
 
             {tab === "domain" && <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 10, alignItems: "end", marginBottom: 16 }}>
-                <label className="field">Sender domain<input value={domain} onChange={(event) => setDomain(event.target.value)} placeholder="example.com" /></label>
-                <label className="field">Classification<select value={label} onChange={(event) => setLabel(event.target.value)}>{["work","private","finance","orders","appointments","newsletters","notifications","other"].map((item) => <option key={item}>{item}</option>)}</select></label>
-                <button className="btn" type="button" disabled={busy || !domain.trim()} onClick={() => void addDomainRule()}>Create Rule</button>
+                <label className="field">{t("rules.senderDomain")}<input value={domain} onChange={(event) => setDomain(event.target.value)} placeholder="example.com" /></label>
+                <label className="field">{t("rules.classification")}<select value={label} onChange={(event) => setLabel(event.target.value)}>{["work","private","finance","orders","appointments","newsletters","notifications","other"].map((item) => <option key={item}>{item}</option>)}</select></label>
+                <button className="btn" type="button" disabled={busy || !domain.trim()} onClick={() => void addDomainRule()}>{t("rules.createRule")}</button>
               </div>
-              <RuleList empty="No domain rules yet." rows={domainRules.map((rule) => ({ id: rule.id, title: rule.domain, detail: `Classify as ${rule.label}`, meta: `Priority ${rule.priority}` }))} busy={busy} onRemove={(id) => void remove("domain", id)} />
+              <RuleList empty={t("rules.noDomainRules")} rows={domainRules.map((rule) => ({ id: rule.id, title: rule.domain, detail: `${t("rules.classifyAs")} ${rule.label}`, meta: `${t("rules.priority")} ${rule.priority}` }))} busy={busy} deleteLabel={t("rules.delete")} onRemove={(id) => void remove("domain", id)} />
             </>}
 
             {tab === "keyword" && <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 10, alignItems: "end", marginBottom: 10 }}>
-                <label className="field">Keywords<input value={keywords} onChange={(event) => setKeywords(event.target.value)} placeholder="invoice, payment, receipt" /></label>
-                <label className="field">Classification<select value={label} onChange={(event) => setLabel(event.target.value)}>{["work","private","finance","orders","appointments","newsletters","notifications","other"].map((item) => <option key={item}>{item}</option>)}</select></label>
-                <button className="btn" type="button" disabled={busy || !keywords.trim()} onClick={() => void addKeywordRule()}>Create Rule</button>
+                <label className="field">{t("rules.keywords")}<input value={keywords} onChange={(event) => setKeywords(event.target.value)} placeholder="invoice, payment, receipt" /></label>
+                <label className="field">{t("rules.classification")}<select value={label} onChange={(event) => setLabel(event.target.value)}>{["work","private","finance","orders","appointments","newsletters","notifications","other"].map((item) => <option key={item}>{item}</option>)}</select></label>
+                <button className="btn" type="button" disabled={busy || !keywords.trim()} onClick={() => void addKeywordRule()}>{t("rules.createRule")}</button>
               </div>
-              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", marginBottom: 16 }}><input style={{ width: 16, minHeight: 16 }} type="checkbox" checked={matchAll} onChange={(event) => setMatchAll(event.target.checked)} />Require all keywords</label>
-              <RuleList empty="No keyword rules yet." rows={keywordRules.map((rule) => ({ id: rule.id, title: rule.keywords.join(rule.match_all ? " + " : " / "), detail: `Classify as ${rule.label}`, meta: rule.match_all ? "Match all" : "Match any" }))} busy={busy} onRemove={(id) => void remove("keyword", id)} />
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", marginBottom: 16 }}><input style={{ width: 16, minHeight: 16 }} type="checkbox" checked={matchAll} onChange={(event) => setMatchAll(event.target.checked)} />{t("rules.requireAll")}</label>
+              <RuleList empty={t("rules.noKeywordRules")} rows={keywordRules.map((rule) => ({ id: rule.id, title: rule.keywords.join(rule.match_all ? " + " : " / "), detail: `${t("rules.classifyAs")} ${rule.label}`, meta: rule.match_all ? t("rules.matchAll") : t("rules.matchAny") }))} busy={busy} deleteLabel={t("rules.delete")} onRemove={(id) => void remove("keyword", id)} />
             </>}
 
             {tab === "internal" && <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "end", marginBottom: 16 }}>
-                <label className="field">Internal organization domain<input value={internalDomain} onChange={(event) => setInternalDomain(event.target.value)} placeholder="company.example" /></label>
-                <button className="btn" type="button" disabled={busy || !internalDomain.trim()} onClick={() => void addInternalDomain()}>Add Domain</button>
+                <label className="field">{t("rules.internalOrgDomain")}<input value={internalDomain} onChange={(event) => setInternalDomain(event.target.value)} placeholder="company.example" /></label>
+                <button className="btn" type="button" disabled={busy || !internalDomain.trim()} onClick={() => void addInternalDomain()}>{t("rules.addDomain")}</button>
               </div>
-              <RuleList empty="No internal domains yet." rows={internalDomains.map((item) => ({ id: item.id, title: item.domain, detail: "Treat sender as internal", meta: "Organization" }))} busy={busy} onRemove={(id) => void remove("internal", id)} />
+              <RuleList empty={t("rules.noInternalDomains")} rows={internalDomains.map((item) => ({ id: item.id, title: item.domain, detail: t("rules.treatInternal"), meta: t("rules.organization") }))} busy={busy} deleteLabel={t("rules.delete")} onRemove={(id) => void remove("internal", id)} />
             </>}
           </div>
         </>}
@@ -220,7 +222,7 @@ export default function RulesSettingsPage() {
   );
 }
 
-function RuleList({ rows, empty, busy, onRemove }: { rows: { id: string; title: string; detail: string; meta: string }[]; empty: string; busy: boolean; onRemove: (id: string) => void }) {
+function RuleList({ rows, empty, busy, deleteLabel, onRemove }: { rows: { id: string; title: string; detail: string; meta: string }[]; empty: string; busy: boolean; deleteLabel: string; onRemove: (id: string) => void }) {
   if (rows.length === 0) return <div className="empty">{empty}</div>;
-  return <div style={{ display: "grid", gap: 10 }}>{rows.map((row) => <div key={row.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 16, alignItems: "center", border: "1px solid var(--mf-border)", borderRadius: 8, padding: 16 }}><div><strong>{row.title}</strong><div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{row.detail}</div></div><span className="pill">{row.meta}</span><button className="btn secondary" type="button" disabled={busy} onClick={() => onRemove(row.id)}>Delete</button></div>)}</div>;
+  return <div style={{ display: "grid", gap: 10 }}>{rows.map((row) => <div key={row.id} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 16, alignItems: "center", border: "1px solid var(--mf-border)", borderRadius: 8, padding: 16 }}><div><strong>{row.title}</strong><div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{row.detail}</div></div><span className="pill">{row.meta}</span><button className="btn secondary" type="button" disabled={busy} onClick={() => onRemove(row.id)}>{deleteLabel}</button></div>)}</div>;
 }
