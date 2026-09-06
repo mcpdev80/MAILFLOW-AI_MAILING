@@ -1,4 +1,4 @@
-{$MAILFLOW_PUBLIC_URL:https://localhost} {
+{$MAILFLOW_CADDY_ADDRESS:https://localhost} {
 	encode zstd gzip
 
 	@oauth_callback path_regexp oauth_callback ^/oauth/(gmail|microsoft)/callback$
