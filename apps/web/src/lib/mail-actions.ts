@@ -1,3 +1,5 @@
+import type { TranslationKey } from "@/lib/i18n";
+
 export type MailActionGroup = "reply" | "ai" | "organize" | "more";
 
 export type MailActionId =
@@ -35,7 +37,7 @@ export type MailActionId =
 export interface MailActionDefinition {
   id: MailActionId;
   group: MailActionGroup;
-  label: string;
+  labelKey: TranslationKey;
   destructive?: boolean;
   ai?: boolean;
   capability?: "read_state" | "flag" | "move" | "archive" | "trash" | "spam";
@@ -43,157 +45,78 @@ export interface MailActionDefinition {
 }
 
 const AI_REPLY_ACTIONS: readonly MailActionDefinition[] = [
-  { id: "ai_reply", group: "reply", label: "Write reply", ai: true },
-  {
-    id: "ai_reply_short",
-    group: "reply",
-    label: "Short reply",
-    ai: true,
-  },
-  {
-    id: "ai_reply_friendly",
-    group: "reply",
-    label: "Friendly reply",
-    ai: true,
-  },
-  {
-    id: "ai_reply_professional",
-    group: "reply",
-    label: "Professional reply",
-    ai: true,
-  },
-  {
-    id: "ai_reply_direct",
-    group: "reply",
-    label: "Direct reply",
-    ai: true,
-  },
-  {
-    id: "ai_reply_custom",
-    group: "reply",
-    label: "Custom instruction…",
-    ai: true,
-  },
+  { id: "ai_reply", group: "reply", labelKey: "mail.action.ai_reply_write", ai: true },
+  { id: "ai_reply_short", group: "reply", labelKey: "mail.action.ai_reply_short", ai: true },
+  { id: "ai_reply_friendly", group: "reply", labelKey: "mail.action.ai_reply_friendly", ai: true },
+  { id: "ai_reply_professional", group: "reply", labelKey: "mail.action.ai_reply_professional", ai: true },
+  { id: "ai_reply_direct", group: "reply", labelKey: "mail.action.ai_reply_direct", ai: true },
+  { id: "ai_reply_custom", group: "reply", labelKey: "mail.action.ai_reply_custom", ai: true },
 ];
 
 const AI_ACTIONS: readonly MailActionDefinition[] = [
-  { id: "ai_summarize", group: "ai", label: "Summarize", ai: true },
-  { id: "ai_key_points", group: "ai", label: "Show key points", ai: true },
-  { id: "ai_todos", group: "ai", label: "Extract to-dos", ai: true },
-  {
-    id: "ai_questions",
-    group: "ai",
-    label: "Detect open questions",
-    ai: true,
-  },
-  {
-    id: "ai_deadlines",
-    group: "ai",
-    label: "Detect deadlines / dates",
-    ai: true,
-  },
+  { id: "ai_summarize", group: "ai", labelKey: "mail.action.ai_summarize", ai: true },
+  { id: "ai_key_points", group: "ai", labelKey: "mail.action.ai_key_points", ai: true },
+  { id: "ai_todos", group: "ai", labelKey: "mail.action.ai_todos", ai: true },
+  { id: "ai_questions", group: "ai", labelKey: "mail.action.ai_questions", ai: true },
+  { id: "ai_deadlines", group: "ai", labelKey: "mail.action.ai_deadlines", ai: true },
   {
     id: "ai_translate_custom",
     group: "ai",
-    label: "Translate",
+    labelKey: "mail.action.ai_translate",
     ai: true,
     submenu: [
-      { id: "ai_translate_de", group: "ai", label: "German", ai: true },
-      { id: "ai_translate_en", group: "ai", label: "English", ai: true },
-      { id: "ai_translate_es", group: "ai", label: "Spanish", ai: true },
-      {
-        id: "ai_translate_custom",
-        group: "ai",
-        label: "Other…",
-        ai: true,
-      },
+      { id: "ai_translate_de", group: "ai", labelKey: "mail.action.ai_translate_de", ai: true },
+      { id: "ai_translate_en", group: "ai", labelKey: "mail.action.ai_translate_en", ai: true },
+      { id: "ai_translate_es", group: "ai", labelKey: "mail.action.ai_translate_es", ai: true },
+      { id: "ai_translate_custom", group: "ai", labelKey: "mail.action.ai_translate_other", ai: true },
     ],
   },
-  { id: "ai_custom", group: "ai", label: "Custom instruction…", ai: true },
+  { id: "ai_custom", group: "ai", labelKey: "mail.action.ai_custom", ai: true },
 ];
 
 export const MAIL_ACTION_GROUPS: ReadonlyArray<{
   id: MailActionGroup;
-  label: string;
+  labelKey: TranslationKey;
   actions: readonly MailActionDefinition[];
 }> = [
   {
     id: "reply",
-    label: "Reply",
+    labelKey: "mail.group.reply",
     actions: [
-      { id: "reply", group: "reply", label: "Reply" },
-      { id: "reply_all", group: "reply", label: "Reply all" },
-      { id: "forward", group: "reply", label: "Forward" },
+      { id: "reply", group: "reply", labelKey: "mail.action.reply" },
+      { id: "reply_all", group: "reply", labelKey: "mail.action.reply_all" },
+      { id: "forward", group: "reply", labelKey: "mail.action.forward" },
       {
         id: "ai_reply",
         group: "reply",
-        label: "Reply with AI",
+        labelKey: "mail.action.ai_reply",
         ai: true,
         submenu: AI_REPLY_ACTIONS,
       },
     ],
   },
-  { id: "ai", label: "AI", actions: AI_ACTIONS },
+  { id: "ai", labelKey: "mail.group.ai", actions: AI_ACTIONS },
   {
     id: "organize",
-    label: "Organize",
+    labelKey: "mail.group.organize",
     actions: [
-      { id: "move", group: "organize", label: "Move to…", capability: "move" },
-      {
-        id: "archive",
-        group: "organize",
-        label: "Archive",
-        capability: "archive",
-      },
-      {
-        id: "mark_read",
-        group: "organize",
-        label: "Mark read",
-        capability: "read_state",
-      },
-      {
-        id: "mark_unread",
-        group: "organize",
-        label: "Mark unread",
-        capability: "read_state",
-      },
-      { id: "flag", group: "organize", label: "Star", capability: "flag" },
-      {
-        id: "unflag",
-        group: "organize",
-        label: "Remove star",
-        capability: "flag",
-      },
-      {
-        id: "spam",
-        group: "organize",
-        label: "Spam / junk",
-        capability: "spam",
-      },
-      {
-        id: "trash",
-        group: "organize",
-        label: "Delete",
-        destructive: true,
-        capability: "trash",
-      },
+      { id: "move", group: "organize", labelKey: "mail.action.move", capability: "move" },
+      { id: "archive", group: "organize", labelKey: "mail.action.archive", capability: "archive" },
+      { id: "mark_read", group: "organize", labelKey: "mail.action.mark_read", capability: "read_state" },
+      { id: "mark_unread", group: "organize", labelKey: "mail.action.mark_unread", capability: "read_state" },
+      { id: "flag", group: "organize", labelKey: "mail.action.flag", capability: "flag" },
+      { id: "unflag", group: "organize", labelKey: "mail.action.unflag", capability: "flag" },
+      { id: "spam", group: "organize", labelKey: "mail.action.spam", capability: "spam", destructive: true },
+      { id: "trash", group: "organize", labelKey: "mail.action.trash", capability: "trash", destructive: true },
     ],
   },
   {
     id: "more",
-    label: "More",
+    labelKey: "mail.group.more",
     actions: [
-      {
-        id: "print_message",
-        group: "more",
-        label: "Print message",
-      },
-      { id: "print_thread", group: "more", label: "Print thread" },
-      {
-        id: "message_details",
-        group: "more",
-        label: "Message details / headers",
-      },
+      { id: "print_message", group: "more", labelKey: "mail.action.print_message" },
+      { id: "print_thread", group: "more", labelKey: "mail.action.print_thread" },
+      { id: "message_details", group: "more", labelKey: "mail.action.message_details" },
     ],
   },
 ];
