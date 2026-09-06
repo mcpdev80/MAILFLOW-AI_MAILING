@@ -9,4 +9,5 @@ export const deShell = {
   "shell.degraded": "Dienst beeinträchtigt",
   "shell.notifications": "Benachrichtigungen",
   "shell.profile": "Profil",
+  "shell.addMailbox": "Postfach hinzufügen",
 } as const;
