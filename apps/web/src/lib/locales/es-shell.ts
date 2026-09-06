@@ -9,4 +9,5 @@ export const esShell = {
   "shell.degraded": "Servicio degradado",
   "shell.notifications": "Notificaciones",
   "shell.profile": "Perfil",
+  "shell.addMailbox": "Añadir buzón",
 } as const;
