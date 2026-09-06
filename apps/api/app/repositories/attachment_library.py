@@ -5,14 +5,26 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import RequestIdentity
 from app.mailbox_access import access_condition
-from app.models.attachment_library import AttachmentDocument, AttachmentSource
+from app.models.attachment_library import (
+    AttachmentDocument,
+    AttachmentFolder,
+    AttachmentMemory,
+    AttachmentPlacement,
+    AttachmentSource,
+)
 from app.models.email_account import EmailAccount
+
+SINGLE_OWNER_SCOPE = "__single__"
+
+
+def attachment_owner_scope(identity: RequestIdentity) -> str:
+    return identity.user_id or SINGLE_OWNER_SCOPE
 
 
 class AttachmentLibraryRepository:
@@ -42,11 +54,10 @@ class AttachmentLibraryRepository:
         size_bytes: int,
         extracted_text: str | None = None,
     ) -> AttachmentDocument:
-        document_id = uuid4()
         await self.session.execute(
             pg_insert(AttachmentDocument)
             .values(
-                id=document_id,
+                id=uuid4(),
                 org_id=org_id,
                 content_sha256=content_sha256,
                 storage_key=storage_key,
@@ -55,11 +66,9 @@ class AttachmentLibraryRepository:
                 size_bytes=size_bytes,
                 extracted_text=extracted_text,
                 analysis_status="pending",
-                tags=[],
+                ai_tags=[],
             )
-            .on_conflict_do_nothing(
-                index_elements=["org_id", "content_sha256"]
-            )
+            .on_conflict_do_nothing(index_elements=["org_id", "content_sha256"])
         )
         document = await self.find_document_by_hash(org_id, content_sha256)
         if document is None:
@@ -136,16 +145,27 @@ class AttachmentLibraryRepository:
         mime_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[tuple[AttachmentDocument, int]]:
+    ) -> list[tuple[AttachmentDocument, AttachmentPlacement | None, int]]:
+        scope = attachment_owner_scope(identity)
+        placement_join = and_(
+            AttachmentPlacement.document_id == AttachmentDocument.id,
+            AttachmentPlacement.owner_scope == scope,
+            AttachmentPlacement.org_id == identity.org.id,
+        )
         statement = (
-            select(AttachmentDocument, func.count(AttachmentSource.id).label("source_count"))
+            select(
+                AttachmentDocument,
+                AttachmentPlacement,
+                func.count(AttachmentSource.id).label("source_count"),
+            )
             .join(AttachmentSource, AttachmentSource.document_id == AttachmentDocument.id)
             .join(EmailAccount, EmailAccount.id == AttachmentSource.account_id)
+            .outerjoin(AttachmentPlacement, placement_join)
             .where(
                 AttachmentSource.ingestion_status == "stored",
                 access_condition(identity),
             )
-            .group_by(AttachmentDocument.id)
+            .group_by(AttachmentDocument.id, AttachmentPlacement.id)
             .order_by(AttachmentDocument.created_at.desc())
             .limit(limit)
             .offset(offset)
@@ -153,7 +173,13 @@ class AttachmentLibraryRepository:
         if account_id is not None:
             statement = statement.where(AttachmentSource.account_id == account_id)
         if category:
-            statement = statement.where(AttachmentDocument.ai_category == category)
+            statement = statement.where(
+                func.coalesce(
+                    AttachmentPlacement.category_override,
+                    AttachmentDocument.ai_category,
+                )
+                == category
+            )
         if mime_type:
             statement = statement.where(AttachmentDocument.mime_type == mime_type)
         if query and query.strip():
@@ -167,26 +193,36 @@ class AttachmentLibraryRepository:
                 )
             )
         rows = await self.session.execute(statement)
-        return [(row[0], int(row[1])) for row in rows.all()]
+        return [(row[0], row[1], int(row[2])) for row in rows.all()]
 
     async def get_accessible_document(
         self, identity: RequestIdentity, document_id: UUID
-    ) -> tuple[AttachmentDocument, list[AttachmentSource]] | None:
-        document = (
+    ) -> tuple[AttachmentDocument, AttachmentPlacement | None, list[AttachmentSource]] | None:
+        scope = attachment_owner_scope(identity)
+        row = (
             await self.session.execute(
-                select(AttachmentDocument)
+                select(AttachmentDocument, AttachmentPlacement)
                 .join(AttachmentSource, AttachmentSource.document_id == AttachmentDocument.id)
                 .join(EmailAccount, EmailAccount.id == AttachmentSource.account_id)
+                .outerjoin(
+                    AttachmentPlacement,
+                    and_(
+                        AttachmentPlacement.document_id == AttachmentDocument.id,
+                        AttachmentPlacement.owner_scope == scope,
+                        AttachmentPlacement.org_id == identity.org.id,
+                    ),
+                )
                 .where(
                     AttachmentDocument.id == document_id,
                     AttachmentSource.ingestion_status == "stored",
                     access_condition(identity),
                 )
-                .distinct()
+                .limit(1)
             )
-        ).scalar_one_or_none()
-        if document is None:
+        ).first()
+        if row is None:
             return None
+        document, placement = row
         sources = list(
             (
                 await self.session.execute(
@@ -201,7 +237,126 @@ class AttachmentLibraryRepository:
                 )
             ).scalars()
         )
-        return document, sources
+        return document, placement, sources
+
+    async def upsert_placement(
+        self,
+        identity: RequestIdentity,
+        document_id: UUID,
+        *,
+        folder_id: UUID | None,
+        category_override: str | None,
+        subcategory_override: str | None,
+        user_tags: list[str],
+        corrected: bool,
+    ) -> AttachmentPlacement:
+        scope = attachment_owner_scope(identity)
+        await self.session.execute(
+            pg_insert(AttachmentPlacement)
+            .values(
+                id=uuid4(),
+                document_id=document_id,
+                org_id=identity.org.id,
+                owner_scope=scope,
+                folder_id=folder_id,
+                category_override=category_override,
+                subcategory_override=subcategory_override,
+                user_tags=user_tags,
+                corrected=corrected,
+            )
+            .on_conflict_do_update(
+                index_elements=["document_id", "owner_scope"],
+                set_={
+                    "folder_id": folder_id,
+                    "category_override": category_override,
+                    "subcategory_override": subcategory_override,
+                    "user_tags": user_tags,
+                    "corrected": corrected,
+                    "updated_at": func.now(),
+                },
+            )
+        )
+        placement = (
+            await self.session.execute(
+                select(AttachmentPlacement).where(
+                    AttachmentPlacement.document_id == document_id,
+                    AttachmentPlacement.owner_scope == scope,
+                )
+            )
+        ).scalar_one()
+        return placement
+
+    async def list_folders(self, identity: RequestIdentity) -> list[AttachmentFolder]:
+        scope = attachment_owner_scope(identity)
+        return list(
+            (
+                await self.session.execute(
+                    select(AttachmentFolder)
+                    .where(
+                        AttachmentFolder.org_id == identity.org.id,
+                        AttachmentFolder.owner_scope == scope,
+                    )
+                    .order_by(AttachmentFolder.name.asc())
+                )
+            ).scalars()
+        )
+
+    async def get_folder(
+        self, identity: RequestIdentity, folder_id: UUID
+    ) -> AttachmentFolder | None:
+        return (
+            await self.session.execute(
+                select(AttachmentFolder).where(
+                    AttachmentFolder.id == folder_id,
+                    AttachmentFolder.org_id == identity.org.id,
+                    AttachmentFolder.owner_scope == attachment_owner_scope(identity),
+                )
+            )
+        ).scalar_one_or_none()
+
+    async def create_folder(
+        self,
+        identity: RequestIdentity,
+        *,
+        name: str,
+        parent_id: UUID | None = None,
+        managed_by: str = "user",
+    ) -> AttachmentFolder:
+        folder = AttachmentFolder(
+            org_id=identity.org.id,
+            owner_scope=attachment_owner_scope(identity),
+            parent_id=parent_id,
+            name=name,
+            managed_by=managed_by,
+        )
+        self.session.add(folder)
+        await self.session.flush()
+        return folder
+
+    async def remember_organization(
+        self,
+        identity: RequestIdentity,
+        *,
+        folder_id: UUID,
+        sender_email: str | None,
+        sender_domain: str | None,
+        filename_pattern: str | None,
+        mime_type: str | None,
+        document_type: str | None,
+    ) -> AttachmentMemory:
+        memory = AttachmentMemory(
+            org_id=identity.org.id,
+            owner_scope=attachment_owner_scope(identity),
+            folder_id=folder_id,
+            sender_email=sender_email,
+            sender_domain=sender_domain,
+            filename_pattern=filename_pattern,
+            mime_type=mime_type,
+            document_type=document_type,
+        )
+        self.session.add(memory)
+        await self.session.flush()
+        return memory
 
     async def list_accessible_blocked_sources(
         self,
