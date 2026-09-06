@@ -16,10 +16,10 @@ export function LoginUi({ state }: { state: LoginState }) {
   return (
     <main className="auth-shell">
       <section className="auth-panel">
-        <div className="auth-brand">MailFlow</div>
+        <div className="auth-brand">Mailflow</div>
         <div className="auth-copy">
           <h1>{t("auth.login.title")}</h1>
-          <p className="muted">{t("auth.login.passwordHint")}</p>
+          <p>Sign in to continue to your Mailflow workspace.</p>
         </div>
 
         {state.error && <div className="alert error">{state.error}</div>}
@@ -27,49 +27,29 @@ export function LoginUi({ state }: { state: LoginState }) {
         <form onSubmit={submit} className="auth-form">
           <label className="field" htmlFor="email">
             <span>{t("auth.login.email")}</span>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email webauthn"
-              required
-              value={state.email}
-              onChange={(event) => state.setEmail(event.target.value)}
-            />
+            <input id="email" type="email" autoComplete="email webauthn" required value={state.email} onChange={(event) => state.setEmail(event.target.value)} />
           </label>
           <label className="field" htmlFor="password">
-            <span>{t("auth.login.password")}</span>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password webauthn"
-              required
-              value={state.password}
-              onChange={(event) => state.setPassword(event.target.value)}
-            />
+            <span style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+              <span>{t("auth.login.password")}</span>
+              <span style={{ color: "var(--mf-primary)", fontWeight: 500 }}>Forgot password?</span>
+            </span>
+            <input id="password" type="password" autoComplete="current-password webauthn" required value={state.password} onChange={(event) => state.setPassword(event.target.value)} />
           </label>
           <button type="submit" className="btn btn-lg auth-primary" disabled={state.busy}>
-            {state.busy
-              ? t("auth.login.signingIn")
-              : t("auth.login.passwordAction")}
+            {state.busy ? t("auth.login.signingIn") : t("auth.login.passwordAction")}
           </button>
         </form>
 
-        <div className="auth-divider"><span>Passkey</span></div>
-
-        <button
-          type="button"
-          className="btn secondary btn-lg auth-primary"
-          disabled={state.busy}
-          onClick={() => void state.signInWithPasskey()}
-        >
+        <div className="auth-divider"><span>or</span></div>
+        <button type="button" className="btn secondary btn-lg auth-primary" disabled={state.busy} onClick={() => void state.signInWithPasskey()}>
           {t("auth.login.passkey")}
         </button>
-        <p className="auth-hint muted">{t("auth.login.passkeyHint")}</p>
-
-        <p className="auth-switch muted">
-          {t("auth.login.noAccount")}{" "}
-          <Link href="/signup">{t("auth.login.create")}</Link>
+        <p className="auth-hint">Passkeys are handled by your browser or configured password manager.</p>
+        <p className="auth-switch">
+          {t("auth.login.noAccount")}{" "}<Link href="/signup">{t("auth.login.create")}</Link>
         </p>
+        <p className="auth-hint">Secure authentication · Your mailbox password is never used for Mailflow sign-in.</p>
       </section>
     </main>
   );
