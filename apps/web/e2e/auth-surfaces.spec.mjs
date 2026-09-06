@@ -10,7 +10,7 @@ test("login exposes passkey and password recovery path", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   await expect(page.getByRole("button", { name: /passkey/i })).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
-  await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Create account" }),
   ).toHaveAttribute("href", "/signup");
@@ -24,7 +24,8 @@ test("signup exposes account and organization fields", async ({ page }) => {
   await expect(page.getByLabel("Your name")).toBeVisible();
   await expect(page.getByLabel("Organization name")).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
-  await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Confirm password", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
     "href",
     "/login",
