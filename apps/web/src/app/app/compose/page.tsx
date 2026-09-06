@@ -2,11 +2,12 @@
 
 import { Suspense } from "react";
 import { ComposeUi } from "./compose-ui";
+import styles from "./compose-overlay.module.css";
 import { useComposePage } from "./use-compose-page";
 
 function ComposePageContent() {
   const controller = useComposePage();
-  return <ComposeUi controller={controller} />;
+  return <div className={styles.overlay}><ComposeUi controller={controller} /></div>;
 }
 
 export default function ComposePage() {
