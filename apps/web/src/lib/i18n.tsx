@@ -12,10 +12,13 @@ import {
 } from "react";
 import { de } from "./locales/de";
 import { deSearch } from "./locales/de-search";
+import { deShell } from "./locales/de-shell";
 import { en } from "./locales/en";
 import { enSearch } from "./locales/en-search";
+import { enShell } from "./locales/en-shell";
 import { es } from "./locales/es";
 import { esSearch } from "./locales/es-search";
+import { esShell } from "./locales/es-shell";
 import type { TranslationKey } from "./locales/types";
 
 export type { TranslationKey } from "./locales/types";
@@ -28,11 +31,11 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   es: "Español",
 };
 
-const fallback = { ...en, ...enSearch };
+const fallback = { ...en, ...enSearch, ...enShell };
 const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
-  de: { ...de, ...deSearch },
+  de: { ...de, ...deSearch, ...deShell },
   en: fallback,
-  es: { ...es, ...esSearch },
+  es: { ...es, ...esSearch, ...esShell },
 };
 
 export function detectBrowserLocale(languages?: readonly string[]): Locale {
