@@ -3,7 +3,6 @@ set -euo pipefail
 
 INSTALL_DIR_DEFAULT="$HOME/mailflow"
 COMPOSE_FILE="infrastructure/docker-compose.yml"
-TLS_COMPOSE_FILE="infrastructure/docker-compose.custom-tls.yml"
 EXPECTED_REMOTE="https://github.com/mcpdev80/MAILFLOW-AI_MAILING.git"
 
 resolve_path() {
@@ -129,9 +128,6 @@ ENV_FILE="$INSTALL_DIR/.env"
 COMPOSE_ARGS=(-f "$COMPOSE_FILE")
 if [ -f "$ENV_FILE" ]; then
   COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")
-fi
-if [ -f "$TLS_COMPOSE_FILE" ]; then
-  COMPOSE_ARGS+=(-f "$TLS_COMPOSE_FILE")
 fi
 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
