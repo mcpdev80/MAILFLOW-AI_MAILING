@@ -1,24 +1,13 @@
 "use client";
 
-import { useAppearance } from "@/lib/appearance-preferences";
 import { useI18n } from "@/lib/i18n";
-import type {
-  Density,
-  SidePanelAlignment,
-  Theme,
-  WorkspaceLayout,
-} from "@/lib/types";
-import { useEffect, useState } from "react";
+import type { Theme, WorkspaceLayout } from "@/lib/types";
+import { SettingsNav } from "./settings-nav";
 import styles from "./preferences.module.css";
+import { usePreferencesForm } from "./use-preferences-form";
 
 const themes: Theme[] = ["light", "dark", "system"];
-const layouts: WorkspaceLayout[] = [
-  "classic",
-  "vertical",
-  "focus",
-  "compact",
-  "wide",
-];
+const layouts: WorkspaceLayout[] = ["classic", "vertical", "focus", "compact", "wide"];
 
 function ThemeChoice({
   value,
@@ -30,7 +19,7 @@ function ThemeChoice({
   onSelect: (value: Theme) => void;
 }) {
   const { t } = useI18n();
-  const previewClass =
+  const preview =
     value === "light"
       ? styles.lightPreview
       : value === "dark"
@@ -42,105 +31,154 @@ function ThemeChoice({
       className={`${styles.themeCard} ${selected ? styles.selected : ""}`}
       onClick={() => onSelect(value)}
     >
-      <span className={`${styles.themePreview} ${previewClass}`} />
+      <span className={`${styles.themePreview} ${preview}`} />
       <strong>{t(`settings.appearance.theme.${value}`)}</strong>
     </button>
   );
 }
 
-function ChoiceButton<T extends string>({
-  value,
+function OptionButton({
   selected,
   label,
-  className = "",
-  onSelect,
+  onClick,
+  compact = false,
 }: {
-  value: T;
   selected: boolean;
   label: string;
-  className?: string;
-  onSelect: (value: T) => void;
+  onClick: () => void;
+  compact?: boolean;
 }) {
   return (
     <button
       type="button"
-      className={`${styles.optionButton} ${className} ${selected ? styles.selected : ""}`}
-      onClick={() => onSelect(value)}
+      className={`${styles.optionButton} ${compact ? styles.alignmentButton : ""} ${
+        selected ? styles.selected : ""
+      }`}
+      onClick={onClick}
     >
       {label}
     </button>
   );
 }
 
-function SettingsSideNav() {
+function ThemeSection({ form }: { form: ReturnType<typeof usePreferencesForm> }) {
   const { t } = useI18n();
   return (
-    <nav className={styles.sideNav} aria-label={t("settings.title")}>
-      <span className={styles.sideItem}>Profile & Account</span>
-      <span className={`${styles.sideItem} ${styles.sideItemActive}`}>
-        {t("settings.appearance.title")}
-      </span>
-      <span className={styles.sideItem}>{t("nav.mailboxes")}</span>
-      <span className={styles.sideItem}>AI Providers</span>
-      <span className={styles.sideItem}>Rules & Actions</span>
-      <span className={styles.sideItem}>Organization</span>
-      <span className={styles.sideItem}>Security & Passkeys</span>
-      <span className={styles.sideItem}>Data & Retention</span>
-      <span className={styles.sideItem}>Billing</span>
-    </nav>
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>{t("settings.appearance.theme")}</h3>
+      <div className={styles.themeGrid}>
+        {themes.map((item) => (
+          <ThemeChoice
+            key={item}
+            value={item}
+            selected={form.theme === item}
+            onSelect={form.setTheme}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceSection({ form }: { form: ReturnType<typeof usePreferencesForm> }) {
+  const { t } = useI18n();
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>{t("settings.appearance.workspace")}</h3>
+      <div className={styles.optionRow}>
+        {layouts.map((item) => (
+          <OptionButton
+            key={item}
+            selected={form.layout === item}
+            label={t(`settings.appearance.layout.${item}`)}
+            onClick={() => form.setLayout(item)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DensitySection({ form }: { form: ReturnType<typeof usePreferencesForm> }) {
+  const { t } = useI18n();
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>{t("settings.appearance.density")}</h3>
+      <div className={styles.densityRow}>
+        <span>{t("settings.appearance.density.compact")}</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="1"
+          value={form.density === "compact" ? 0 : 1}
+          onChange={(event) =>
+            form.setDensity(event.currentTarget.value === "0" ? "compact" : "comfortable")
+          }
+          aria-label={t("settings.appearance.density")}
+        />
+        <span>{t("settings.appearance.density.comfortable")}</span>
+      </div>
+    </div>
+  );
+}
+
+function AlignmentSection({ form }: { form: ReturnType<typeof usePreferencesForm> }) {
+  const { t } = useI18n();
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>{t("settings.appearance.alignment")}</h3>
+      <div className={styles.optionRow}>
+        {(["left", "right"] as const).map((item) => (
+          <OptionButton
+            key={item}
+            compact
+            selected={form.alignment === item}
+            label={t(`settings.appearance.alignment.${item}`)}
+            onClick={() => form.setAlignment(item)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AppearancePanel() {
+  const { t } = useI18n();
+  const form = usePreferencesForm();
+  return (
+    <section className={styles.panel}>
+      <header className={styles.sectionHeader}>
+        <h2>{t("settings.appearance.title")}</h2>
+        <p>{t("settings.appearance.description")}</p>
+      </header>
+      <ThemeSection form={form} />
+      <WorkspaceSection form={form} />
+      <DensitySection form={form} />
+      <AlignmentSection form={form} />
+      <div className={styles.actions}>
+        <button type="button" className="btn" disabled={form.saving} onClick={form.save}>
+          {form.saving ? t("common.loading") : t("settings.appearance.apply")}
+        </button>
+        <button type="button" className="btn secondary" disabled={form.saving} onClick={form.reset}>
+          {t("settings.appearance.reset")}
+        </button>
+      </div>
+      {form.notice && (
+        <p
+          className={`${styles.notice} ${
+            form.notice === "saved" ? styles.success : styles.error
+          }`}
+        >
+          {t(`settings.appearance.${form.notice}`)}
+        </p>
+      )}
+    </section>
   );
 }
 
 export default function PreferencesPage() {
   const { t } = useI18n();
-  const appearance = useAppearance();
-  const [theme, setTheme] = useState<Theme>(appearance.theme);
-  const [density, setDensity] = useState<Density>(appearance.density);
-  const [layout, setLayout] = useState<WorkspaceLayout>(appearance.workspaceLayout);
-  const [alignment, setAlignment] = useState<SidePanelAlignment>(
-    appearance.sidePanelAlignment,
-  );
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<"saved" | "failed" | null>(null);
-
-  useEffect(() => {
-    setTheme(appearance.theme);
-    setDensity(appearance.density);
-    setLayout(appearance.workspaceLayout);
-    setAlignment(appearance.sidePanelAlignment);
-  }, [
-    appearance.density,
-    appearance.sidePanelAlignment,
-    appearance.theme,
-    appearance.workspaceLayout,
-  ]);
-
-  async function save() {
-    setSaving(true);
-    setNotice(null);
-    try {
-      await appearance.updateAppearance({
-        theme,
-        density,
-        workspace_layout: layout,
-        side_panel_alignment: alignment,
-      });
-      setNotice("saved");
-    } catch {
-      setNotice("failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function reset() {
-    setTheme("system");
-    setDensity("comfortable");
-    setLayout("classic");
-    setAlignment("left");
-    setNotice(null);
-  }
-
   return (
     <main className={styles.page}>
       <div className={styles.titleBlock}>
@@ -148,91 +186,8 @@ export default function PreferencesPage() {
         <p>{t("settings.description")}</p>
       </div>
       <div className={styles.settingsSplit}>
-        <SettingsSideNav />
-        <section className={styles.panel}>
-          <header className={styles.sectionHeader}>
-            <h2>{t("settings.appearance.title")}</h2>
-            <p>{t("settings.appearance.description")}</p>
-          </header>
-
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>{t("settings.appearance.theme")}</h3>
-            <div className={styles.themeGrid}>
-              {themes.map((item) => (
-                <ThemeChoice
-                  key={item}
-                  value={item}
-                  selected={theme === item}
-                  onSelect={setTheme}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>{t("settings.appearance.workspace")}</h3>
-            <div className={styles.optionRow}>
-              {layouts.map((item) => (
-                <ChoiceButton
-                  key={item}
-                  value={item}
-                  selected={layout === item}
-                  label={t(`settings.appearance.layout.${item}`)}
-                  onSelect={setLayout}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>{t("settings.appearance.density")}</h3>
-            <div className={styles.densityRow}>
-              <span>{t("settings.appearance.density.compact")}</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="1"
-                value={density === "compact" ? 0 : 1}
-                onChange={(event) =>
-                  setDensity(event.currentTarget.value === "0" ? "compact" : "comfortable")
-                }
-                aria-label={t("settings.appearance.density")}
-              />
-              <span>{t("settings.appearance.density.comfortable")}</span>
-            </div>
-          </div>
-
-          <div className={styles.section}>
-            <h3 className={styles.sectionTitle}>{t("settings.appearance.alignment")}</h3>
-            <div className={styles.optionRow}>
-              {(["left", "right"] as const).map((item) => (
-                <ChoiceButton
-                  key={item}
-                  value={item}
-                  selected={alignment === item}
-                  label={t(`settings.appearance.alignment.${item}`)}
-                  className={styles.alignmentButton}
-                  onSelect={setAlignment}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.actions}>
-            <button type="button" className="btn" disabled={saving} onClick={save}>
-              {saving ? t("common.loading") : t("settings.appearance.apply")}
-            </button>
-            <button type="button" className="btn secondary" disabled={saving} onClick={reset}>
-              {t("settings.appearance.reset")}
-            </button>
-          </div>
-          {notice && (
-            <p className={`${styles.notice} ${notice === "saved" ? styles.success : styles.error}`}>
-              {t(`settings.appearance.${notice}`)}
-            </p>
-          )}
-        </section>
+        <SettingsNav />
+        <AppearancePanel />
       </div>
     </main>
   );
