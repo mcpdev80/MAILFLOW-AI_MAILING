@@ -403,10 +403,10 @@ test("reply all keeps other recipients but excludes the mailbox owner", async ({
 
   await page.goto("/app/mail");
   await page.getByText("Project update", { exact: true }).first().click();
-  await page.getByRole("button", { name: "Reply All", exact: true }).click();
+  await page.getByRole("button", { name: "Reply all", exact: true }).click();
 
   await expect(page).toHaveURL(/\/app\/compose\?draft=reply-all-draft-1/);
-  await expect(page.getByRole("heading", { name: "Reply All" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Reply all" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "To" })).toHaveValue(
     "sender@example.test, colleague@example.test",
   );
