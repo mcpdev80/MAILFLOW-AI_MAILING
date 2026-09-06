@@ -1,0 +1,35 @@
+name: Onboarding Path Validation
+
+on:
+  push:
+    branches:
+      - feat/mvp-guidelines-figma-redesign
+    paths:
+      - .github/workflows/validate-onboarding-e2e.yml
+
+jobs:
+  onboarding-playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm --prefix apps/web/e2e install --no-package-lock --ignore-scripts
+      - name: Install Chromium
+        working-directory: apps/web/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run onboarding paths
+        working-directory: apps/web/e2e
+        run: npx playwright test onboarding-flow.spec.mjs -c playwright.config.mjs
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-playwright-report
+          path: apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 3
