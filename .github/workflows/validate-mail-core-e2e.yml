@@ -10,6 +10,7 @@ on:
       - apps/web/src/lib/api.ts
       - apps/web/src/lib/types.ts
       - apps/web/e2e/core-surfaces.spec.mjs
+      - apps/web/e2e/mail-actions.spec.mjs
       - apps/web/e2e/support/mock-api.mjs
       - apps/web/e2e/playwright.config.mjs
 
@@ -28,6 +29,7 @@ jobs:
         run: >-
           pnpm biome check
           apps/web/e2e/core-surfaces.spec.mjs
+          apps/web/e2e/mail-actions.spec.mjs
           apps/web/e2e/support/mock-api.mjs
       - run: pnpm --filter @mailflow/web typecheck
       - run: npm --prefix apps/web/e2e install --no-package-lock --ignore-scripts
@@ -36,7 +38,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run mail core paths
         working-directory: apps/web/e2e
-        run: npx playwright test core-surfaces.spec.mjs -c playwright.config.mjs
+        run: >-
+          npx playwright test
+          core-surfaces.spec.mjs
+          mail-actions.spec.mjs
+          -c playwright.config.mjs
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v4
