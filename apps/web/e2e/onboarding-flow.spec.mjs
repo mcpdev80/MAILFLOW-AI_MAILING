@@ -87,7 +87,7 @@ async function setSessionCookie(page, userId) {
     {
       name: "better-auth.session_token",
       value: `session-token-${userId}`,
-      url: "http://127.0.0.1:3000",
+      url: "http://localhost:3000",
       httpOnly: true,
       sameSite: "Lax",
     },
