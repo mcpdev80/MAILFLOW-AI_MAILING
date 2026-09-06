@@ -3,6 +3,7 @@
 import { useAppearance } from "@/lib/appearance-preferences";
 import type {
   WorkspaceCustomConfig,
+  WorkspaceLayout,
   WorkspacePanel,
   WorkspacePanelConfig,
 } from "@/lib/types";
@@ -50,6 +51,19 @@ export function useWorkspaceEditor() {
     setDragged(null);
   }
 
+  async function applyPreset(layout: Exclude<WorkspaceLayout, "custom">) {
+    setSaving(true);
+    setNotice(null);
+    try {
+      await appearance.updateAppearance({ workspace_layout: layout });
+      setNotice("saved");
+    } catch {
+      setNotice("failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     setNotice(null);
@@ -77,9 +91,11 @@ export function useWorkspaceEditor() {
     panels,
     saving,
     notice,
+    activeLayout: appearance.workspaceLayout,
     setDragged,
     updatePanel,
     dropOn,
+    applyPreset,
     save,
     discard,
   };
