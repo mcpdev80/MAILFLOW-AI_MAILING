@@ -4,6 +4,7 @@ from app.models.attachment_library import (
     AttachmentDocument,
     AttachmentFolder,
     AttachmentMemory,
+    AttachmentPlacement,
     AttachmentSource,
 )
 from app.models.attention import NotificationEvent, NotificationPreference
@@ -29,6 +30,7 @@ __all__ = [
     "AttachmentDocument",
     "AttachmentFolder",
     "AttachmentMemory",
+    "AttachmentPlacement",
     "AttachmentSource",
     "AuditLog",
     "BackfillFailure",
