@@ -37,7 +37,7 @@ function ActionToolbar({ state, bottom = false }: { state: WorkspaceState; botto
       <button type="button" className={styles.toolbarButton} onClick={() => void state.openReply("forward")}>{t("mail.forward")}</button>
       {capabilities?.archive && <button type="button" className={styles.toolbarButton} onClick={() => void state.runActionFor(selected, { action: "archive" })}>{t("mailActions.archive")}</button>}
       {capabilities?.move && <MoveControls state={state} />}
-      {capabilities?.tags && <button type="button" className={styles.toolbarButton} onClick={() => addTag(state)}>{t("mailActions.organize")}</button>}
+      {capabilities?.tags && <button type="button" className={styles.toolbarButton} onClick={() => addTag(state, t("mail.tagPrompt"))}>{t("mailActions.organize")}</button>}
       {capabilities?.trash && <button type="button" className={`${styles.toolbarButton} ${styles.dangerAction}`} onClick={() => void state.runActionFor(selected, { action: "trash" })}>{t("common.delete")}</button>}
       <MoreButton state={state} />
     </div>
@@ -68,8 +68,8 @@ function MoreButton({ state }: { state: WorkspaceState }) {
   );
 }
 
-function addTag(state: WorkspaceState) {
-  const tag = window.prompt("Tag")?.trim();
+function addTag(state: WorkspaceState, prompt: string) {
+  const tag = window.prompt(prompt)?.trim();
   if (tag && state.selected) void state.runActionFor(state.selected, { action: "add_tags", tags: [tag] });
 }
 
