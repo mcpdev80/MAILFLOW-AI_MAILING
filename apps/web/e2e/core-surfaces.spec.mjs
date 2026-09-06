@@ -1,7 +1,71 @@
 import { expect, test } from "@playwright/test";
 import { installMockApi } from "./support/mock-api.mjs";
 
+const mailActionUrl =
+  "**/api/mf/mail-client/accounts/acct-1/messages/42/actions";
+
+async function installSession(page) {
+  await page.context().addCookies([
+    {
+      name: "better-auth.session_token",
+      value: "session-token-user-1",
+      url: "http://localhost:3000",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+}
+
+async function useCustomMailLayout(page) {
+  await page.route("**/api/mf/user/preferences", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        locale: "en",
+        locale_configured: true,
+        theme: "light",
+        density: "comfortable",
+        workspace_layout: "custom",
+        side_panel_alignment: "left",
+        workspace_custom_config: {
+          version: 1,
+          panels: [
+            {
+              panel: "accounts",
+              dock: "left",
+              order: 0,
+              size_px: 220,
+              visible: true,
+            },
+            {
+              panel: "message_list",
+              dock: "center",
+              order: 1,
+              size_px: 360,
+              visible: true,
+            },
+            {
+              panel: "message_content",
+              dock: "right",
+              order: 2,
+              size_px: null,
+              visible: true,
+            },
+          ],
+          message_content_overlay: false,
+          show_resize_handles: false,
+          action_bar_dock: "top",
+          system_status_position: "top",
+        },
+      }),
+    });
+  });
+}
+
 test.beforeEach(async ({ page }) => {
+  await installSession(page);
   await installMockApi(page);
 });
 
@@ -37,6 +101,162 @@ test("mail workspace opens a message and exposes thread content", async ({
     page.getByText("The project update is ready for review."),
   ).toBeVisible();
   await expect(page.getByText("Project update summary")).toBeVisible();
+});
+
+test("opening an unread message marks it read and decrements unread counters", async ({
+  page,
+}) => {
+  await useCustomMailLayout(page);
+  const actions = [];
+  await page.route(mailActionUrl, async (route) => {
+    actions.push(route.request().postDataJSON());
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        action: route.request().postDataJSON().action,
+        applied: true,
+        destination_folder: null,
+      }),
+    });
+  });
+
+  await page.goto("/app/mail");
+
+  const allMailboxes = page
+    .getByRole("button")
+    .filter({ hasText: /^All\s*1$/ });
+  const account = page
+    .getByRole("button")
+    .filter({ hasText: /owner@example\.test[\s\S]*1/ });
+  await expect(allMailboxes).toBeVisible();
+  await expect(account).toBeVisible();
+
+  const messageRow = page
+    .getByRole("button")
+    .filter({ hasText: "Project update" })
+    .first();
+  await expect(messageRow).toHaveClass(/unread/);
+  await messageRow.click();
+
+  await expect(
+    page.getByText("The project update is ready for review."),
+  ).toBeVisible();
+  await expect(messageRow).not.toHaveClass(/unread/);
+  await expect(
+    page.getByRole("button").filter({ hasText: /^All\s*0$/ }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("button")
+      .filter({ hasText: /owner@example\.test[\s\S]*0/ }),
+  ).toBeVisible();
+  expect(actions).toEqual([{ action: "mark_read" }]);
+});
+
+test("opening an already read message does not mark it read again", async ({
+  page,
+}) => {
+  let actionCalls = 0;
+
+  await page.route("**/api/mf/mail-client/inbox**", async (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            account_id: "acct-1",
+            account_address: "owner@example.test",
+            ownership_mode: "private",
+            uid: 42,
+            folder: "INBOX",
+            message_id: "<message-42@example.test>",
+            thread_id: "thread-1",
+            subject: "Project update",
+            from_email: "sender@example.test",
+            to_emails: ["owner@example.test"],
+            cc_emails: [],
+            date: "2026-09-06T10:00:00Z",
+            seen: true,
+            flagged: false,
+            answered: false,
+            keywords: [],
+            attachments: [],
+          },
+        ],
+        counters: [
+          {
+            account_id: "acct-1",
+            account_address: "owner@example.test",
+            folder: "INBOX",
+            total: 1,
+            unread: 0,
+          },
+        ],
+        total_unread: 0,
+        next_before_uid_by_account: {},
+      }),
+    });
+  });
+
+  await page.route(
+    "**/api/mf/mail-client/accounts/acct-1/messages/42",
+    async (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          account_id: "acct-1",
+          account_address: "owner@example.test",
+          ownership_mode: "private",
+          uid: 42,
+          folder: "INBOX",
+          message_id: "<message-42@example.test>",
+          thread_id: "thread-1",
+          subject: "Project update",
+          from_email: "sender@example.test",
+          to_emails: ["owner@example.test"],
+          cc_emails: [],
+          date: "2026-09-06T10:00:00Z",
+          seen: true,
+          flagged: false,
+          answered: false,
+          keywords: [],
+          attachments: [],
+          body_text: "The project update is ready for review.",
+          safe_html: null,
+          in_reply_to: null,
+          references: [],
+        }),
+      });
+    },
+  );
+
+  await page.route(mailActionUrl, async (route) => {
+    actionCalls += 1;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        action: route.request().postDataJSON().action,
+        applied: true,
+        destination_folder: null,
+      }),
+    });
+  });
+
+  await page.goto("/app/mail");
+  const messageRow = page
+    .getByRole("button")
+    .filter({ hasText: "Project update" })
+    .first();
+  await expect(messageRow).not.toHaveClass(/unread/);
+  await messageRow.click();
+  await expect(
+    page.getByText("The project update is ready for review."),
+  ).toBeVisible();
+  expect(actionCalls).toBe(0);
 });
 
 test("composer persists and sends only through explicit user action", async ({
