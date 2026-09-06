@@ -1,4 +1,4 @@
-{$MAILFLOW_PUBLIC_URL:https://localhost} {
+{$MAILFLOW_CADDY_ADDRESS:https://localhost} {
 	tls /etc/mailflow/tls/fullchain.pem /etc/mailflow/tls/privkey.pem
 	encode zstd gzip
 
