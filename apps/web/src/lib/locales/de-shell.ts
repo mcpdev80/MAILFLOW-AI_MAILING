@@ -4,6 +4,7 @@ export const deShell = {
   "nav.mailboxes": "Postfächer",
   "nav.learning": "Lernen",
   "shell.systemStatus": "Systemstatus",
+  "shell.checking": "Prüfung läuft…",
   "shell.operational": "Alle Systeme betriebsbereit",
   "shell.degraded": "Dienst beeinträchtigt",
   "shell.notifications": "Benachrichtigungen",
