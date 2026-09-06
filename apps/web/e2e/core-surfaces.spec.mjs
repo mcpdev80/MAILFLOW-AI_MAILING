@@ -147,9 +147,7 @@ test("opening an unread message marks it read and decrements unread counters", a
     page.getByRole("button").filter({ hasText: /^All\s*0$/ }),
   ).toBeVisible();
   await expect(
-    page
-      .getByRole("button")
-      .filter({ hasText: /owner@example\.test[\s\S]*0/ }),
+    page.getByRole("button").filter({ hasText: /owner@example\.test[\s\S]*0/ }),
   ).toBeVisible();
   expect(actions).toEqual([{ action: "mark_read" }]);
 });
