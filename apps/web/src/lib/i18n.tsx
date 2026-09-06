@@ -31,6 +31,7 @@ import { deSearch } from "./locales/de-search";
 import { deSecurity } from "./locales/de-security";
 import { deSettings } from "./locales/de-settings";
 import { deShell } from "./locales/de-shell";
+import { deStructure } from "./locales/de-structure";
 import { en } from "./locales/en";
 import { enAccount } from "./locales/en-account";
 import { enAuth } from "./locales/en-auth";
@@ -51,6 +52,7 @@ import { enSearch } from "./locales/en-search";
 import { enSecurity } from "./locales/en-security";
 import { enSettings } from "./locales/en-settings";
 import { enShell } from "./locales/en-shell";
+import { enStructure } from "./locales/en-structure";
 import { es } from "./locales/es";
 import { esAccount } from "./locales/es-account";
 import { esAuth } from "./locales/es-auth";
@@ -71,6 +73,7 @@ import { esSearch } from "./locales/es-search";
 import { esSecurity } from "./locales/es-security";
 import { esSettings } from "./locales/es-settings";
 import { esShell } from "./locales/es-shell";
+import { esStructure } from "./locales/es-structure";
 import type { TranslationKey } from "./locales/types";
 
 export type { TranslationKey } from "./locales/types";
@@ -104,6 +107,7 @@ const fallback = {
   ...enSecurity,
   ...enSettings,
   ...enShell,
+  ...enStructure,
 };
 const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
   de: {
@@ -127,6 +131,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...deSecurity,
     ...deSettings,
     ...deShell,
+    ...deStructure,
   },
   en: fallback,
   es: {
@@ -150,6 +155,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
     ...esSecurity,
     ...esSettings,
     ...esShell,
+    ...esStructure,
   },
 };
 
