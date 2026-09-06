@@ -8,9 +8,10 @@
     "start": "next start",
     "lint": "biome check src/",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "pnpm dlx @playwright/test@1.63.0 test",
-    "test:e2e:ui": "pnpm dlx @playwright/test@1.63.0 test --ui",
-    "test:e2e:headed": "pnpm dlx @playwright/test@1.63.0 test --headed",
+    "test:e2e:setup": "npm --prefix e2e install --no-package-lock --ignore-scripts && cd e2e && npx playwright install chromium",
+    "test:e2e": "npm --prefix e2e install --no-package-lock --ignore-scripts && npm --prefix e2e test",
+    "test:e2e:ui": "npm --prefix e2e install --no-package-lock --ignore-scripts && npm --prefix e2e run test:ui",
+    "test:e2e:headed": "npm --prefix e2e install --no-package-lock --ignore-scripts && npm --prefix e2e run test:headed",
     "auth:generate": "WEB_AUTH=on better-auth generate --config src/lib/auth.ts --output ./better-auth-schema.sql -y",
     "auth:migrate": "WEB_AUTH=on better-auth migrate --config src/lib/auth.ts -y"
   },
