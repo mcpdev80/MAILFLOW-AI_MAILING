@@ -7,6 +7,7 @@ cd "$HOME"
 
 REPO_SLUG="mcpdev80/MAILFLOW-AI_MAILING"
 DEFAULT_INSTALL="$HOME/mailflow"
+INSTALLER_BUILD="2026-09-07.1"
 
 parse_ref_from_url() {
   local url="$1" rest
@@ -53,13 +54,11 @@ resolve_install_ref() {
 
 checkout_ref() {
   local dir="$1" ref="$2"
-  git -C "$dir" fetch origin "+refs/heads/$ref:refs/remotes/origin/$ref"
-  if git -C "$dir" show-ref --verify --quiet "refs/heads/$ref"; then
-    git -C "$dir" checkout "$ref"
-  else
-    git -C "$dir" checkout -b "$ref" --track "origin/$ref"
-  fi
-  git -C "$dir" pull --ff-only origin "$ref"
+  # Fetch the requested branch directly. FETCH_HEAD is guaranteed to point at
+  # exactly the fetched commit even for old single-branch clones.
+  git -C "$dir" fetch origin "$ref"
+  git -C "$dir" checkout -B "$ref" FETCH_HEAD
+  git -C "$dir" branch --set-upstream-to="origin/$ref" "$ref" >/dev/null 2>&1 || true
 }
 
 BRANCH="$(resolve_install_ref "${1:-}")"
@@ -117,6 +116,7 @@ is_mailflow_install() {
 }
 
 printf '\n==> %s\n' "$(msg title)"
+printf 'Installer build: %s\n' "$INSTALLER_BUILD"
 printf 'Git ref: %s\n' "$BRANCH"
 
 if is_mailflow_install "$DEFAULT_INSTALL"; then
