@@ -1,9 +1,12 @@
 name: CI
 
-# CI is intentionally manual. Run it once a pull request is considered ready to
-# merge instead of consuming runner time on every development commit.
+# CI is intentionally manual on normal branches. This feature branch temporarily
+# enables push-triggered validation so the final backend validation can run.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/global-attachments-center-backend
 
 jobs:
   lint-python:
@@ -123,7 +126,6 @@ jobs:
 
   # security-audit:
   #   name: Dependency audit (CVEs)
-  #   runs-on: ubuntu-latest
   #   # Re-enable once the dependency-vulnerability baseline is established.
   #   continue-on-error: true
   #   steps:
