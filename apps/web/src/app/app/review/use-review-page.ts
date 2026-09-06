@@ -55,14 +55,19 @@ export function useReviewPage() {
         return Promise.resolve();
       }
       return runBusy(item.id, () =>
-        attentionApi.retryBackfillFailure(item.account_id, item.job_id!, item.id),
+        attentionApi.retryBackfillFailure(
+          item.account_id,
+          item.job_id!,
+          item.id,
+        ),
       );
     },
     [runBusy],
   );
 
   const isEmpty = useMemo(
-    () => data !== null && data.items.length === 0 && data.operational.length === 0,
+    () =>
+      data !== null && data.items.length === 0 && data.operational.length === 0,
     [data],
   );
 

@@ -5,17 +5,20 @@ export const enOnboarding = {
   "onboarding.classificationModel": "Classification model",
   "onboarding.generationModel": "Generation model",
   "onboarding.apiKey": "API key",
-  "onboarding.apiKeyHint": "Leave empty when the local provider does not require a key.",
+  "onboarding.apiKeyHint":
+    "Leave empty when the local provider does not require a key.",
   "onboarding.provider.ollama": "Ollama (local)",
   "onboarding.provider.openai": "OpenAI",
   "onboarding.provider.anthropic": "Anthropic",
   "onboarding.provider.custom": "Custom (OpenAI-compatible)",
   "onboarding.continue": "Continue",
   "onboarding.saving": "Saving…",
-  "onboarding.accountDescription": "Use OAuth when available, or enter IMAP details below.",
+  "onboarding.accountDescription":
+    "Use OAuth when available, or enter IMAP details below.",
   "onboarding.gmail": "Connect Gmail",
   "onboarding.microsoft": "Connect Microsoft 365",
-  "onboarding.oauthServerHint": "OAuth requires the corresponding client credentials on the server. If OAuth is not configured, use IMAP below.",
+  "onboarding.oauthServerHint":
+    "OAuth requires the corresponding client credentials on the server. If OAuth is not configured, use IMAP below.",
   "onboarding.imapTitle": "Or connect via IMAP",
   "onboarding.imapHost": "IMAP host",
   "onboarding.username": "Username",

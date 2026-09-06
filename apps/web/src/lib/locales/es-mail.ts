@@ -45,7 +45,8 @@ export const esMail = {
   "mail.openFailed": "No se pudo abrir el mensaje",
   "mail.actionFailed": "La acción de correo falló",
   "mail.actionsFailed": "No se pudieron cargar las acciones del mensaje",
-  "mail.moveBatchFailed": "No se pudieron mover todos los mensajes seleccionados",
+  "mail.moveBatchFailed":
+    "No se pudieron mover todos los mensajes seleccionados",
   "mail.undoFailed": "No se pudo deshacer el movimiento",
   "mail.replyDraftFailed": "No se pudo crear el borrador de respuesta",
   "mail.aiActionFailed": "La acción de IA falló",

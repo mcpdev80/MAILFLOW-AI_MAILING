@@ -43,14 +43,20 @@ export const enCompose = {
   "compose.draftContext": "Draft context only",
   "compose.applySuggestion": "Apply to draft",
   "compose.discardSuggestion": "Discard suggestion",
-  "compose.aiSafety": "AI output is never sent automatically. Review the draft before sending.",
-  "compose.aiApplied": "AI suggestion applied to the draft. Review it before sending.",
-  "compose.selectText": "Select some composer text first, then run the AI action.",
+  "compose.aiSafety":
+    "AI output is never sent automatically. Review the draft before sending.",
+  "compose.aiApplied":
+    "AI suggestion applied to the draft. Review it before sending.",
+  "compose.selectText":
+    "Select some composer text first, then run the AI action.",
   "compose.chooseLanguage": "Choose a target language for translation.",
   "compose.enterInstruction": "Enter a custom writing instruction.",
-  "compose.missingRecipient": "Please add at least one recipient before sending.",
-  "compose.missingAttachment": "You mention an attachment, but none is attached.",
-  "compose.missingAttachmentConfirm": "Your message mentions an attachment, but no file is attached. Send anyway?",
+  "compose.missingRecipient":
+    "Please add at least one recipient before sending.",
+  "compose.missingAttachment":
+    "You mention an attachment, but none is attached.",
+  "compose.missingAttachmentConfirm":
+    "Your message mentions an attachment, but no file is attached. Send anyway?",
   "compose.lastSendError": "Last send error",
   "compose.openFailed": "Could not open composer.",
   "compose.attachmentTooLarge": "Attachment is larger than 10 MB.",

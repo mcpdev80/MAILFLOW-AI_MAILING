@@ -13,7 +13,11 @@ export default function AccountsPage() {
       .listAccounts()
       .then((accounts) => {
         if (!active) return;
-        router.replace(accounts.length > 0 ? `/app/accounts/${accounts[0].id}` : "/onboarding");
+        router.replace(
+          accounts.length > 0
+            ? `/app/accounts/${accounts[0].id}`
+            : "/onboarding",
+        );
       })
       .catch(() => {
         if (active) router.replace("/onboarding");

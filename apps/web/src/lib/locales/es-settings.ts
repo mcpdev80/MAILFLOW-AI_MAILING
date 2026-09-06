@@ -1,6 +1,7 @@
 export const esSettings = {
   "settings.title": "Ajustes",
-  "settings.description": "Gestiona tu perfil, espacios de trabajo, integraciones de seguridad y parámetros visuales.",
+  "settings.description":
+    "Gestiona tu perfil, espacios de trabajo, integraciones de seguridad y parámetros visuales.",
   "settings.nav.profile": "Perfil y cuenta",
   "settings.nav.mailboxes": "Buzones",
   "settings.nav.providers": "Proveedores de IA",
@@ -10,7 +11,8 @@ export const esSettings = {
   "settings.nav.retention": "Datos y retención",
   "settings.nav.billing": "Facturación",
   "settings.appearance.title": "Apariencia y espacio de trabajo",
-  "settings.appearance.description": "Personaliza la apariencia de Mailflow y la disposición del espacio de correo.",
+  "settings.appearance.description":
+    "Personaliza la apariencia de Mailflow y la disposición del espacio de correo.",
   "settings.appearance.theme": "Tema de la interfaz",
   "settings.appearance.theme.light": "Modo claro",
   "settings.appearance.theme.dark": "Modo oscuro",
@@ -33,10 +35,12 @@ export const esSettings = {
   "settings.appearance.saved": "Ajustes guardados.",
   "settings.appearance.failed": "No se pudieron guardar los ajustes.",
   "settings.workspaceEditor.title": "Editor de diseño del espacio",
-  "settings.workspaceEditor.description": "Reordena, acopla y ajusta el tamaño de los paneles del correo.",
+  "settings.workspaceEditor.description":
+    "Reordena, acopla y ajusta el tamaño de los paneles del correo.",
   "settings.workspaceEditor.active": "Diseño personalizado activo",
   "settings.workspaceEditor.panelOptions": "Opciones de panel",
-  "settings.workspaceEditor.overlay": "Contenido del mensaje como superposición",
+  "settings.workspaceEditor.overlay":
+    "Contenido del mensaje como superposición",
   "settings.workspaceEditor.resizeHandles": "Mostrar controles de tamaño",
   "settings.workspaceEditor.orderDock": "Orden y acoplamiento",
   "settings.workspaceEditor.actionBar": "Acoplamiento de la barra de acciones",

@@ -2,7 +2,8 @@ import type { TranslationKey } from "./types";
 
 export const deDrafts: Partial<Record<TranslationKey, string>> = {
   "drafts.title": "Entwürfe",
-  "drafts.description": "Gespeicherte ausgehende Nachrichten aus deinen freigegebenen Postfächern.",
+  "drafts.description":
+    "Gespeicherte ausgehende Nachrichten aus deinen freigegebenen Postfächern.",
   "drafts.compose": "Verfassen",
   "drafts.loading": "Wird geladen…",
   "drafts.empty": "Keine gespeicherten Entwürfe.",

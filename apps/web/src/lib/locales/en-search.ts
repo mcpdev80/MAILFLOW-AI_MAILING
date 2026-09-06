@@ -1,7 +1,8 @@
 export const enSearch = {
   "common.all": "All",
   "search.title": "Search",
-  "search.description": "Metadata and classification state across your authorized mailboxes.",
+  "search.description":
+    "Metadata and classification state across your authorized mailboxes.",
   "search.advanced": "Search / Advanced Lookup",
   "search.senderSubject": "Sender / subject",
   "search.sender": "Sender",

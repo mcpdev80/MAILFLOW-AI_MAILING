@@ -3,7 +3,8 @@ import type { TranslationKey } from "./types";
 export const deModelSettings: Partial<Record<TranslationKey, string>> = {
   "models.back": "Dashboard",
   "models.title": "Modellrollen",
-  "models.description": "Die schnelle Klassifizierung verarbeitet die frühen Stufen, die tiefe Klassifizierung mehrdeutige Fälle und das Generierungsmodell Schreibaufgaben. Rollenspezifische Endpunkte sind optional und fallen auf die Provider-Standardwerte zurück.",
+  "models.description":
+    "Die schnelle Klassifizierung verarbeitet die frühen Stufen, die tiefe Klassifizierung mehrdeutige Fälle und das Generierungsmodell Schreibaufgaben. Rollenspezifische Endpunkte sind optional und fallen auf die Provider-Standardwerte zurück.",
   "models.loading": "Modelleinstellungen werden geladen…",
   "models.empty": "Noch kein LLM-Provider konfiguriert.",
   "models.configure": "Provider konfigurieren",

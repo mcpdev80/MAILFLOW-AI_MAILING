@@ -2,7 +2,8 @@ import type { TranslationKey } from "./types";
 
 export const esDrafts: Partial<Record<TranslationKey, string>> = {
   "drafts.title": "Borradores",
-  "drafts.description": "Mensajes salientes guardados de tus buzones autorizados.",
+  "drafts.description":
+    "Mensajes salientes guardados de tus buzones autorizados.",
   "drafts.compose": "Redactar",
   "drafts.loading": "Cargando…",
   "drafts.empty": "No hay borradores guardados.",

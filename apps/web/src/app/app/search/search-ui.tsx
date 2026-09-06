@@ -1,7 +1,7 @@
 "use client";
 
 import type { MessageSearchResult } from "@/lib/dashboard-api";
-import { enumLabel, type TranslationKey } from "@/lib/i18n";
+import { type TranslationKey, enumLabel } from "@/lib/i18n";
 import type { EmailAccount } from "@/lib/types";
 import Link from "next/link";
 import styles from "./search.module.css";
@@ -30,7 +30,16 @@ type T = (key: TranslationKey) => string;
 type SetFilter = (key: keyof SearchFilters, value: string) => void;
 
 type SelectOption = { value: string; label: string };
-const CATEGORIES = ["work", "private", "finance", "orders", "appointments", "newsletters", "notifications", "other"];
+const CATEGORIES = [
+  "work",
+  "private",
+  "finance",
+  "orders",
+  "appointments",
+  "newsletters",
+  "notifications",
+  "other",
+];
 const IMPORTANCE = ["critical", "high", "normal", "low", "unknown"];
 const URGENCY = ["immediate", "today", "this_week", "none", "unknown"];
 const ACTION = ["yes", "no", "unknown"];
@@ -98,18 +107,63 @@ function PrimaryFilters(props: {
         onChange={(value) => setFilter("account_id", value)}
         options={[
           { value: "", label: t("common.all") },
-          ...accounts.map((account) => ({ value: account.id, label: account.username })),
+          ...accounts.map((account) => ({
+            value: account.id,
+            label: account.username,
+          })),
         ]}
       />
-      <TextField label={t("search.sender")} value={filters.sender} onChange={(value) => setFilter("sender", value)} />
-      <TextField label={t("search.subject")} value={filters.subject} onChange={(value) => setFilter("subject", value)} />
-      <TextField label={t("search.from")} type="date" value={filters.date_from} onChange={(value) => setFilter("date_from", value)} />
-      <TextField label={t("search.to")} type="date" value={filters.date_to} onChange={(value) => setFilter("date_to", value)} />
-      <SelectField label={t("review.category")} value={filters.category} onChange={(value) => setFilter("category", value)} options={enumOptions(t, "category", CATEGORIES)} />
-      <TextField label={t("review.subcategory")} value={filters.subcategory} onChange={(value) => setFilter("subcategory", value)} />
-      <SelectField label={t("review.importance")} value={filters.importance} onChange={(value) => setFilter("importance", value)} options={enumOptions(t, "importance", IMPORTANCE)} />
-      <SelectField label={t("review.urgency")} value={filters.urgency} onChange={(value) => setFilter("urgency", value)} options={enumOptions(t, "urgency", URGENCY)} />
-      <SelectField label={t("review.actionRequired")} value={filters.action_required} onChange={(value) => setFilter("action_required", value)} options={enumOptions(t, "action_required", ACTION)} />
+      <TextField
+        label={t("search.sender")}
+        value={filters.sender}
+        onChange={(value) => setFilter("sender", value)}
+      />
+      <TextField
+        label={t("search.subject")}
+        value={filters.subject}
+        onChange={(value) => setFilter("subject", value)}
+      />
+      <TextField
+        label={t("search.from")}
+        type="date"
+        value={filters.date_from}
+        onChange={(value) => setFilter("date_from", value)}
+      />
+      <TextField
+        label={t("search.to")}
+        type="date"
+        value={filters.date_to}
+        onChange={(value) => setFilter("date_to", value)}
+      />
+      <SelectField
+        label={t("review.category")}
+        value={filters.category}
+        onChange={(value) => setFilter("category", value)}
+        options={enumOptions(t, "category", CATEGORIES)}
+      />
+      <TextField
+        label={t("review.subcategory")}
+        value={filters.subcategory}
+        onChange={(value) => setFilter("subcategory", value)}
+      />
+      <SelectField
+        label={t("review.importance")}
+        value={filters.importance}
+        onChange={(value) => setFilter("importance", value)}
+        options={enumOptions(t, "importance", IMPORTANCE)}
+      />
+      <SelectField
+        label={t("review.urgency")}
+        value={filters.urgency}
+        onChange={(value) => setFilter("urgency", value)}
+        options={enumOptions(t, "urgency", URGENCY)}
+      />
+      <SelectField
+        label={t("review.actionRequired")}
+        value={filters.action_required}
+        onChange={(value) => setFilter("action_required", value)}
+        options={enumOptions(t, "action_required", ACTION)}
+      />
     </>
   );
 }
@@ -122,31 +176,68 @@ function AdvancedFilters(props: {
   const { filters, setFilter, t } = props;
   return (
     <>
-      <SelectField label={t("search.review")} value={filters.review_required} onChange={(value) => setFilter("review_required", value)} options={[
-        { value: "", label: t("common.all") },
-        { value: "true", label: t("search.required") },
-        { value: "false", label: t("search.notRequired") },
-      ]} />
-      <SelectField label={t("search.security")} value={filters.suspicious_content} onChange={(value) => setFilter("suspicious_content", value)} options={[
-        { value: "", label: t("common.all") },
-        { value: "true", label: t("search.suspicious") },
-        { value: "false", label: t("search.normal") },
-      ]} />
-      <TextField label={t("search.tag")} value={filters.tag} onChange={(value) => setFilter("tag", value)} />
-      <TextField label={t("search.destinationFolder")} value={filters.destination_folder} onChange={(value) => setFilter("destination_folder", value)} />
-      <SelectField label={t("search.classificationSource")} value={filters.classification_source} onChange={(value) => setFilter("classification_source", value)} options={[
-        { value: "", label: t("common.all") },
-        { value: "decision_memory", label: "DecisionMemory" },
-        { value: "fast_model", label: t("search.fastModel") },
-        { value: "deep_model", label: t("search.deepModel") },
-      ]} />
-      <SelectField label={t("search.processingState")} value={filters.processed_state} onChange={(value) => setFilter("processed_state", value)} options={[
-        { value: "", label: t("common.all") },
-        ...["execute", "review", "pending", "queued", "deferred", "blocked", "failed", "error"].map((value) => ({
-          value,
-          label: t(`processing.${value}` as TranslationKey),
-        })),
-      ]} />
+      <SelectField
+        label={t("search.review")}
+        value={filters.review_required}
+        onChange={(value) => setFilter("review_required", value)}
+        options={[
+          { value: "", label: t("common.all") },
+          { value: "true", label: t("search.required") },
+          { value: "false", label: t("search.notRequired") },
+        ]}
+      />
+      <SelectField
+        label={t("search.security")}
+        value={filters.suspicious_content}
+        onChange={(value) => setFilter("suspicious_content", value)}
+        options={[
+          { value: "", label: t("common.all") },
+          { value: "true", label: t("search.suspicious") },
+          { value: "false", label: t("search.normal") },
+        ]}
+      />
+      <TextField
+        label={t("search.tag")}
+        value={filters.tag}
+        onChange={(value) => setFilter("tag", value)}
+      />
+      <TextField
+        label={t("search.destinationFolder")}
+        value={filters.destination_folder}
+        onChange={(value) => setFilter("destination_folder", value)}
+      />
+      <SelectField
+        label={t("search.classificationSource")}
+        value={filters.classification_source}
+        onChange={(value) => setFilter("classification_source", value)}
+        options={[
+          { value: "", label: t("common.all") },
+          { value: "decision_memory", label: "DecisionMemory" },
+          { value: "fast_model", label: t("search.fastModel") },
+          { value: "deep_model", label: t("search.deepModel") },
+        ]}
+      />
+      <SelectField
+        label={t("search.processingState")}
+        value={filters.processed_state}
+        onChange={(value) => setFilter("processed_state", value)}
+        options={[
+          { value: "", label: t("common.all") },
+          ...[
+            "execute",
+            "review",
+            "pending",
+            "queued",
+            "deferred",
+            "blocked",
+            "failed",
+            "error",
+          ].map((value) => ({
+            value,
+            label: t(`processing.${value}` as TranslationKey),
+          })),
+        ]}
+      />
     </>
   );
 }
@@ -176,11 +267,23 @@ export function SearchFiltersPanel(props: {
         <PrimaryFilters {...props} />
         <AdvancedFilters {...props} />
         <div className={styles.filterActions}>
-          <button className="btn secondary" type="button" disabled={props.loading} onClick={props.onReset}>
+          <button
+            className="btn secondary"
+            type="button"
+            disabled={props.loading}
+            onClick={props.onReset}
+          >
             {props.t("search.reset")}
           </button>
-          <button className="btn" type="button" disabled={props.loading} onClick={props.onSearch}>
-            {props.loading ? props.t("common.loading") : props.t("search.action")}
+          <button
+            className="btn"
+            type="button"
+            disabled={props.loading}
+            onClick={props.onSearch}
+          >
+            {props.loading
+              ? props.t("common.loading")
+              : props.t("search.action")}
           </button>
         </div>
       </div>
@@ -197,15 +300,22 @@ function initials(value: string): string {
     .join("");
 }
 
-export function SearchResults({ result, t }: { result: MessageSearchResult | null; t: T }) {
+export function SearchResults({
+  result,
+  t,
+}: { result: MessageSearchResult | null; t: T }) {
   if (result && result.items.length === 0) {
     return <div className={styles.empty}>{t("search.noResults")}</div>;
   }
   return (
     <>
       <div className={styles.resultsMeta}>
-        <strong>{result?.total ?? 0} {t("search.results")}</strong>
-        <span className={styles.sort}>{t("search.sortBy")}: <strong>{t("search.relevance")}</strong></span>
+        <strong>
+          {result?.total ?? 0} {t("search.results")}
+        </strong>
+        <span className={styles.sort}>
+          {t("search.sortBy")}: <strong>{t("search.relevance")}</strong>
+        </span>
       </div>
       <div className={styles.results}>
         {result?.items.map((item) => (
@@ -216,24 +326,46 @@ export function SearchResults({ result, t }: { result: MessageSearchResult | nul
           >
             <div className={styles.resultTop}>
               <div className={styles.senderWrap}>
-                <span className={styles.avatar}>{initials(item.from_email)}</span>
+                <span className={styles.avatar}>
+                  {initials(item.from_email)}
+                </span>
                 <span className={styles.sender}>{item.from_email}</span>
                 <span className={styles.mailboxPill}>{item.account_label}</span>
               </div>
-              <span className={styles.time}>{new Date(item.processed_at).toLocaleString()}</span>
+              <span className={styles.time}>
+                {new Date(item.processed_at).toLocaleString()}
+              </span>
             </div>
-            <p className={styles.subject}>{item.subject || t("review.noSubject")}</p>
+            <p className={styles.subject}>
+              {item.subject || t("review.noSubject")}
+            </p>
             <div className={styles.resultBottom}>
               <div className={styles.tags}>
-                <span className={`${styles.tag} ${styles.category}`}>{enumLabel(t, "category", item.category)}</span>
-                <span className={styles.tag}>{enumLabel(t, "importance", item.importance)}</span>
-                <span className={styles.tag}>{enumLabel(t, "urgency", item.urgency)}</span>
-                {item.review_required && <span className={styles.tag}>{t("review.title")}</span>}
-                {item.suspicious_content && <span className={styles.tag}>{t("review.security")}</span>}
+                <span className={`${styles.tag} ${styles.category}`}>
+                  {enumLabel(t, "category", item.category)}
+                </span>
+                <span className={styles.tag}>
+                  {enumLabel(t, "importance", item.importance)}
+                </span>
+                <span className={styles.tag}>
+                  {enumLabel(t, "urgency", item.urgency)}
+                </span>
+                {item.review_required && (
+                  <span className={styles.tag}>{t("review.title")}</span>
+                )}
+                {item.suspicious_content && (
+                  <span className={styles.tag}>{t("review.security")}</span>
+                )}
               </div>
-              <span className={styles.meta}>{item.classification_source} · {item.processed_state}</span>
+              <span className={styles.meta}>
+                {item.classification_source} · {item.processed_state}
+              </span>
             </div>
-            {item.destination_folder && <span className={styles.destination}>{item.destination_folder}</span>}
+            {item.destination_folder && (
+              <span className={styles.destination}>
+                {item.destination_folder}
+              </span>
+            )}
           </Link>
         ))}
       </div>

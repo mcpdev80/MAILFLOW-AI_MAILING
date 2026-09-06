@@ -11,11 +11,25 @@ export const decisionCategories = [
   "other",
 ] as const;
 
-export const importanceValues = ["critical", "high", "normal", "low", "unknown"] as const;
-export const urgencyValues = ["immediate", "today", "this_week", "none", "unknown"] as const;
+export const importanceValues = [
+  "critical",
+  "high",
+  "normal",
+  "low",
+  "unknown",
+] as const;
+export const urgencyValues = [
+  "immediate",
+  "today",
+  "this_week",
+  "none",
+  "unknown",
+] as const;
 export const actionValues = ["yes", "no", "unknown"] as const;
 
-export function toDecisionWrite(entry: DecisionMemoryEntry): DecisionMemoryWrite {
+export function toDecisionWrite(
+  entry: DecisionMemoryEntry,
+): DecisionMemoryWrite {
   return {
     sender_email: entry.sender_email,
     sender_domain: entry.sender_domain,
@@ -29,7 +43,10 @@ export function toDecisionWrite(entry: DecisionMemoryEntry): DecisionMemoryWrite
     system_tags: entry.system_tags,
     user_tags: entry.user_tags,
     routing_target: entry.routing_target,
-    source: entry.source === "human_corrected" ? "human_corrected" : "human_confirmed",
+    source:
+      entry.source === "human_corrected"
+        ? "human_corrected"
+        : "human_confirmed",
     trust_score: entry.trust_score,
     enabled: entry.enabled,
   };
@@ -38,6 +55,7 @@ export function toDecisionWrite(entry: DecisionMemoryEntry): DecisionMemoryWrite
 export function decisionMatchLabel(entry: DecisionMemoryEntry): string {
   if (entry.thread_id) return `Thread ${entry.thread_id}`;
   const sender = entry.sender_email ?? entry.sender_domain;
-  if (sender && entry.subject_pattern) return `${sender} · ${entry.subject_pattern}`;
+  if (sender && entry.subject_pattern)
+    return `${sender} · ${entry.subject_pattern}`;
   return sender ?? entry.subject_pattern ?? entry.id;
 }

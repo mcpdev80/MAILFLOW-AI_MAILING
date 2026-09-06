@@ -13,7 +13,8 @@ export const enBilling = {
   "billing.minimum": "min",
   "billing.upgradeTeam": "Upgrade to Team ({count} seats)",
   "billing.manageCancel": "Manage / cancel subscription",
-  "billing.selfHostedInfo": "This is a self-hosted instance — no plan limits apply. Billing is only used on the managed SaaS.",
+  "billing.selfHostedInfo":
+    "This is a self-hosted instance — no plan limits apply. Billing is only used on the managed SaaS.",
   "billing.loadFailed": "Could not load billing",
   "billing.notConfigured": "Billing is not configured on this server.",
   "billing.checkoutFailed": "Checkout failed",

@@ -45,14 +45,20 @@ export const esCompose: Partial<Record<TranslationKey, string>> = {
   "compose.draftContext": "Solo contexto del borrador",
   "compose.applySuggestion": "Aplicar al borrador",
   "compose.discardSuggestion": "Descartar sugerencia",
-  "compose.aiSafety": "La salida de IA nunca se envía automáticamente. Revisa el borrador antes de enviarlo.",
-  "compose.aiApplied": "La sugerencia de IA se aplicó al borrador. Revísala antes de enviarlo.",
-  "compose.selectText": "Selecciona primero texto del borrador y luego ejecuta la acción de IA.",
+  "compose.aiSafety":
+    "La salida de IA nunca se envía automáticamente. Revisa el borrador antes de enviarlo.",
+  "compose.aiApplied":
+    "La sugerencia de IA se aplicó al borrador. Revísala antes de enviarlo.",
+  "compose.selectText":
+    "Selecciona primero texto del borrador y luego ejecuta la acción de IA.",
   "compose.chooseLanguage": "Elige un idioma de destino para la traducción.",
-  "compose.enterInstruction": "Introduce una instrucción de escritura personalizada.",
+  "compose.enterInstruction":
+    "Introduce una instrucción de escritura personalizada.",
   "compose.missingRecipient": "Añade al menos un destinatario antes de enviar.",
-  "compose.missingAttachment": "El mensaje menciona un adjunto, pero no hay ningún archivo adjunto.",
-  "compose.missingAttachmentConfirm": "El mensaje menciona un adjunto, pero no hay ningún archivo adjunto. ¿Enviar de todos modos?",
+  "compose.missingAttachment":
+    "El mensaje menciona un adjunto, pero no hay ningún archivo adjunto.",
+  "compose.missingAttachmentConfirm":
+    "El mensaje menciona un adjunto, pero no hay ningún archivo adjunto. ¿Enviar de todos modos?",
   "compose.lastSendError": "Último error de envío",
   "compose.openFailed": "No se pudo abrir el editor.",
   "compose.attachmentTooLarge": "El adjunto supera los 10 MB.",

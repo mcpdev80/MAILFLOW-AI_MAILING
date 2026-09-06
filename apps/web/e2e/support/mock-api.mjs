@@ -203,7 +203,8 @@ export async function installMockApi(page) {
     const method = request.method();
 
     if (path === "/health") return json(route, { status: "ok", db: "up" });
-    if (path === "/user/preferences" && method === "GET") return json(route, preferences);
+    if (path === "/user/preferences" && method === "GET")
+      return json(route, preferences);
     if (path === "/user/preferences" && method === "PUT") {
       preferences = { ...preferences, ...(request.postDataJSON?.() ?? {}) };
       return json(route, preferences);
@@ -277,7 +278,11 @@ export async function installMockApi(page) {
     }
     if (path === "/accounts" && method === "GET") return json(route, [account]);
     if (path === `/accounts/${account.id}/cycles/run` && method === "POST") {
-      return json(route, { account_id: account.id, enqueued: true, job_id: "job-1" });
+      return json(route, {
+        account_id: account.id,
+        enqueued: true,
+        job_id: "job-1",
+      });
     }
     if (path === "/mail-client/inbox") {
       return json(route, {
@@ -315,13 +320,27 @@ export async function installMockApi(page) {
         ],
       });
     }
-    if (path === `/mail-client/accounts/${account.id}/messages/${message.uid}` && method === "GET") {
+    if (
+      path === `/mail-client/accounts/${account.id}/messages/${message.uid}` &&
+      method === "GET"
+    ) {
       return json(route, messageDetail);
     }
-    if (path === `/mail-client/accounts/${account.id}/messages/${message.uid}/actions` && method === "POST") {
-      return json(route, { action: request.postDataJSON().action, applied: true, destination_folder: null });
+    if (
+      path ===
+        `/mail-client/accounts/${account.id}/messages/${message.uid}/actions` &&
+      method === "POST"
+    ) {
+      return json(route, {
+        action: request.postDataJSON().action,
+        applied: true,
+        destination_folder: null,
+      });
     }
-    if (path === `/mail-client/accounts/${account.id}/threads/${message.thread_id}`) {
+    if (
+      path ===
+      `/mail-client/accounts/${account.id}/threads/${message.thread_id}`
+    ) {
       return json(route, {
         account_id: account.id,
         thread_id: message.thread_id,
@@ -336,9 +355,11 @@ export async function installMockApi(page) {
         },
       });
     }
-    if (path === "/mail/drafts" && method === "GET") return json(route, [draft]);
+    if (path === "/mail/drafts" && method === "GET")
+      return json(route, [draft]);
     if (path === "/mail/drafts" && method === "POST") return json(route, draft);
-    if (path === `/mail/drafts/${draft.id}` && method === "GET") return json(route, draft);
+    if (path === `/mail/drafts/${draft.id}` && method === "GET")
+      return json(route, draft);
     if (path === `/mail/drafts/${draft.id}` && method === "PATCH") {
       draft = { ...draft, ...request.postDataJSON(), updated_at: now };
       return json(route, draft);
@@ -368,6 +389,10 @@ export async function installMockApi(page) {
       return json(route, reviewItem);
     }
 
-    return json(route, { detail: `Unmocked E2E endpoint: ${method} ${path}` }, 501);
+    return json(
+      route,
+      { detail: `Unmocked E2E endpoint: ${method} ${path}` },
+      501,
+    );
   });
 }

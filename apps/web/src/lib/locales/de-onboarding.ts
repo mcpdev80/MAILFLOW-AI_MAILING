@@ -7,17 +7,20 @@ export const deOnboarding: Partial<Record<TranslationKey, string>> = {
   "onboarding.classificationModel": "Klassifizierungsmodell",
   "onboarding.generationModel": "Generierungsmodell",
   "onboarding.apiKey": "API-Key",
-  "onboarding.apiKeyHint": "Leer lassen, wenn der lokale Provider keinen Key benötigt.",
+  "onboarding.apiKeyHint":
+    "Leer lassen, wenn der lokale Provider keinen Key benötigt.",
   "onboarding.provider.ollama": "Ollama (lokal)",
   "onboarding.provider.openai": "OpenAI",
   "onboarding.provider.anthropic": "Anthropic",
   "onboarding.provider.custom": "Benutzerdefiniert (OpenAI-kompatibel)",
   "onboarding.continue": "Weiter",
   "onboarding.saving": "Wird gespeichert…",
-  "onboarding.accountDescription": "Nutze OAuth, wenn verfügbar, oder trage unten die IMAP-Daten ein.",
+  "onboarding.accountDescription":
+    "Nutze OAuth, wenn verfügbar, oder trage unten die IMAP-Daten ein.",
   "onboarding.gmail": "Gmail verbinden",
   "onboarding.microsoft": "Microsoft 365 verbinden",
-  "onboarding.oauthServerHint": "OAuth benötigt die entsprechenden Client-Zugangsdaten auf dem Server. Wenn OAuth nicht konfiguriert ist, nutze unten IMAP.",
+  "onboarding.oauthServerHint":
+    "OAuth benötigt die entsprechenden Client-Zugangsdaten auf dem Server. Wenn OAuth nicht konfiguriert ist, nutze unten IMAP.",
   "onboarding.imapTitle": "Oder per IMAP verbinden",
   "onboarding.imapHost": "IMAP-Host",
   "onboarding.username": "Benutzername",

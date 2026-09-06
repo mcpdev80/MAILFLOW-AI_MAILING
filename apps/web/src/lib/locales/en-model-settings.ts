@@ -1,7 +1,8 @@
 export const enModelSettings = {
   "models.back": "Dashboard",
   "models.title": "Model roles",
-  "models.description": "Fast classification handles the early stages, deep classification handles ambiguous cases, and generation is used for writing tasks. Role-specific endpoints are optional and fall back to the provider defaults.",
+  "models.description":
+    "Fast classification handles the early stages, deep classification handles ambiguous cases, and generation is used for writing tasks. Role-specific endpoints are optional and fall back to the provider defaults.",
   "models.loading": "Loading model settings…",
   "models.empty": "No LLM provider is configured yet.",
   "models.configure": "Configure provider",

@@ -36,7 +36,8 @@ export function useModelSettings() {
     try {
       const items = await api.listProviders();
       setProviders(items);
-      if (items.length > 0) selectInitialProvider(items, setProviderId, setForm);
+      if (items.length > 0)
+        selectInitialProvider(items, setProviderId, setForm);
     } catch (err) {
       setError(messageOf(err, "model_settings_load_failed"));
     } finally {
@@ -44,7 +45,9 @@ export function useModelSettings() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   function selectProvider(id: string) {
     setProviderId(id);
@@ -60,8 +63,13 @@ export function useModelSettings() {
     setError(null);
     setNotice(null);
     try {
-      const updated = await api.updateProvider(provider.id, providerUpdate(form));
-      setProviders((current) => current.map((item) => item.id === updated.id ? updated : item));
+      const updated = await api.updateProvider(
+        provider.id,
+        providerUpdate(form),
+      );
+      setProviders((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
       setForm(formFor(updated));
       setNotice("saved");
     } catch (err) {
@@ -71,30 +79,60 @@ export function useModelSettings() {
     }
   }
 
-  return { providers, providerId, provider, form, setForm, loading, error, notice, busy, reload: load, selectProvider, save };
+  return {
+    providers,
+    providerId,
+    provider,
+    form,
+    setForm,
+    loading,
+    error,
+    notice,
+    busy,
+    reload: load,
+    selectProvider,
+    save,
+  };
 }
 
 export type ModelSettingsController = ReturnType<typeof useModelSettings>;
 
 const emptyForm: ModelFormState = {
-  fastModel: "", deepModel: "", generationModel: "",
-  fastBaseUrl: "", deepBaseUrl: "", generationBaseUrl: "",
-  fastApiKey: "", deepApiKey: "", generationApiKey: "",
+  fastModel: "",
+  deepModel: "",
+  generationModel: "",
+  fastBaseUrl: "",
+  deepBaseUrl: "",
+  generationBaseUrl: "",
+  fastApiKey: "",
+  deepApiKey: "",
+  generationApiKey: "",
 };
 
 function formFor(provider: LLMProvider): ModelFormState {
   return {
-    fastModel: provider.fast_classification_model ?? provider.default_classification_model,
-    deepModel: provider.deep_classification_model ?? provider.default_classification_model,
-    generationModel: provider.generation_model ?? provider.default_generation_model,
+    fastModel:
+      provider.fast_classification_model ??
+      provider.default_classification_model,
+    deepModel:
+      provider.deep_classification_model ??
+      provider.default_classification_model,
+    generationModel:
+      provider.generation_model ?? provider.default_generation_model,
     fastBaseUrl: provider.fast_classification_base_url ?? "",
     deepBaseUrl: provider.deep_classification_base_url ?? "",
     generationBaseUrl: provider.generation_base_url ?? "",
-    fastApiKey: "", deepApiKey: "", generationApiKey: "",
+    fastApiKey: "",
+    deepApiKey: "",
+    generationApiKey: "",
   };
 }
 
-function selectInitialProvider(items: LLMProvider[], setId: (value: string) => void, setForm: (value: ModelFormState) => void) {
+function selectInitialProvider(
+  items: LLMProvider[],
+  setId: (value: string) => void,
+  setForm: (value: ModelFormState) => void,
+) {
   setId(items[0].id);
   setForm(formFor(items[0]));
 }
@@ -109,10 +147,14 @@ function providerUpdate(form: ModelFormState) {
     generation_base_url: form.generationBaseUrl || null,
     ...(form.fastApiKey ? { fast_api_key: form.fastApiKey } : {}),
     ...(form.deepApiKey ? { deep_api_key: form.deepApiKey } : {}),
-    ...(form.generationApiKey ? { generation_api_key: form.generationApiKey } : {}),
+    ...(form.generationApiKey
+      ? { generation_api_key: form.generationApiKey }
+      : {}),
   };
 }
 
 function messageOf(error: unknown, fallback: string) {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiError, api } from "@/lib/api";
-import { attentionApi, type ReviewInbox } from "@/lib/attention-api";
+import { type ReviewInbox, attentionApi } from "@/lib/attention-api";
 import { type DashboardOverview, dashboardApi } from "@/lib/dashboard-api";
 import { useCallback, useEffect, useState } from "react";
 
@@ -19,7 +19,8 @@ export function useDashboard() {
       dashboardApi.overview(days),
       attentionApi.review(),
     ]);
-    if (overviewResult.status === "fulfilled") setOverview(overviewResult.value);
+    if (overviewResult.status === "fulfilled")
+      setOverview(overviewResult.value);
     else {
       const err = overviewResult.reason;
       setError(err instanceof ApiError ? err.message : String(err));

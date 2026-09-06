@@ -2,10 +2,10 @@
 
 import { useSearchParams } from "next/navigation";
 import { useRef } from "react";
-import { useMailboxNavigation } from "./use-mailbox-navigation";
 import { useMailContextActions } from "./use-mail-context-actions";
 import { useMailMessageView } from "./use-mail-message-view";
 import { useMailMoveActions } from "./use-mail-move-actions";
+import { useMailboxNavigation } from "./use-mailbox-navigation";
 
 export function useMailWorkspace() {
   const params = useSearchParams();

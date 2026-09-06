@@ -2,12 +2,18 @@
 
 import { useI18n } from "@/lib/i18n";
 import type { Theme, WorkspaceLayout } from "@/lib/types";
-import { SettingsNav } from "./settings-nav";
 import styles from "./preferences.module.css";
+import { SettingsNav } from "./settings-nav";
 import { usePreferencesForm } from "./use-preferences-form";
 
 const themes: Theme[] = ["light", "dark", "system"];
-const layouts: WorkspaceLayout[] = ["classic", "vertical", "focus", "compact", "wide"];
+const layouts: WorkspaceLayout[] = [
+  "classic",
+  "vertical",
+  "focus",
+  "compact",
+  "wide",
+];
 
 function ThemeChoice({
   value,
@@ -61,7 +67,9 @@ function OptionButton({
   );
 }
 
-function ThemeSection({ form }: { form: ReturnType<typeof usePreferencesForm> }) {
+function ThemeSection({
+  form,
+}: { form: ReturnType<typeof usePreferencesForm> }) {
   const { t } = useI18n();
   return (
     <div className={styles.section}>
@@ -80,11 +88,15 @@ function ThemeSection({ form }: { form: ReturnType<typeof usePreferencesForm> })
   );
 }
 
-function WorkspaceSection({ form }: { form: ReturnType<typeof usePreferencesForm> }) {
+function WorkspaceSection({
+  form,
+}: { form: ReturnType<typeof usePreferencesForm> }) {
   const { t } = useI18n();
   return (
     <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{t("settings.appearance.workspace")}</h3>
+      <h3 className={styles.sectionTitle}>
+        {t("settings.appearance.workspace")}
+      </h3>
       <div className={styles.optionRow}>
         {layouts.map((item) => (
           <OptionButton
@@ -99,11 +111,15 @@ function WorkspaceSection({ form }: { form: ReturnType<typeof usePreferencesForm
   );
 }
 
-function DensitySection({ form }: { form: ReturnType<typeof usePreferencesForm> }) {
+function DensitySection({
+  form,
+}: { form: ReturnType<typeof usePreferencesForm> }) {
   const { t } = useI18n();
   return (
     <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{t("settings.appearance.density")}</h3>
+      <h3 className={styles.sectionTitle}>
+        {t("settings.appearance.density")}
+      </h3>
       <div className={styles.densityRow}>
         <span>{t("settings.appearance.density.compact")}</span>
         <input
@@ -113,7 +129,9 @@ function DensitySection({ form }: { form: ReturnType<typeof usePreferencesForm> 
           step="1"
           value={form.density === "compact" ? 0 : 1}
           onChange={(event) =>
-            form.setDensity(event.currentTarget.value === "0" ? "compact" : "comfortable")
+            form.setDensity(
+              event.currentTarget.value === "0" ? "compact" : "comfortable",
+            )
           }
           aria-label={t("settings.appearance.density")}
         />
@@ -123,11 +141,15 @@ function DensitySection({ form }: { form: ReturnType<typeof usePreferencesForm> 
   );
 }
 
-function AlignmentSection({ form }: { form: ReturnType<typeof usePreferencesForm> }) {
+function AlignmentSection({
+  form,
+}: { form: ReturnType<typeof usePreferencesForm> }) {
   const { t } = useI18n();
   return (
     <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>{t("settings.appearance.alignment")}</h3>
+      <h3 className={styles.sectionTitle}>
+        {t("settings.appearance.alignment")}
+      </h3>
       <div className={styles.optionRow}>
         {(["left", "right"] as const).map((item) => (
           <OptionButton
@@ -157,10 +179,20 @@ function AppearancePanel() {
       <DensitySection form={form} />
       <AlignmentSection form={form} />
       <div className={styles.actions}>
-        <button type="button" className="btn" disabled={form.saving} onClick={form.save}>
+        <button
+          type="button"
+          className="btn"
+          disabled={form.saving}
+          onClick={form.save}
+        >
           {form.saving ? t("common.loading") : t("settings.appearance.apply")}
         </button>
-        <button type="button" className="btn secondary" disabled={form.saving} onClick={form.reset}>
+        <button
+          type="button"
+          className="btn secondary"
+          disabled={form.saving}
+          onClick={form.reset}
+        >
           {t("settings.appearance.reset")}
         </button>
       </div>

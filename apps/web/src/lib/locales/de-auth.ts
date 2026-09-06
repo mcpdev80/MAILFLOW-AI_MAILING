@@ -3,8 +3,10 @@ import type { TranslationKey } from "./types";
 export const deAuth: Partial<Record<TranslationKey, string>> = {
   "auth.login.title": "Anmelden",
   "auth.login.passkey": "Mit Passkey anmelden",
-  "auth.login.passkeyHint": "Nutze Windows Hello, Touch ID, dein Telefon oder einen Sicherheitsschlüssel.",
-  "auth.login.passwordHint": "E-Mail und Passwort bleiben für Migration und Kontowiederherstellung verfügbar.",
+  "auth.login.passkeyHint":
+    "Nutze Windows Hello, Touch ID, dein Telefon oder einen Sicherheitsschlüssel.",
+  "auth.login.passwordHint":
+    "E-Mail und Passwort bleiben für Migration und Kontowiederherstellung verfügbar.",
   "auth.login.email": "E-Mail",
   "auth.login.password": "Passwort",
   "auth.login.passwordAction": "Mit Passwort anmelden",

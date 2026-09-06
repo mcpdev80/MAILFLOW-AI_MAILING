@@ -20,5 +20,6 @@ export const esDashboard = {
   "dashboard.today": "Hoy",
   "dashboard.days": "días",
   "dashboard.cycleEnqueued": "Ciclo de procesamiento en cola.",
-  "dashboard.cycleFailed": "No se pudo poner en cola el ciclo de procesamiento.",
+  "dashboard.cycleFailed":
+    "No se pudo poner en cola el ciclo de procesamiento.",
 } as const;

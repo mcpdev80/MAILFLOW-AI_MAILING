@@ -32,7 +32,10 @@ export function useBillingPage() {
       setBusy(true);
       setError(null);
       try {
-        const { url } = await api.checkout(plan, plan === "team" ? teamSeats : undefined);
+        const { url } = await api.checkout(
+          plan,
+          plan === "team" ? teamSeats : undefined,
+        );
         window.location.href = url;
       } catch (err) {
         setError(checkoutMessage(err, t));
@@ -54,14 +57,29 @@ export function useBillingPage() {
     }
   }, [t]);
 
-  return { status, error, busy, teamSeats, setTeamSeats, upgrade, openPortal, reload: load };
+  return {
+    status,
+    error,
+    busy,
+    teamSeats,
+    setTeamSeats,
+    upgrade,
+    openPortal,
+    reload: load,
+  };
 }
 
-function checkoutMessage(error: unknown, t: ReturnType<typeof useI18n>["t"]): string {
-  if (error instanceof ApiError && error.status === 501) return t("billing.notConfigured");
+function checkoutMessage(
+  error: unknown,
+  t: ReturnType<typeof useI18n>["t"],
+): string {
+  if (error instanceof ApiError && error.status === 501)
+    return t("billing.notConfigured");
   return messageOf(error, t("billing.checkoutFailed"));
 }
 
 function messageOf(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

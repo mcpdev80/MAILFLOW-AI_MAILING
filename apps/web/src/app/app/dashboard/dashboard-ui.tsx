@@ -7,7 +7,7 @@ import type {
   DashboardOverview,
   DashboardTrendPoint,
 } from "@/lib/dashboard-api";
-import { enumLabel, type TranslationKey } from "@/lib/i18n";
+import { type TranslationKey, enumLabel } from "@/lib/i18n";
 import Link from "next/link";
 import styles from "./dashboard.module.css";
 
@@ -22,7 +22,9 @@ export function KpiCard(props: {
   const content = (
     <>
       <span className={styles.kpiLabel}>{props.label}</span>
-      <strong className={styles.kpiValue}>{props.value.toLocaleString()}</strong>
+      <strong className={styles.kpiValue}>
+        {props.value.toLocaleString()}
+      </strong>
     </>
   );
   const className = `${styles.kpiCard} ${props.accent ? styles.kpiCardAccent : ""}`;
@@ -66,8 +68,15 @@ export function TrendCard(props: { points: DashboardTrendPoint[]; t: T }) {
       <div className={styles.cardHeader}>
         <h2>{props.t("dashboard.trend")}</h2>
       </div>
-      <svg className={styles.trend} viewBox="0 0 100 100" preserveAspectRatio="none">
-        <polyline className={styles.trendLine} points={trendPoints(props.points)} />
+      <svg
+        className={styles.trend}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
+        <polyline
+          className={styles.trendLine}
+          points={trendPoints(props.points)}
+        />
       </svg>
       <div className={styles.trendLabels}>
         <span>{first}</span>
@@ -81,7 +90,10 @@ export function CategoryCard(props: {
   items: DashboardBreakdownItem[];
   t: T;
 }) {
-  const total = Math.max(props.items.reduce((sum, item) => sum + item.count, 0), 1);
+  const total = Math.max(
+    props.items.reduce((sum, item) => sum + item.count, 0),
+    1,
+  );
   return (
     <section className={styles.card}>
       <div className={styles.cardHeader}>
@@ -117,15 +129,22 @@ export function ReviewCard(props: {
   t: T;
 }) {
   const denominator = Math.max(props.overview.counters.processed_range, 1);
-  const rate = ((props.overview.counters.review_required / denominator) * 100).toFixed(2);
+  const rate = (
+    (props.overview.counters.review_required / denominator) *
+    100
+  ).toFixed(2);
   return (
     <section className={styles.card}>
       <div className={styles.cardHeader}>
         <h2>{props.t("dashboard.needsReview")}</h2>
-        <span className={styles.reviewRate}>{rate}% {props.t("dashboard.reviewRate")}</span>
+        <span className={styles.reviewRate}>
+          {rate}% {props.t("dashboard.reviewRate")}
+        </span>
       </div>
       <div className={styles.reviewList}>
-        {props.items.length === 0 && <div className={styles.empty}>{props.t("dashboard.noReview")}</div>}
+        {props.items.length === 0 && (
+          <div className={styles.empty}>{props.t("dashboard.noReview")}</div>
+        )}
         {props.items.slice(0, 3).map((item) => (
           <Link
             key={item.id}
@@ -139,7 +158,9 @@ export function ReviewCard(props: {
                 <span>{item.reason}</span>
               </div>
             </div>
-            <span className={styles.confidence}>{Math.round(item.confidence * 100)}%</span>
+            <span className={styles.confidence}>
+              {Math.round(item.confidence * 100)}%
+            </span>
           </Link>
         ))}
       </div>
@@ -165,19 +186,35 @@ export function MailboxCard(props: {
               props.mailbox.health === "healthy" ? "" : styles.healthDotWarn
             }`}
           />
-          <Link className={styles.mailboxName} href={`/app/accounts/${props.mailbox.account_id}`}>
+          <Link
+            className={styles.mailboxName}
+            href={`/app/accounts/${props.mailbox.account_id}`}
+          >
             {props.mailbox.label}
           </Link>
         </div>
-        <button className="btn secondary" type="button" disabled={props.running} onClick={props.onRun}>
-          {props.running ? props.t("dashboard.running") : props.t("dashboard.runNow")}
+        <button
+          className="btn secondary"
+          type="button"
+          disabled={props.running}
+          onClick={props.onRun}
+        >
+          {props.running
+            ? props.t("dashboard.running")
+            : props.t("dashboard.runNow")}
         </button>
       </div>
       <div className={styles.mailboxMeta}>
-        <span>{props.t("dashboard.lastSynced")}: {lastSync}</span>
+        <span>
+          {props.t("dashboard.lastSynced")}: {lastSync}
+        </span>
         <span className={styles.counts}>
-          <span className={styles.countPill}>{props.mailbox.pending_count} {props.t("dashboard.pending")}</span>
-          <span className={styles.countPill}>{props.mailbox.review_count} {props.t("dashboard.review")}</span>
+          <span className={styles.countPill}>
+            {props.mailbox.pending_count} {props.t("dashboard.pending")}
+          </span>
+          <span className={styles.countPill}>
+            {props.mailbox.review_count} {props.t("dashboard.review")}
+          </span>
         </span>
       </div>
     </div>

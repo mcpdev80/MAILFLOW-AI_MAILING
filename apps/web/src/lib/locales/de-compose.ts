@@ -25,7 +25,8 @@ export const deCompose: Partial<Record<TranslationKey, string>> = {
   "compose.discarded": "Entwurf verworfen.",
   "compose.attach": "Dateien anhängen",
   "compose.adding": "Wird hinzugefügt…",
-  "compose.noMailbox": "Verbinde zuerst ein Postfach, bevor du eine Nachricht verfasst.",
+  "compose.noMailbox":
+    "Verbinde zuerst ein Postfach, bevor du eine Nachricht verfasst.",
   "compose.connectMailbox": "Postfach verbinden",
   "compose.richText": "Rich Text",
   "compose.markdown": "Markdown",
@@ -45,14 +46,20 @@ export const deCompose: Partial<Record<TranslationKey, string>> = {
   "compose.draftContext": "Nur Entwurfskontext",
   "compose.applySuggestion": "In Entwurf übernehmen",
   "compose.discardSuggestion": "Vorschlag verwerfen",
-  "compose.aiSafety": "KI-Ausgaben werden niemals automatisch gesendet. Prüfe den Entwurf vor dem Senden.",
-  "compose.aiApplied": "KI-Vorschlag wurde in den Entwurf übernommen. Prüfe ihn vor dem Senden.",
-  "compose.selectText": "Wähle zuerst Text im Entwurf aus und starte dann die KI-Aktion.",
+  "compose.aiSafety":
+    "KI-Ausgaben werden niemals automatisch gesendet. Prüfe den Entwurf vor dem Senden.",
+  "compose.aiApplied":
+    "KI-Vorschlag wurde in den Entwurf übernommen. Prüfe ihn vor dem Senden.",
+  "compose.selectText":
+    "Wähle zuerst Text im Entwurf aus und starte dann die KI-Aktion.",
   "compose.chooseLanguage": "Wähle eine Zielsprache für die Übersetzung.",
   "compose.enterInstruction": "Gib eine eigene Schreibanweisung ein.",
-  "compose.missingRecipient": "Füge vor dem Senden mindestens einen Empfänger hinzu.",
-  "compose.missingAttachment": "Die Nachricht erwähnt einen Anhang, aber es ist keine Datei angehängt.",
-  "compose.missingAttachmentConfirm": "Die Nachricht erwähnt einen Anhang, aber es ist keine Datei angehängt. Trotzdem senden?",
+  "compose.missingRecipient":
+    "Füge vor dem Senden mindestens einen Empfänger hinzu.",
+  "compose.missingAttachment":
+    "Die Nachricht erwähnt einen Anhang, aber es ist keine Datei angehängt.",
+  "compose.missingAttachmentConfirm":
+    "Die Nachricht erwähnt einen Anhang, aber es ist keine Datei angehängt. Trotzdem senden?",
   "compose.lastSendError": "Letzter Sendefehler",
   "compose.openFailed": "Composer konnte nicht geöffnet werden.",
   "compose.attachmentTooLarge": "Anhang ist größer als 10 MB.",

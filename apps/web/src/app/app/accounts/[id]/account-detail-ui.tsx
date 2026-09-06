@@ -46,7 +46,9 @@ function AccountContent({
         canManage={controller.permissions.canManageOwnership}
         onSaved={controller.setAccount}
       />
-      {controller.contentAccessible && <CycleOverview controller={controller} />}
+      {controller.contentAccessible && (
+        <CycleOverview controller={controller} />
+      )}
     </>
   );
 }
@@ -108,8 +110,9 @@ function AccountHeader({
         </div>
       </div>
       <p className="muted">
-        {account.imap_host}:{account.imap_port} · {t("account.every")} {account.interval_minutes}{" "}
-        {t("account.minutes")} · {account.is_active ? t("account.active") : t("account.paused")} ·{" "}
+        {account.imap_host}:{account.imap_port} · {t("account.every")}{" "}
+        {account.interval_minutes} {t("account.minutes")} ·{" "}
+        {account.is_active ? t("account.active") : t("account.paused")} ·{" "}
         {account.ownership_mode}
       </p>
     </header>
@@ -154,7 +157,10 @@ function PrivateAccess({ controller }: { controller: Controller }) {
     <section className="card" style={{ marginBottom: 20 }}>
       <h2 style={{ marginTop: 0 }}>{t("account.access")}</h2>
       <p className="muted">{t("account.privateInfo")}</p>
-      <MemberChecklist controller={controller} label={t("account.shareMembers")} />
+      <MemberChecklist
+        controller={controller}
+        label={t("account.shareMembers")}
+      />
       <button
         className="btn secondary"
         type="button"
@@ -188,7 +194,10 @@ function SharedAccess({ controller }: { controller: Controller }) {
     <section className="card" style={{ marginBottom: 20 }}>
       <h2 style={{ marginTop: 0 }}>{t("account.access")}</h2>
       <p className="muted">{t("account.sharedInfo")}</p>
-      <MemberChecklist controller={controller} label={t("account.membersAccess")} />
+      <MemberChecklist
+        controller={controller}
+        label={t("account.membersAccess")}
+      />
       <button
         className="btn secondary"
         type="button"
@@ -331,7 +340,9 @@ function CycleHistory({ cycles }: { cycles: Cycle[] }) {
 function CycleRow({ cycle, locale }: { cycle: Cycle; locale: string }) {
   return (
     <tr>
-      <td className="muted">{new Date(cycle.created_at).toLocaleString(locale)}</td>
+      <td className="muted">
+        {new Date(cycle.created_at).toLocaleString(locale)}
+      </td>
       <td>{cycle.emails_processed}</td>
       <td>{cycle.drafts_saved}</td>
       <td>{cycle.error_count}</td>
@@ -342,7 +353,10 @@ function CycleRow({ cycle, locale }: { cycle: Cycle; locale: string }) {
   );
 }
 
-function accountMessage(value: string | null, t: ReturnType<typeof useI18n>["t"]) {
+function accountMessage(
+  value: string | null,
+  t: ReturnType<typeof useI18n>["t"],
+) {
   if (!value) return null;
   const messages: Record<string, string> = {
     shared_access_updated: t("account.sharedUpdated"),

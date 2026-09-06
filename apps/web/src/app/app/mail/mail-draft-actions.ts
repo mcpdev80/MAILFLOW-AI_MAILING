@@ -24,7 +24,10 @@ function forwardBody(source: MessageDetail): string {
   ].join("\n");
 }
 
-function recipients(source: MessageDetail, type: "reply" | "reply_all" | "forward") {
+function recipients(
+  source: MessageDetail,
+  type: "reply" | "reply_all" | "forward",
+) {
   if (type === "reply") return { to: [source.from_email], cc: [] as string[] };
   if (type === "forward") return { to: [] as string[], cc: [] as string[] };
   const to = safeRecipients(
@@ -49,15 +52,21 @@ export async function createReplyDraft(
     account_id: source.account_id,
     message_type: type,
     in_reply_to: type === "forward" ? null : source.message_id,
-    references: Array.from(new Set([...source.references, source.message_id].filter(Boolean))),
+    references: Array.from(
+      new Set([...source.references, source.message_id].filter(Boolean)),
+    ),
     to_recipients: target.to,
     cc_recipients: target.cc,
-    subject: prefixedSubject(source.subject, type === "forward" ? "Fwd:" : "Re:"),
+    subject: prefixedSubject(
+      source.subject,
+      type === "forward" ? "Fwd:" : "Re:",
+    ),
     body_text: type === "forward" ? forwardBody(source) : "",
     editor_mode: "rich_text",
   });
   if (!aiAction?.startsWith("ai_reply")) return draft.id;
-  const instruction = customInstruction || AI_REPLY_INSTRUCTIONS[aiAction] || "";
+  const instruction =
+    customInstruction || AI_REPLY_INSTRUCTIONS[aiAction] || "";
   if (!instruction) return draft.id;
   const preview = await api.previewWriting(draft.id, {
     action: "custom",

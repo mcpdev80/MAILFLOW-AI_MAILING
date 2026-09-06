@@ -7,17 +7,20 @@ export const esOnboarding: Partial<Record<TranslationKey, string>> = {
   "onboarding.classificationModel": "Modelo de clasificación",
   "onboarding.generationModel": "Modelo de generación",
   "onboarding.apiKey": "Clave API",
-  "onboarding.apiKeyHint": "Déjalo vacío si el proveedor local no requiere una clave.",
+  "onboarding.apiKeyHint":
+    "Déjalo vacío si el proveedor local no requiere una clave.",
   "onboarding.provider.ollama": "Ollama (local)",
   "onboarding.provider.openai": "OpenAI",
   "onboarding.provider.anthropic": "Anthropic",
   "onboarding.provider.custom": "Personalizado (compatible con OpenAI)",
   "onboarding.continue": "Continuar",
   "onboarding.saving": "Guardando…",
-  "onboarding.accountDescription": "Usa OAuth cuando esté disponible o introduce los datos IMAP abajo.",
+  "onboarding.accountDescription":
+    "Usa OAuth cuando esté disponible o introduce los datos IMAP abajo.",
   "onboarding.gmail": "Conectar Gmail",
   "onboarding.microsoft": "Conectar Microsoft 365",
-  "onboarding.oauthServerHint": "OAuth requiere las credenciales de cliente correspondientes en el servidor. Si OAuth no está configurado, usa IMAP abajo.",
+  "onboarding.oauthServerHint":
+    "OAuth requiere las credenciales de cliente correspondientes en el servidor. Si OAuth no está configurado, usa IMAP abajo.",
   "onboarding.imapTitle": "O conectar mediante IMAP",
   "onboarding.imapHost": "Host IMAP",
   "onboarding.username": "Usuario",

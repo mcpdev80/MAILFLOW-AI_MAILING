@@ -34,13 +34,16 @@ const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
 function resolveTheme(theme: Theme): "light" | "dark" {
   if (theme !== "system") return theme;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 function applyDocumentAppearance(theme: Theme, density: Density) {
   document.documentElement.dataset.theme = resolveTheme(theme);
   document.documentElement.dataset.density = density;
-  document.documentElement.style.colorScheme = theme === "system" ? "light dark" : theme;
+  document.documentElement.style.colorScheme =
+    theme === "system" ? "light dark" : theme;
 }
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
@@ -77,11 +80,14 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     return () => media.removeEventListener("change", sync);
   }, [preferences?.density, preferences?.theme]);
 
-  const updateAppearance = useCallback(async (update: UserPreferencesUpdate) => {
-    const saved = await api.updateUserPreferences(update);
-    setPreferences(saved);
-    applyDocumentAppearance(saved.theme, saved.density);
-  }, []);
+  const updateAppearance = useCallback(
+    async (update: UserPreferencesUpdate) => {
+      const saved = await api.updateUserPreferences(update);
+      setPreferences(saved);
+      applyDocumentAppearance(saved.theme, saved.density);
+    },
+    [],
+  );
 
   const value = useMemo<AppearanceContextValue>(
     () => ({
@@ -96,11 +102,16 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     [preferences, ready, updateAppearance],
   );
 
-  return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;
+  return (
+    <AppearanceContext.Provider value={value}>
+      {children}
+    </AppearanceContext.Provider>
+  );
 }
 
 export function useAppearance(): AppearanceContextValue {
   const value = useContext(AppearanceContext);
-  if (!value) throw new Error("useAppearance must be used inside AppearanceProvider");
+  if (!value)
+    throw new Error("useAppearance must be used inside AppearanceProvider");
   return value;
 }

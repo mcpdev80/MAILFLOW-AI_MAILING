@@ -40,7 +40,10 @@ export function safeRecipients(values: string[], ownAddress: string): string[] {
   return result;
 }
 
-export function prefixedSubject(subject: string, prefix: "Re:" | "Fwd:"): string {
+export function prefixedSubject(
+  subject: string,
+  prefix: "Re:" | "Fwd:",
+): string {
   const cleaned = subject.trim();
   if (prefix === "Re:" && /^re:/i.test(cleaned)) return cleaned;
   if (prefix === "Fwd:" && /^(fwd?|wg):/i.test(cleaned)) return cleaned;

@@ -36,7 +36,10 @@ type ContextActionOptions = {
   setThread: (value: ThreadView | null) => void;
   detailFor: (message: InboxMessage) => Promise<MessageDetail>;
   ensureMetadata: (accountId: string) => Promise<MailboxMetadata>;
-  runActionFor: (message: InboxMessage, payload: MailActionRequest) => Promise<void>;
+  runActionFor: (
+    message: InboxMessage,
+    payload: MailActionRequest,
+  ) => Promise<void>;
   setError: (value: string | null) => void;
 };
 
@@ -72,7 +75,11 @@ function contextMenuOpener(
   return async (message: InboxMessage, position: ContextMenuPosition) => {
     try {
       const metadata = await options.ensureMetadata(message.account_id);
-      setContextMenu({ position, message, capabilities: metadata.capabilities });
+      setContextMenu({
+        position,
+        message,
+        capabilities: metadata.capabilities,
+      });
     } catch (err) {
       options.setError(apiErrorMessage(err, t("mail.actionsFailed")));
     }
@@ -91,9 +98,10 @@ function replyOpener(
   ) => {
     const detail = source ? await options.detailFor(source) : options.selected;
     if (!detail) return;
-    const instruction = aiAction === "ai_reply_custom"
-      ? customReplyInstruction(t("mail.customReplyPrompt"))
-      : undefined;
+    const instruction =
+      aiAction === "ai_reply_custom"
+        ? customReplyInstruction(t("mail.customReplyPrompt"))
+        : undefined;
     if (aiAction === "ai_reply_custom" && !instruction) return;
     try {
       const id = await createReplyDraft(detail, type, aiAction, instruction);
@@ -113,18 +121,27 @@ function contextExecutor(
   return async (action: MailActionId, message: InboxMessage) => {
     try {
       if (isReplyAction(action)) return openReply(action, message);
-      if (action.startsWith("ai_reply")) return openReply("reply", message, action);
-      if (isInsightAction(action)) return showInsight(action, message, options, setAiResult, t);
+      if (action.startsWith("ai_reply"))
+        return openReply("reply", message, action);
+      if (isInsightAction(action))
+        return showInsight(action, message, options, setAiResult, t);
       if (action.startsWith("ai_translate_") || action === "ai_custom") {
         return showGeneratedAI(action, message, options, setAiResult, t);
       }
-      if (isDirectMailAction(action)) return options.runActionFor(message, { action });
-      if (action === "move") return moveFromContext(message, options, t("mail.movePrompt"));
+      if (isDirectMailAction(action))
+        return options.runActionFor(message, { action });
+      if (action === "move")
+        return moveFromContext(message, options, t("mail.movePrompt"));
       if (action === "print_message" || action === "print_thread") {
         return printMessage(action, await options.detailFor(message));
       }
       if (action === "message_details") {
-        setAiResult(messageDetails(await options.detailFor(message), t("mail.messageDetails")));
+        setAiResult(
+          messageDetails(
+            await options.detailFor(message),
+            t("mail.messageDetails"),
+          ),
+        );
       }
     } catch (err) {
       options.setError(apiErrorMessage(err, t("mail.actionFailed")));
@@ -132,16 +149,32 @@ function contextExecutor(
   };
 }
 
-function isReplyAction(action: MailActionId): action is "reply" | "reply_all" | "forward" {
+function isReplyAction(
+  action: MailActionId,
+): action is "reply" | "reply_all" | "forward" {
   return action === "reply" || action === "reply_all" || action === "forward";
 }
 
 function isInsightAction(action: MailActionId): boolean {
-  return ["ai_summarize", "ai_key_points", "ai_todos", "ai_questions", "ai_deadlines"].includes(action);
+  return [
+    "ai_summarize",
+    "ai_key_points",
+    "ai_todos",
+    "ai_questions",
+    "ai_deadlines",
+  ].includes(action);
 }
 
 function isDirectMailAction(action: MailActionId): action is DirectMailAction {
-  return ["mark_read", "mark_unread", "flag", "unflag", "archive", "spam", "trash"].includes(action);
+  return [
+    "mark_read",
+    "mark_unread",
+    "flag",
+    "unflag",
+    "archive",
+    "spam",
+    "trash",
+  ].includes(action);
 }
 
 async function showInsight(
@@ -152,7 +185,9 @@ async function showInsight(
   t: Translate,
 ) {
   const detail = await options.detailFor(message);
-  const context = detail.thread_id ? await api.threadDetail(detail.account_id, detail.thread_id) : null;
+  const context = detail.thread_id
+    ? await api.threadDetail(detail.account_id, detail.thread_id)
+    : null;
   options.setSelected(detail);
   options.setThread(context);
   setAiResult(insightResult(action, context?.insights ?? null, t));
@@ -167,11 +202,14 @@ async function showGeneratedAI(
 ) {
   const detail = await options.detailFor(message);
   const language = translationLanguage(action);
-  const instruction = language || window.prompt(t("mail.customAiPrompt"))?.trim() || "";
+  const instruction =
+    language || window.prompt(t("mail.customAiPrompt"))?.trim() || "";
   if (!instruction) return;
   try {
     setAiResult({
-      title: language ? `${t("mail.translation")} · ${language}` : t("mail.aiResult"),
+      title: language
+        ? `${t("mail.translation")} · ${language}`
+        : t("mail.aiResult"),
       body: await previewMessageAI(detail, action, instruction),
     });
   } catch (err) {
@@ -188,9 +226,14 @@ async function moveFromContext(
   const names = metadata.folders
     .filter((item) => item.selectable && item.name !== message.folder)
     .map((item) => item.name);
-  const destination = window.prompt(promptTemplate.replace("{folders}", names.join("\n")))?.trim();
+  const destination = window
+    .prompt(promptTemplate.replace("{folders}", names.join("\n")))
+    ?.trim();
   if (destination && names.includes(destination)) {
-    await options.runActionFor(message, { action: "move", destination_folder: destination });
+    await options.runActionFor(message, {
+      action: "move",
+      destination_folder: destination,
+    });
   }
 }
 
@@ -201,7 +244,11 @@ function printMessage(action: MailActionId, detail: MessageDetail) {
     uid: String(detail.uid),
     mode: action === "print_thread" ? "thread" : "message",
   });
-  window.open(`/print/mail?${query.toString()}`, "_blank", "noopener,noreferrer");
+  window.open(
+    `/print/mail?${query.toString()}`,
+    "_blank",
+    "noopener,noreferrer",
+  );
 }
 
 function messageDetails(detail: MessageDetail, title: string): AiResult {
@@ -217,13 +264,34 @@ function messageDetails(detail: MessageDetail, title: string): AiResult {
   };
 }
 
-function insightResult(action: MailActionId, insights: ThreadInsights | null, t: Translate): AiResult {
-  if (!insights) return { title: t("mail.aiInsight"), body: t("mail.noInsight") };
-  if (action === "ai_summarize") return { title: t("mail.summary"), body: insights.overview };
-  if (action === "ai_key_points") return { title: t("mail.keyPoints"), body: bulletList(insights.key_points, t("mail.noKeyPoints")) };
-  if (action === "ai_todos") return { title: t("mail.todos"), body: bulletList(insights.todos, t("mail.noTodos")) };
-  if (action === "ai_questions") return { title: t("mail.openQuestions"), body: bulletList(insights.open_questions, t("mail.noQuestions")) };
-  return { title: t("mail.deadlinesDates"), body: insights.deadline || t("mail.noDeadline") };
+function insightResult(
+  action: MailActionId,
+  insights: ThreadInsights | null,
+  t: Translate,
+): AiResult {
+  if (!insights)
+    return { title: t("mail.aiInsight"), body: t("mail.noInsight") };
+  if (action === "ai_summarize")
+    return { title: t("mail.summary"), body: insights.overview };
+  if (action === "ai_key_points")
+    return {
+      title: t("mail.keyPoints"),
+      body: bulletList(insights.key_points, t("mail.noKeyPoints")),
+    };
+  if (action === "ai_todos")
+    return {
+      title: t("mail.todos"),
+      body: bulletList(insights.todos, t("mail.noTodos")),
+    };
+  if (action === "ai_questions")
+    return {
+      title: t("mail.openQuestions"),
+      body: bulletList(insights.open_questions, t("mail.noQuestions")),
+    };
+  return {
+    title: t("mail.deadlinesDates"),
+    body: insights.deadline || t("mail.noDeadline"),
+  };
 }
 
 function bulletList(items: string[], empty: string): string {
@@ -235,5 +303,7 @@ function customReplyInstruction(prompt: string): string | undefined {
 }
 
 function apiErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

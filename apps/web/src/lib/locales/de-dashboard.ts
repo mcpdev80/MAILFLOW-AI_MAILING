@@ -20,5 +20,6 @@ export const deDashboard = {
   "dashboard.today": "Heute",
   "dashboard.days": "Tage",
   "dashboard.cycleEnqueued": "Verarbeitungszyklus eingeplant.",
-  "dashboard.cycleFailed": "Verarbeitungszyklus konnte nicht eingeplant werden.",
+  "dashboard.cycleFailed":
+    "Verarbeitungszyklus konnte nicht eingeplant werden.",
 } as const;

@@ -4,20 +4,24 @@ export const enAccount = {
   "account.run": "Run cycle now",
   "account.working": "Working…",
   "account.disconnect": "Disconnect",
-  "account.disconnectConfirm": "Disconnect this mailbox? Processing history is removed.",
+  "account.disconnectConfirm":
+    "Disconnect this mailbox? Processing history is removed.",
   "account.active": "active",
   "account.paused": "paused",
   "account.every": "every",
   "account.minutes": "min",
-  "account.manageOnly": "You manage this shared mailbox but do not have access to its mail content. Add yourself below only if you also need mailbox access.",
+  "account.manageOnly":
+    "You manage this shared mailbox but do not have access to its mail content. Add yourself below only if you also need mailbox access.",
   "account.access": "Mailbox access",
-  "account.privateInfo": "This mailbox is private. Organization admins cannot see it.",
+  "account.privateInfo":
+    "This mailbox is private. Organization admins cannot see it.",
   "account.shareMembers": "Share with selected members",
   "account.convertShared": "Convert to shared",
   "account.transferPrivate": "Transfer private ownership",
   "account.selectMember": "Select member…",
   "account.transfer": "Transfer ownership",
-  "account.sharedInfo": "Only explicitly selected members can see this shared mailbox.",
+  "account.sharedInfo":
+    "Only explicitly selected members can see this shared mailbox.",
   "account.membersAccess": "Members with mailbox access",
   "account.saveAccess": "Save access",
   "account.convertPrivate": "Convert to private mailbox",
@@ -28,7 +32,8 @@ export const enAccount = {
   "account.draftsSaved": "drafts saved",
   "account.errors": "errors",
   "account.cycleHistory": "Cycle history",
-  "account.noCycles": "No cycles yet. Run a cycle now or wait for the scheduler.",
+  "account.noCycles":
+    "No cycles yet. Run a cycle now or wait for the scheduler.",
   "account.when": "When",
   "account.emails": "Emails",
   "account.drafts": "Drafts",
@@ -38,9 +43,11 @@ export const enAccount = {
   "account.nowPrivate": "Mailbox is now private.",
   "account.selectPrivateOwner": "Select the new private owner first.",
   "account.selectNewOwner": "Select the new owner first.",
-  "account.transferConfirm": "Transfer this private mailbox to the selected user?",
+  "account.transferConfirm":
+    "Transfer this private mailbox to the selected user?",
   "account.actions.title": "Mailbox actions",
-  "account.actions.description": "Classification is automatic. Moves and archives are applied only when the mailbox safety policy allows them. Delete and send always require an explicit user action.",
+  "account.actions.description":
+    "Classification is automatic. Moves and archives are applied only when the mailbox safety policy allows them. Delete and send always require an explicit user action.",
   "account.actions.move": "Move classified mail",
   "account.actions.archive": "Archive actions",
   "account.actions.confidence": "Minimum confidence for automatic actions",

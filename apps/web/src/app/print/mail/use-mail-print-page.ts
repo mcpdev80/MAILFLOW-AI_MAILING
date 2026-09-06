@@ -11,7 +11,9 @@ export function useMailPrintPage() {
   const { t } = useI18n();
   const request = useMemo(() => parsePrintRequest(params), [params]);
   const [messages, setMessages] = useState<MessageDetail[]>([]);
-  const [error, setError] = useState<string | null>(request ? null : t("mail.printInvalid"));
+  const [error, setError] = useState<string | null>(
+    request ? null : t("mail.printInvalid"),
+  );
   const [loading, setLoading] = useState(Boolean(request));
 
   useEffect(() => {
@@ -46,7 +48,9 @@ type PrintRequest = {
   mode: "message" | "thread";
 };
 
-function parsePrintRequest(params: ReturnType<typeof useSearchParams>): PrintRequest | null {
+function parsePrintRequest(
+  params: ReturnType<typeof useSearchParams>,
+): PrintRequest | null {
   const accountId = params.get("account");
   const folder = params.get("folder");
   const uid = Number(params.get("uid"));
@@ -60,12 +64,18 @@ function parsePrintRequest(params: ReturnType<typeof useSearchParams>): PrintReq
 }
 
 async function loadMessages(request: PrintRequest): Promise<MessageDetail[]> {
-  const message = await api.messageDetail(request.accountId, request.folder, request.uid);
+  const message = await api.messageDetail(
+    request.accountId,
+    request.folder,
+    request.uid,
+  );
   if (request.mode !== "thread" || !message.thread_id) return [message];
   const thread = await api.threadDetail(request.accountId, message.thread_id);
   return thread.messages;
 }
 
 function messageOf(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

@@ -9,7 +9,8 @@ export const deMail = {
   "mail.opening": "Nachricht wird geöffnet…",
   "mail.empty": "Keine Nachrichten in dieser Ansicht.",
   "mail.selectMessage": "Nachricht auswählen",
-  "mail.selectMessageHint": "Öffne eine Nachricht oder Konversation aus der Liste.",
+  "mail.selectMessageHint":
+    "Öffne eine Nachricht oder Konversation aus der Liste.",
   "mail.noSubject": "(kein Betreff)",
   "mail.reply": "Antworten",
   "mail.replyAll": "Allen antworten",
@@ -45,7 +46,8 @@ export const deMail = {
   "mail.openFailed": "Nachricht konnte nicht geöffnet werden",
   "mail.actionFailed": "Mail-Aktion fehlgeschlagen",
   "mail.actionsFailed": "Nachrichtenaktionen konnten nicht geladen werden",
-  "mail.moveBatchFailed": "Nicht alle ausgewählten Nachrichten konnten verschoben werden",
+  "mail.moveBatchFailed":
+    "Nicht alle ausgewählten Nachrichten konnten verschoben werden",
   "mail.undoFailed": "Verschieben konnte nicht rückgängig gemacht werden",
   "mail.replyDraftFailed": "Antwortentwurf konnte nicht erstellt werden",
   "mail.aiActionFailed": "KI-Aktion fehlgeschlagen",

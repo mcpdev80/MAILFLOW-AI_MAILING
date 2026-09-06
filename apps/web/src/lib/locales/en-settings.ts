@@ -1,6 +1,7 @@
 export const enSettings = {
   "settings.title": "Settings",
-  "settings.description": "Manage your profile, workspaces, security integrations and visual parameters.",
+  "settings.description":
+    "Manage your profile, workspaces, security integrations and visual parameters.",
   "settings.nav.profile": "Profile & Account",
   "settings.nav.mailboxes": "Mailboxes",
   "settings.nav.providers": "AI Providers",
@@ -10,7 +11,8 @@ export const enSettings = {
   "settings.nav.retention": "Data & Retention",
   "settings.nav.billing": "Billing",
   "settings.appearance.title": "Appearance & Workspace",
-  "settings.appearance.description": "Customize how Mailflow appears and how the mail workspace is arranged.",
+  "settings.appearance.description":
+    "Customize how Mailflow appears and how the mail workspace is arranged.",
   "settings.appearance.theme": "Interface Theme",
   "settings.appearance.theme.light": "Light Mode",
   "settings.appearance.theme.dark": "Dark Mode",
@@ -33,7 +35,8 @@ export const enSettings = {
   "settings.appearance.saved": "Settings saved.",
   "settings.appearance.failed": "Could not save settings.",
   "settings.workspaceEditor.title": "Workspace Layout Editor",
-  "settings.workspaceEditor.description": "Reorder, dock and size the mail workspace panels.",
+  "settings.workspaceEditor.description":
+    "Reorder, dock and size the mail workspace panels.",
   "settings.workspaceEditor.active": "Custom Layout Active",
   "settings.workspaceEditor.panelOptions": "Panel Options",
   "settings.workspaceEditor.overlay": "Message Content as Overlay",

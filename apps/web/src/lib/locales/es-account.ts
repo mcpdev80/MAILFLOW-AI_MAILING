@@ -6,20 +6,24 @@ export const esAccount: Partial<Record<TranslationKey, string>> = {
   "account.run": "Ejecutar ciclo ahora",
   "account.working": "Procesando…",
   "account.disconnect": "Desconectar",
-  "account.disconnectConfirm": "¿Desconectar este buzón? Se eliminará el historial de procesamiento.",
+  "account.disconnectConfirm":
+    "¿Desconectar este buzón? Se eliminará el historial de procesamiento.",
   "account.active": "activo",
   "account.paused": "pausado",
   "account.every": "cada",
   "account.minutes": "min",
-  "account.manageOnly": "Administras este buzón compartido, pero no tienes acceso a su contenido. Añádete abajo solo si también necesitas acceso al buzón.",
+  "account.manageOnly":
+    "Administras este buzón compartido, pero no tienes acceso a su contenido. Añádete abajo solo si también necesitas acceso al buzón.",
   "account.access": "Acceso al buzón",
-  "account.privateInfo": "Este buzón es privado. Los administradores de la organización no pueden verlo.",
+  "account.privateInfo":
+    "Este buzón es privado. Los administradores de la organización no pueden verlo.",
   "account.shareMembers": "Compartir con miembros seleccionados",
   "account.convertShared": "Convertir en compartido",
   "account.transferPrivate": "Transferir propiedad privada",
   "account.selectMember": "Seleccionar miembro…",
   "account.transfer": "Transferir propiedad",
-  "account.sharedInfo": "Solo los miembros seleccionados explícitamente pueden ver este buzón compartido.",
+  "account.sharedInfo":
+    "Solo los miembros seleccionados explícitamente pueden ver este buzón compartido.",
   "account.membersAccess": "Miembros con acceso al buzón",
   "account.saveAccess": "Guardar acceso",
   "account.convertPrivate": "Convertir en buzón privado",
@@ -30,19 +34,24 @@ export const esAccount: Partial<Record<TranslationKey, string>> = {
   "account.draftsSaved": "borradores guardados",
   "account.errors": "errores",
   "account.cycleHistory": "Historial de ciclos",
-  "account.noCycles": "Todavía no hay ciclos. Ejecuta uno ahora o espera al planificador.",
+  "account.noCycles":
+    "Todavía no hay ciclos. Ejecuta uno ahora o espera al planificador.",
   "account.when": "Cuándo",
   "account.emails": "Correos",
   "account.drafts": "Borradores",
   "account.duration": "Duración",
   "account.sharedUpdated": "Se actualizó el acceso al buzón compartido.",
-  "account.nowShared": "El buzón ahora está compartido con los miembros seleccionados.",
+  "account.nowShared":
+    "El buzón ahora está compartido con los miembros seleccionados.",
   "account.nowPrivate": "El buzón ahora es privado.",
-  "account.selectPrivateOwner": "Selecciona primero el nuevo propietario privado.",
+  "account.selectPrivateOwner":
+    "Selecciona primero el nuevo propietario privado.",
   "account.selectNewOwner": "Selecciona primero el nuevo propietario.",
-  "account.transferConfirm": "¿Transferir este buzón privado al usuario seleccionado?",
+  "account.transferConfirm":
+    "¿Transferir este buzón privado al usuario seleccionado?",
   "account.actions.title": "Acciones del buzón",
-  "account.actions.description": "La clasificación es automática. Mover y archivar solo se aplican cuando la política de seguridad del buzón lo permite. Eliminar y enviar siempre requieren una acción explícita del usuario.",
+  "account.actions.description":
+    "La clasificación es automática. Mover y archivar solo se aplican cuando la política de seguridad del buzón lo permite. Eliminar y enviar siempre requieren una acción explícita del usuario.",
   "account.actions.move": "Mover correo clasificado",
   "account.actions.archive": "Acciones de archivo",
   "account.actions.confidence": "Confianza mínima para acciones automáticas",

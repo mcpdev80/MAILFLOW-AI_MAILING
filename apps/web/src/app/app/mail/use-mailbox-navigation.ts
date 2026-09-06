@@ -2,11 +2,7 @@
 
 import { ApiError, api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import type {
-  EmailAccount,
-  MailboxMetadata,
-  UnifiedInbox,
-} from "@/lib/types";
+import type { EmailAccount, MailboxMetadata, UnifiedInbox } from "@/lib/types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export type MailboxInitialTarget = {
@@ -31,7 +27,10 @@ export function useMailboxNavigation(initial: MailboxInitialTarget) {
     [metadata],
   );
   const unreadByAccount = useMemo(
-    () => new Map((inbox?.counters ?? []).map((item) => [item.account_id, item.unread])),
+    () =>
+      new Map(
+        (inbox?.counters ?? []).map((item) => [item.account_id, item.unread]),
+      ),
     [inbox],
   );
 
@@ -56,7 +55,9 @@ export function useMailboxNavigation(initial: MailboxInitialTarget) {
     api
       .listAccounts()
       .then(setAccounts)
-      .catch((err) => setError(apiErrorMessage(err, t("mail.mailboxesFailed"))));
+      .catch((err) =>
+        setError(apiErrorMessage(err, t("mail.mailboxesFailed"))),
+      );
   }, [t]);
 
   useEffect(() => {
@@ -66,7 +67,14 @@ export function useMailboxNavigation(initial: MailboxInitialTarget) {
       setMoveFolder("");
       return;
     }
-    void loadMetadata(selectedAccountId, setMetadata, setFolder, setMoveFolder, setError, t("mail.metadataFailed"));
+    void loadMetadata(
+      selectedAccountId,
+      setMetadata,
+      setFolder,
+      setMoveFolder,
+      setError,
+      t("mail.metadataFailed"),
+    );
   }, [selectedAccountId, t]);
 
   useEffect(() => {
@@ -122,7 +130,9 @@ async function loadMetadata(
   try {
     const value = await api.mailboxMetadata(accountId);
     setMetadata(value);
-    const inboxFolder = value.folders.find((item) => item.role === "inbox")?.name;
+    const inboxFolder = value.folders.find(
+      (item) => item.role === "inbox",
+    )?.name;
     setFolder((current) => current ?? inboxFolder ?? null);
     setMoveFolder(archiveFolder(value));
   } catch (err) {

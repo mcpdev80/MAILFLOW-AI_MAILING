@@ -15,9 +15,11 @@ export const deBilling: Partial<Record<TranslationKey, string>> = {
   "billing.minimum": "min.",
   "billing.upgradeTeam": "Auf Team upgraden ({count} Plätze)",
   "billing.manageCancel": "Abonnement verwalten / kündigen",
-  "billing.selfHostedInfo": "Dies ist eine selbst gehostete Instanz — es gelten keine Planlimits. Abrechnung wird nur für das verwaltete SaaS verwendet.",
+  "billing.selfHostedInfo":
+    "Dies ist eine selbst gehostete Instanz — es gelten keine Planlimits. Abrechnung wird nur für das verwaltete SaaS verwendet.",
   "billing.loadFailed": "Abrechnung konnte nicht geladen werden",
-  "billing.notConfigured": "Abrechnung ist auf diesem Server nicht konfiguriert.",
+  "billing.notConfigured":
+    "Abrechnung ist auf diesem Server nicht konfiguriert.",
   "billing.checkoutFailed": "Checkout fehlgeschlagen",
   "billing.portalFailed": "Abrechnungsportal konnte nicht geöffnet werden",
 };

@@ -3,8 +3,10 @@ import type { TranslationKey } from "./types";
 export const esAuth: Partial<Record<TranslationKey, string>> = {
   "auth.login.title": "Iniciar sesión",
   "auth.login.passkey": "Iniciar sesión con passkey",
-  "auth.login.passkeyHint": "Usa Windows Hello, Touch ID, tu teléfono o una llave de seguridad.",
-  "auth.login.passwordHint": "El acceso por email y contraseña sigue disponible para migración y recuperación de la cuenta.",
+  "auth.login.passkeyHint":
+    "Usa Windows Hello, Touch ID, tu teléfono o una llave de seguridad.",
+  "auth.login.passwordHint":
+    "El acceso por email y contraseña sigue disponible para migración y recuperación de la cuenta.",
   "auth.login.email": "Email",
   "auth.login.password": "Contraseña",
   "auth.login.passwordAction": "Entrar con contraseña",

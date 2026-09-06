@@ -1,7 +1,8 @@
 export const deSearch = {
   "common.all": "Alle",
   "search.title": "Suche",
-  "search.description": "Metadaten und Klassifizierungsstatus aus allen berechtigten Postfächern.",
+  "search.description":
+    "Metadaten und Klassifizierungsstatus aus allen berechtigten Postfächern.",
   "search.advanced": "Suche / Erweiterte Suche",
   "search.senderSubject": "Absender / Betreff",
   "search.sender": "Absender",
@@ -27,7 +28,8 @@ export const deSearch = {
   "search.results": "Ergebnisse",
   "search.relevance": "Relevanz",
   "search.sortBy": "Sortieren nach",
-  "search.noResults": "Keine Nachrichten entsprechen der aktuellen Suche und den Filtern.",
+  "search.noResults":
+    "Keine Nachrichten entsprechen der aktuellen Suche und den Filtern.",
   "processing.execute": "Ausgeführt",
   "processing.review": "Prüfung",
   "processing.pending": "Ausstehend",

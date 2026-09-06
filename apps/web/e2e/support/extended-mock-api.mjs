@@ -51,7 +51,11 @@ const provider = {
 };
 
 function json(route, body, status = 200) {
-  return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+  return route.fulfill({
+    status,
+    contentType: "application/json",
+    body: JSON.stringify(body),
+  });
 }
 
 export async function installExtendedMockApi(page) {
@@ -80,13 +84,17 @@ export async function installExtendedMockApi(page) {
     const path = url.pathname.replace(/^\/api\/mf/, "");
     const method = request.method();
 
-    if (path === "/llm-providers" && method === "GET") return json(route, [provider]);
+    if (path === "/llm-providers" && method === "GET")
+      return json(route, [provider]);
     if (path === `/llm-providers/${provider.id}` && method === "PATCH") {
       return json(route, { ...provider, ...request.postDataJSON() });
     }
-    if (path === `/accounts/${account.id}` && method === "GET") return json(route, account);
-    if (path === `/accounts/${account.id}/cycles` && method === "GET") return json(route, []);
-    if (path === `/accounts/${account.id}/access` && method === "GET") return json(route, []);
+    if (path === `/accounts/${account.id}` && method === "GET")
+      return json(route, account);
+    if (path === `/accounts/${account.id}/cycles` && method === "GET")
+      return json(route, []);
+    if (path === `/accounts/${account.id}/access` && method === "GET")
+      return json(route, []);
     if (path === "/billing/plan" && method === "GET") {
       return json(route, {
         plan: "free",

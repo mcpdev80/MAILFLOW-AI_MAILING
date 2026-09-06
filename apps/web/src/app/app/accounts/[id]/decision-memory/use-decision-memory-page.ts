@@ -30,18 +30,21 @@ export function useDecisionMemoryPage() {
     void load();
   }, [load]);
 
-  const runBusy = useCallback(async (id: string, action: () => Promise<void>) => {
-    setBusy(id);
-    setError(null);
-    setNotice(null);
-    try {
-      await action();
-    } catch (err) {
-      setError(messageOf(err, "decision_memory_update_failed"));
-    } finally {
-      setBusy(null);
-    }
-  }, []);
+  const runBusy = useCallback(
+    async (id: string, action: () => Promise<void>) => {
+      setBusy(id);
+      setError(null);
+      setNotice(null);
+      try {
+        await action();
+      } catch (err) {
+        setError(messageOf(err, "decision_memory_update_failed"));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [],
+  );
 
   const save = useCallback(
     (entryId: string, payload: DecisionMemoryWrite) =>
@@ -102,5 +105,7 @@ export function useDecisionMemoryPage() {
 }
 
 function messageOf(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

@@ -3,7 +3,6 @@
 import { useAppearance } from "@/lib/appearance-preferences";
 import type { WorkspacePanel } from "@/lib/types";
 import { ContentPane } from "./mail-workspace-content";
-import styles from "./mail-workspace.module.css";
 import { WorkspaceOverlays } from "./mail-workspace-overlays";
 import {
   AccountsPanel,
@@ -11,6 +10,7 @@ import {
   FoldersPanel,
   MessageListPane,
 } from "./mail-workspace-panels";
+import styles from "./mail-workspace.module.css";
 import { useMailWorkspace } from "./use-mail-workspace";
 
 type WorkspaceState = ReturnType<typeof useMailWorkspace>;
@@ -103,7 +103,11 @@ function CustomPanel({
         order,
       }}
     >
-      <PanelContent panel={panel} state={state} actionBarBottom={actionBarBottom} />
+      <PanelContent
+        panel={panel}
+        state={state}
+        actionBarBottom={actionBarBottom}
+      />
     </section>
   );
 }

@@ -13,8 +13,12 @@ export function usePreferencesForm() {
   const appearance = useAppearance();
   const [theme, setTheme] = useState<Theme>(appearance.theme);
   const [density, setDensity] = useState<Density>(appearance.density);
-  const [layout, setLayout] = useState<WorkspaceLayout>(appearance.workspaceLayout);
-  const [alignment, setAlignment] = useState<SidePanelAlignment>(appearance.sidePanelAlignment);
+  const [layout, setLayout] = useState<WorkspaceLayout>(
+    appearance.workspaceLayout,
+  );
+  const [alignment, setAlignment] = useState<SidePanelAlignment>(
+    appearance.sidePanelAlignment,
+  );
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<"saved" | "failed" | null>(null);
 
@@ -23,7 +27,12 @@ export function usePreferencesForm() {
     setDensity(appearance.density);
     setLayout(appearance.workspaceLayout);
     setAlignment(appearance.sidePanelAlignment);
-  }, [appearance.density, appearance.sidePanelAlignment, appearance.theme, appearance.workspaceLayout]);
+  }, [
+    appearance.density,
+    appearance.sidePanelAlignment,
+    appearance.theme,
+    appearance.workspaceLayout,
+  ]);
 
   async function save() {
     setSaving(true);

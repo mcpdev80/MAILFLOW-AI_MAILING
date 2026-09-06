@@ -11,7 +11,13 @@ export const workspacePanels: readonly WorkspacePanel[] = [
   "message_content",
 ];
 
-export const workspaceDocks = ["left", "center", "right", "top", "bottom"] as const;
+export const workspaceDocks = [
+  "left",
+  "center",
+  "right",
+  "top",
+  "bottom",
+] as const;
 
 export function defaultWorkspaceConfig(): WorkspaceCustomConfig {
   return {

@@ -35,9 +35,24 @@ function UndoToast({ state }: { state: WorkspaceState }) {
   const { t } = useI18n();
   return (
     <output className={styles.undoToast}>
-      <span>{t("mail.moved").replace("{count}", String(state.undoMoves.length))}</span>
-      <button type="button" className={styles.secondaryButton} onClick={() => void state.undoLastMove()}>{t("mail.undo")}</button>
-      <button type="button" className={styles.iconButton} aria-label={t("mail.dismissUndo")} onClick={() => state.setUndoMoves([])}>×</button>
+      <span>
+        {t("mail.moved").replace("{count}", String(state.undoMoves.length))}
+      </span>
+      <button
+        type="button"
+        className={styles.secondaryButton}
+        onClick={() => void state.undoLastMove()}
+      >
+        {t("mail.undo")}
+      </button>
+      <button
+        type="button"
+        className={styles.iconButton}
+        aria-label={t("mail.dismissUndo")}
+        onClick={() => state.setUndoMoves([])}
+      >
+        ×
+      </button>
     </output>
   );
 }
@@ -48,7 +63,17 @@ function AiDialog({ state }: { state: WorkspaceState }) {
   return (
     <div className={styles.dialogBackdrop} role="presentation">
       <dialog open className={styles.dialog} aria-label={result.title}>
-        <header className={styles.dialogHeader}><strong>{result.title}</strong><button type="button" className={styles.iconButton} onClick={() => state.setAiResult(null)} aria-label={t("mail.close")}>×</button></header>
+        <header className={styles.dialogHeader}>
+          <strong>{result.title}</strong>
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={() => state.setAiResult(null)}
+            aria-label={t("mail.close")}
+          >
+            ×
+          </button>
+        </header>
         <pre>{result.body}</pre>
       </dialog>
     </div>

@@ -15,9 +15,11 @@ export const esBilling: Partial<Record<TranslationKey, string>> = {
   "billing.minimum": "mín.",
   "billing.upgradeTeam": "Mejorar a Team ({count} plazas)",
   "billing.manageCancel": "Gestionar / cancelar suscripción",
-  "billing.selfHostedInfo": "Esta es una instancia autoalojada: no se aplican límites de plan. La facturación solo se usa en el SaaS gestionado.",
+  "billing.selfHostedInfo":
+    "Esta es una instancia autoalojada: no se aplican límites de plan. La facturación solo se usa en el SaaS gestionado.",
   "billing.loadFailed": "No se pudo cargar la facturación",
-  "billing.notConfigured": "La facturación no está configurada en este servidor.",
+  "billing.notConfigured":
+    "La facturación no está configurada en este servidor.",
   "billing.checkoutFailed": "El checkout falló",
   "billing.portalFailed": "No se pudo abrir el portal de facturación",
 };

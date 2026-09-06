@@ -21,7 +21,10 @@ type DeliveryOptions = {
 export function useComposeDelivery(options: DeliveryOptions) {
   const [sending, setSending] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const send = useCallback(() => sendDraft(options, setSending, setWarnings), [options]);
+  const send = useCallback(
+    () => sendDraft(options, setSending, setWarnings),
+    [options],
+  );
   const discard = useCallback(() => discardDraft(options), [options]);
   return { sending, warnings, send, discard };
 }
@@ -40,11 +43,16 @@ async function sendDraft(
     await options.persist();
     const check = await api.preSendCheck(current.id);
     setWarnings(check.warning_codes);
-    if (!check.can_send) return options.setError(options.t("compose.missingRecipient"));
+    if (!check.can_send)
+      return options.setError(options.t("compose.missingRecipient"));
     if (!confirmMissingAttachment(check.warning_codes, options.t)) return;
     const result = await api.sendDraft(current.id);
     options.applyDraft(await api.getDraft(current.id));
-    options.setNotice(result.message_id ? `${options.t("compose.sent")} (${result.message_id})` : options.t("compose.sent"));
+    options.setNotice(
+      result.message_id
+        ? `${options.t("compose.sent")} (${result.message_id})`
+        : options.t("compose.sent"),
+    );
   } catch (err) {
     options.setError(apiMessage(err, options.t("compose.sendFailed")));
     await refreshAfterFailure(current.id, options.applyDraft);
@@ -71,7 +79,10 @@ function confirmMissingAttachment(warnings: string[], t: Translate): boolean {
   return window.confirm(t("compose.missingAttachmentConfirm"));
 }
 
-async function refreshAfterFailure(id: string, applyDraft: (draft: MailDraft) => void) {
+async function refreshAfterFailure(
+  id: string,
+  applyDraft: (draft: MailDraft) => void,
+) {
   try {
     applyDraft(await api.getDraft(id));
   } catch {
@@ -80,5 +91,7 @@ async function refreshAfterFailure(id: string, applyDraft: (draft: MailDraft) =>
 }
 
 function apiMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

@@ -27,12 +27,42 @@ export function useComposeDraft(setError: SetError, t: Translate) {
   const [draft, setDraft] = useState<MailDraft | null>(null);
   const [fields, setFields] = useState(emptyFields);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  useEffect(() => { translateRef.current = t; }, [t]);
-  const applyDraft = useCallback((value: MailDraft) => applyDraftState(value, draftRef, setDraft, setFields), []);
-  useComposerInitialization(searchParams, applyDraft, setAccounts, setLoading, setError, translateRef);
-  const persist = useDraftPersist(draftRef, fields, setDraft, setSaveState, setError, t);
+  useEffect(() => {
+    translateRef.current = t;
+  }, [t]);
+  const applyDraft = useCallback(
+    (value: MailDraft) => applyDraftState(value, draftRef, setDraft, setFields),
+    [],
+  );
+  useComposerInitialization(
+    searchParams,
+    applyDraft,
+    setAccounts,
+    setLoading,
+    setError,
+    translateRef,
+  );
+  const persist = useDraftPersist(
+    draftRef,
+    fields,
+    setDraft,
+    setSaveState,
+    setError,
+    t,
+  );
   useDraftAutosave(draftRef, persist);
-  return { loading, accounts, draft, setDraft, fields, setFields, saveState, draftRef, applyDraft, persist };
+  return {
+    loading,
+    accounts,
+    draft,
+    setDraft,
+    fields,
+    setFields,
+    saveState,
+    draftRef,
+    applyDraft,
+    persist,
+  };
 }
 
 function useComposerInitialization(
@@ -46,8 +76,18 @@ function useComposerInitialization(
   useEffect(() => {
     let cancelled = false;
     const openFailed = translateRef.current("compose.openFailed");
-    void initializeComposer(params, applyDraft, setAccounts, setError, setLoading, () => cancelled, openFailed);
-    return () => { cancelled = true; };
+    void initializeComposer(
+      params,
+      applyDraft,
+      setAccounts,
+      setError,
+      setLoading,
+      () => cancelled,
+      openFailed,
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [applyDraft, params, setAccounts, setError, setLoading, translateRef]);
 }
 
@@ -61,10 +101,14 @@ function useDraftPersist(
 ) {
   return useCallback(async () => {
     const current = draftRef.current;
-    if (!current || current.status === "sent" || current.status === "discarded") return;
+    if (!current || current.status === "sent" || current.status === "discarded")
+      return;
     setSaveState("saving");
     try {
-      const updated = await api.updateDraft(current.id, payloadFromFields(fields));
+      const updated = await api.updateDraft(
+        current.id,
+        payloadFromFields(fields),
+      );
       draftRef.current = updated;
       setDraft(updated);
       setSaveState("saved");
@@ -75,7 +119,10 @@ function useDraftPersist(
   }, [draftRef, fields, setDraft, setError, setSaveState, t]);
 }
 
-function useDraftAutosave(draftRef: React.RefObject<MailDraft | null>, persist: () => Promise<void>) {
+function useDraftAutosave(
+  draftRef: React.RefObject<MailDraft | null>,
+  persist: () => Promise<void>,
+) {
   useEffect(() => {
     if (!draftRef.current) return;
     const timer = setTimeout(() => void persist(), AUTOSAVE_MS);
@@ -98,7 +145,9 @@ async function initializeComposer(
     setAccounts(accounts);
     if (accounts.length === 0) return;
     const requestedDraft = params.get("draft");
-    const draft = requestedDraft ? await api.getDraft(requestedDraft) : await createDraftFromParams(accounts, params);
+    const draft = requestedDraft
+      ? await api.getDraft(requestedDraft)
+      : await createDraftFromParams(accounts, params);
     if (!isCancelled()) applyDraft(draft);
   } catch (err) {
     if (!isCancelled()) setError(apiMessage(err, openFailed));
@@ -107,9 +156,13 @@ async function initializeComposer(
   }
 }
 
-async function createDraftFromParams(accounts: EmailAccount[], params: ReturnType<typeof useSearchParams>) {
+async function createDraftFromParams(
+  accounts: EmailAccount[],
+  params: ReturnType<typeof useSearchParams>,
+) {
   const requestedAccount = params.get("account");
-  const selected = accounts.find((item) => item.id === requestedAccount) ?? accounts[0];
+  const selected =
+    accounts.find((item) => item.id === requestedAccount) ?? accounts[0];
   return api.createDraft({
     account_id: selected.id,
     message_type: normalizeMessageType(params.get("type")),
@@ -137,7 +190,8 @@ function fieldsFromDraft(value: MailDraft) {
     to: joinRecipients(value.to_recipients),
     cc: joinRecipients(value.cc_recipients),
     bcc: joinRecipients(value.bcc_recipients),
-    showCcBcc: value.cc_recipients.length > 0 || value.bcc_recipients.length > 0,
+    showCcBcc:
+      value.cc_recipients.length > 0 || value.bcc_recipients.length > 0,
     subject: value.subject,
     bodyText: value.body_text,
     bodyHtml: value.body_html ?? "",
@@ -153,7 +207,8 @@ function payloadFromFields(fields: ComposerFields) {
     bcc_recipients: splitRecipients(fields.bcc),
     subject: fields.subject,
     body_text: fields.bodyText,
-    body_html: fields.editorMode === "rich_text" ? fields.bodyHtml || null : null,
+    body_html:
+      fields.editorMode === "rich_text" ? fields.bodyHtml || null : null,
     editor_mode: fields.editorMode,
   };
 }
@@ -171,5 +226,7 @@ const emptyFields = {
 };
 
 function apiMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

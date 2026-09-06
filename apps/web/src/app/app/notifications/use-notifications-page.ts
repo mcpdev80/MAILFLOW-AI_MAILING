@@ -9,7 +9,9 @@ import { useCallback, useEffect, useState } from "react";
 
 export function useNotificationsPage() {
   const [center, setCenter] = useState<NotificationCenter | null>(null);
-  const [preferences, setPreferences] = useState<NotificationPreference | null>(null);
+  const [preferences, setPreferences] = useState<NotificationPreference | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 

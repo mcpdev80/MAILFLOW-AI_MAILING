@@ -1,10 +1,10 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { attentionApi } from "@/lib/attention-api";
 import { useAppearance } from "@/lib/appearance-preferences";
+import { attentionApi } from "@/lib/attention-api";
 import { useSession } from "@/lib/auth-client";
-import { useI18n, type TranslationKey } from "@/lib/i18n";
+import { type TranslationKey, useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -36,20 +36,27 @@ function useShellState(): ShellState {
   });
   useEffect(() => {
     let active = true;
-    Promise.allSettled([api.health(), attentionApi.review(), attentionApi.notifications()]).then(
-      ([health, review, notifications]) => {
-        if (!active) return;
-        setState({
-          healthy:
-            health.status === "fulfilled" &&
-            health.value.status === "ok" &&
-            health.value.db === "up",
-          reviewCount: review.status === "fulfilled" ? review.value.counters.review_needed : null,
-          notificationCount:
-            notifications.status === "fulfilled" ? notifications.value.unread : null,
-        });
-      },
-    );
+    Promise.allSettled([
+      api.health(),
+      attentionApi.review(),
+      attentionApi.notifications(),
+    ]).then(([health, review, notifications]) => {
+      if (!active) return;
+      setState({
+        healthy:
+          health.status === "fulfilled" &&
+          health.value.status === "ok" &&
+          health.value.db === "up",
+        reviewCount:
+          review.status === "fulfilled"
+            ? review.value.counters.review_needed
+            : null,
+        notificationCount:
+          notifications.status === "fulfilled"
+            ? notifications.value.unread
+            : null,
+      });
+    });
     return () => {
       active = false;
     };
@@ -81,7 +88,8 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
         </Link>
         <nav className={styles.nav} aria-label="Mailflow">
           {items.map((item, index) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <div key={item.href}>
                 {index === 4 && <div className={styles.separator} />}
@@ -101,10 +109,16 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
         </nav>
       </div>
       <Link href="/app/settings/preferences" className={styles.profile}>
-        <span className={styles.avatar}>{initials(user?.name, user?.email)}</span>
+        <span className={styles.avatar}>
+          {initials(user?.name, user?.email)}
+        </span>
         <span className={styles.profileMeta}>
-          <span className={styles.profileName}>{user?.name || user?.email || ""}</span>
-          {user?.email && <span className={styles.profileEmail}>{user.email}</span>}
+          <span className={styles.profileName}>
+            {user?.name || user?.email || ""}
+          </span>
+          {user?.email && (
+            <span className={styles.profileEmail}>{user.email}</span>
+          )}
         </span>
       </Link>
     </aside>
@@ -122,7 +136,9 @@ function StatusPill({ state }: { state: ShellState }) {
   return (
     <div className={styles.statusWrap} data-testid="system-status">
       <span className={styles.statusLabel}>{t("shell.systemStatus")}:</span>
-      <span className={`${styles.status} ${state.healthy === false ? styles.statusDegraded : ""}`}>
+      <span
+        className={`${styles.status} ${state.healthy === false ? styles.statusDegraded : ""}`}
+      >
         <span className={styles.statusDot} aria-hidden="true" />
         {statusText}
       </span>
@@ -130,7 +146,10 @@ function StatusPill({ state }: { state: ShellState }) {
   );
 }
 
-function Header({ state, showStatus }: { state: ShellState; showStatus: boolean }) {
+function Header({
+  state,
+  showStatus,
+}: { state: ShellState; showStatus: boolean }) {
   const { t } = useI18n();
   return (
     <header className={styles.header} data-testid="app-header">
@@ -156,14 +175,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const appearance = useAppearance();
   const statusPosition =
     appearance.workspaceLayout === "custom"
-      ? appearance.workspaceCustomConfig?.system_status_position ?? "top"
+      ? (appearance.workspaceCustomConfig?.system_status_position ?? "top")
       : "top";
   return (
     <div className={styles.shell} data-testid="app-shell">
       <Sidebar reviewCount={state.reviewCount} />
       <div className={styles.content}>
         <Header state={state} showStatus={statusPosition === "top"} />
-        <div className={styles.main} data-testid="app-content">{children}</div>
+        <div className={styles.main} data-testid="app-content">
+          {children}
+        </div>
         {statusPosition === "bottom" && (
           <footer className={styles.statusFooter}>
             <StatusPill state={state} />

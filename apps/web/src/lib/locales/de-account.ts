@@ -6,20 +6,24 @@ export const deAccount: Partial<Record<TranslationKey, string>> = {
   "account.run": "Verarbeitung jetzt starten",
   "account.working": "Wird ausgeführt…",
   "account.disconnect": "Trennen",
-  "account.disconnectConfirm": "Dieses Postfach trennen? Der Verarbeitungsverlauf wird entfernt.",
+  "account.disconnectConfirm":
+    "Dieses Postfach trennen? Der Verarbeitungsverlauf wird entfernt.",
   "account.active": "aktiv",
   "account.paused": "pausiert",
   "account.every": "alle",
   "account.minutes": "Min.",
-  "account.manageOnly": "Du verwaltest dieses gemeinsame Postfach, hast aber keinen Zugriff auf dessen Mail-Inhalte. Füge dich unten nur hinzu, wenn du zusätzlich Zugriff auf das Postfach benötigst.",
+  "account.manageOnly":
+    "Du verwaltest dieses gemeinsame Postfach, hast aber keinen Zugriff auf dessen Mail-Inhalte. Füge dich unten nur hinzu, wenn du zusätzlich Zugriff auf das Postfach benötigst.",
   "account.access": "Postfachzugriff",
-  "account.privateInfo": "Dieses Postfach ist privat. Organisations-Admins können es nicht sehen.",
+  "account.privateInfo":
+    "Dieses Postfach ist privat. Organisations-Admins können es nicht sehen.",
   "account.shareMembers": "Mit ausgewählten Mitgliedern teilen",
   "account.convertShared": "In gemeinsames Postfach umwandeln",
   "account.transferPrivate": "Privaten Besitz übertragen",
   "account.selectMember": "Mitglied auswählen…",
   "account.transfer": "Besitz übertragen",
-  "account.sharedInfo": "Nur ausdrücklich ausgewählte Mitglieder können dieses gemeinsame Postfach sehen.",
+  "account.sharedInfo":
+    "Nur ausdrücklich ausgewählte Mitglieder können dieses gemeinsame Postfach sehen.",
   "account.membersAccess": "Mitglieder mit Postfachzugriff",
   "account.saveAccess": "Zugriff speichern",
   "account.convertPrivate": "In privates Postfach umwandeln",
@@ -30,19 +34,24 @@ export const deAccount: Partial<Record<TranslationKey, string>> = {
   "account.draftsSaved": "Entwürfe gespeichert",
   "account.errors": "Fehler",
   "account.cycleHistory": "Verarbeitungsverlauf",
-  "account.noCycles": "Noch keine Durchläufe. Starte jetzt einen Durchlauf oder warte auf den Scheduler.",
+  "account.noCycles":
+    "Noch keine Durchläufe. Starte jetzt einen Durchlauf oder warte auf den Scheduler.",
   "account.when": "Zeitpunkt",
   "account.emails": "E-Mails",
   "account.drafts": "Entwürfe",
   "account.duration": "Dauer",
-  "account.sharedUpdated": "Zugriff auf das gemeinsame Postfach wurde aktualisiert.",
-  "account.nowShared": "Das Postfach ist jetzt mit den ausgewählten Mitgliedern geteilt.",
+  "account.sharedUpdated":
+    "Zugriff auf das gemeinsame Postfach wurde aktualisiert.",
+  "account.nowShared":
+    "Das Postfach ist jetzt mit den ausgewählten Mitgliedern geteilt.",
   "account.nowPrivate": "Das Postfach ist jetzt privat.",
   "account.selectPrivateOwner": "Wähle zuerst den neuen privaten Besitzer aus.",
   "account.selectNewOwner": "Wähle zuerst den neuen Besitzer aus.",
-  "account.transferConfirm": "Dieses private Postfach an den ausgewählten Benutzer übertragen?",
+  "account.transferConfirm":
+    "Dieses private Postfach an den ausgewählten Benutzer übertragen?",
   "account.actions.title": "Postfachaktionen",
-  "account.actions.description": "Die Klassifizierung erfolgt automatisch. Verschieben und Archivieren werden nur ausgeführt, wenn die Sicherheitsrichtlinie des Postfachs dies erlaubt. Löschen und Senden benötigen immer eine ausdrückliche Benutzeraktion.",
+  "account.actions.description":
+    "Die Klassifizierung erfolgt automatisch. Verschieben und Archivieren werden nur ausgeführt, wenn die Sicherheitsrichtlinie des Postfachs dies erlaubt. Löschen und Senden benötigen immer eine ausdrückliche Benutzeraktion.",
   "account.actions.move": "Klassifizierte E-Mails verschieben",
   "account.actions.archive": "Archivierungsaktionen",
   "account.actions.confidence": "Mindestkonfidenz für automatische Aktionen",
@@ -52,5 +61,6 @@ export const deAccount: Partial<Record<TranslationKey, string>> = {
   "account.actions.save": "Aktionsrichtlinie speichern",
   "account.actions.saving": "Wird gespeichert…",
   "account.actions.saved": "Postfach-Aktionsrichtlinie wurde aktualisiert.",
-  "account.actions.failed": "Aktionsrichtlinie konnte nicht aktualisiert werden.",
+  "account.actions.failed":
+    "Aktionsrichtlinie konnte nicht aktualisiert werden.",
 };

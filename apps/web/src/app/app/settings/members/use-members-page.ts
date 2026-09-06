@@ -43,14 +43,20 @@ export function useMembersPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function invite() {
     setBusy(true);
     setError(null);
     try {
-      const result = await authClient.organization.inviteMember({ email, role });
-      if (result.error) throw new Error(result.error.message ?? "members_invite_failed");
+      const result = await authClient.organization.inviteMember({
+        email,
+        role,
+      });
+      if (result.error)
+        throw new Error(result.error.message ?? "members_invite_failed");
       setEmail("");
       await load();
     } catch (err) {
@@ -60,7 +66,19 @@ export function useMembersPage() {
     }
   }
 
-  return { members, invitations, email, setEmail, role, setRole, loading, error, busy, reload: load, invite };
+  return {
+    members,
+    invitations,
+    email,
+    setEmail,
+    role,
+    setRole,
+    loading,
+    error,
+    busy,
+    reload: load,
+    invite,
+  };
 }
 
 export type MembersController = ReturnType<typeof useMembersPage>;

@@ -28,12 +28,17 @@ export function useSecuritySettings() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function add() {
     await runMutation(async () => {
-      const result = await authClient.passkey.addPasskey({ name: name.trim() || undefined });
-      if (result?.error) throw new Error(result.error.message ?? "security_add_failed");
+      const result = await authClient.passkey.addPasskey({
+        name: name.trim() || undefined,
+      });
+      if (result?.error)
+        throw new Error(result.error.message ?? "security_add_failed");
       setName("");
       await load();
     });
@@ -41,8 +46,12 @@ export function useSecuritySettings() {
 
   async function rename(passkey: UserPasskey, nextName: string) {
     await runMutation(async () => {
-      const result = await authClient.passkey.updatePasskey({ id: passkey.id, name: nextName });
-      if (result.error) throw new Error(result.error.message ?? "security_rename_failed");
+      const result = await authClient.passkey.updatePasskey({
+        id: passkey.id,
+        name: nextName,
+      });
+      if (result.error)
+        throw new Error(result.error.message ?? "security_rename_failed");
       await load();
     });
   }
@@ -52,7 +61,8 @@ export function useSecuritySettings() {
       const result = await authClient.passkey.deletePasskey({ id: passkey.id });
       if (result.error) {
         const message = result.error.message ?? "security_delete_failed";
-        if (message.includes("Recent authentication required")) setNeedsRecentAuth(true);
+        if (message.includes("Recent authentication required"))
+          setNeedsRecentAuth(true);
         throw new Error(message);
       }
       await load();
@@ -72,7 +82,19 @@ export function useSecuritySettings() {
     }
   }
 
-  return { passkeys, name, setName, loading, busy, error, needsRecentAuth, reload: load, add, rename, remove };
+  return {
+    passkeys,
+    name,
+    setName,
+    loading,
+    busy,
+    error,
+    needsRecentAuth,
+    reload: load,
+    add,
+    rename,
+    remove,
+  };
 }
 
 export type SecuritySettingsController = ReturnType<typeof useSecuritySettings>;

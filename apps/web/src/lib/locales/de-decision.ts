@@ -15,6 +15,8 @@ export const deDecision: Partial<Record<TranslationKey, string>> = {
   "decision.subjectPattern": "Betreffmuster",
   "decision.routingTarget": "Routing-Ziel",
   "decision.saveCorrection": "Korrektur speichern",
-  "decision.loadFailed": "Gelernte Entscheidungen konnten nicht geladen werden.",
-  "decision.updateFailed": "Gelernte Entscheidung konnte nicht aktualisiert werden.",
+  "decision.loadFailed":
+    "Gelernte Entscheidungen konnten nicht geladen werden.",
+  "decision.updateFailed":
+    "Gelernte Entscheidung konnte nicht aktualisiert werden.",
 };

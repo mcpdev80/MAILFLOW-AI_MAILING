@@ -19,14 +19,24 @@ export function useAccountDetailActions(
   const makeShared = useMakeShared(id, data);
   const makePrivate = useMakePrivate(id, userId, push, data);
   const transferPrivateMailbox = useTransferPrivate(id, push, data);
-  const toggleSharedUser = useCallback((memberId: string, checked: boolean) => {
-    data.setSelectedSharedUsers((current) => checked
-      ? [...new Set([...current, memberId])]
-      : current.filter((value) => value !== memberId));
-  }, [data.setSelectedSharedUsers]);
+  const toggleSharedUser = useCallback(
+    (memberId: string, checked: boolean) => {
+      data.setSelectedSharedUsers((current) =>
+        checked
+          ? [...new Set([...current, memberId])]
+          : current.filter((value) => value !== memberId),
+      );
+    },
+    [data.setSelectedSharedUsers],
+  );
   return {
-    runNow, disconnect, saveSharedAccess, makeShared, makePrivate,
-    transferPrivateMailbox, toggleSharedUser,
+    runNow,
+    disconnect,
+    saveSharedAccess,
+    makeShared,
+    makePrivate,
+    transferPrivateMailbox,
+    toggleSharedUser,
   };
 }
 
@@ -53,12 +63,21 @@ function useDisconnect(id: string, push: Push, data: AccountData) {
   }, [data, id, push]);
 }
 
-function useSaveSharedAccess(id: string, userId: string | undefined, data: AccountData) {
+function useSaveSharedAccess(
+  id: string,
+  userId: string | undefined,
+  data: AccountData,
+) {
   return useCallback(async () => {
     await runBusy(data, async () => {
-      const access = await api.replaceSharedAccess(id, data.selectedSharedUsers);
+      const access = await api.replaceSharedAccess(
+        id,
+        data.selectedSharedUsers,
+      );
       data.setSharedAccess(access);
-      const selected = access.filter((grant) => grant.can_use).map((grant) => grant.user_id);
+      const selected = access
+        .filter((grant) => grant.can_use)
+        .map((grant) => grant.user_id);
       data.setSelectedSharedUsers(selected);
       const stillVisible = selected.includes(userId ?? "");
       data.setContentAccessible(stillVisible);
@@ -81,7 +100,12 @@ function useMakeShared(id: string, data: AccountData) {
   }, [data, id]);
 }
 
-function useMakePrivate(id: string, userId: string | undefined, push: Push, data: AccountData) {
+function useMakePrivate(
+  id: string,
+  userId: string | undefined,
+  push: Push,
+  data: AccountData,
+) {
   return useCallback(async () => {
     if (!data.transferUserId) return data.setError("select_private_owner");
     await runBusy(data, async () => {
@@ -128,5 +152,7 @@ async function runBusy(data: AccountData, action: () => Promise<void>) {
 }
 
 function apiMessage(error: unknown, fallback: string) {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

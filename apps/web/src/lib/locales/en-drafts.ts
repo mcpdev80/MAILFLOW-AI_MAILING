@@ -1,6 +1,7 @@
 export const enDrafts = {
   "drafts.title": "Drafts",
-  "drafts.description": "Saved outgoing messages across your authorized mailboxes.",
+  "drafts.description":
+    "Saved outgoing messages across your authorized mailboxes.",
   "drafts.compose": "Compose",
   "drafts.loading": "Loading…",
   "drafts.empty": "No saved drafts.",

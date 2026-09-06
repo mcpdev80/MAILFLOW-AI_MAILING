@@ -13,11 +13,23 @@ function initialValue(params: URLSearchParams, key: string): string {
 
 export function emptySearchFilters(): SearchFilters {
   return {
-    q: "", sender: "", subject: "", account_id: "", category: "",
-    subcategory: "", importance: "", urgency: "", action_required: "",
-    review_required: "", suspicious_content: "", tag: "",
-    destination_folder: "", classification_source: "", processed_state: "",
-    date_from: "", date_to: "",
+    q: "",
+    sender: "",
+    subject: "",
+    account_id: "",
+    category: "",
+    subcategory: "",
+    importance: "",
+    urgency: "",
+    action_required: "",
+    review_required: "",
+    suspicious_content: "",
+    tag: "",
+    destination_folder: "",
+    classification_source: "",
+    processed_state: "",
+    date_from: "",
+    date_to: "",
   };
 }
 
@@ -68,7 +80,10 @@ export function useSearchPage() {
 function useSearchAccounts(): EmailAccount[] {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   useEffect(() => {
-    api.listAccounts().then(setAccounts).catch(() => setAccounts([]));
+    api
+      .listAccounts()
+      .then(setAccounts)
+      .catch(() => setAccounts([]));
   }, []);
   return accounts;
 }
@@ -93,7 +108,10 @@ function useSearchExecution() {
   return { result, error, loading, runSearch };
 }
 
-function useInitialSearch(filters: SearchFilters, runSearch: (next: SearchFilters) => Promise<void>) {
+function useInitialSearch(
+  filters: SearchFilters,
+  runSearch: (next: SearchFilters) => Promise<void>,
+) {
   const firstRun = useRef(false);
   useEffect(() => {
     if (firstRun.current) return;

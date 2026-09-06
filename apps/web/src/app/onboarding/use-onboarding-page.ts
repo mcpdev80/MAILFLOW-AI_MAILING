@@ -41,14 +41,17 @@ export function useOnboardingPage() {
   const submitProvider = useProviderSubmission(state);
   const submitAccount = useAccountSubmission(state, userId, router);
   const connectOAuth = useOAuthConnection(state, userId);
-  const toggleSharedUser = useCallback((memberId: string, checked: boolean) => {
-    state.setAccountForm((current) => ({
-      ...current,
-      shared_user_ids: checked
-        ? [...new Set([...current.shared_user_ids, memberId])]
-        : current.shared_user_ids.filter((id) => id !== memberId),
-    }));
-  }, [state.setAccountForm]);
+  const toggleSharedUser = useCallback(
+    (memberId: string, checked: boolean) => {
+      state.setAccountForm((current) => ({
+        ...current,
+        shared_user_ids: checked
+          ? [...new Set([...current.shared_user_ids, memberId])]
+          : current.shared_user_ids.filter((id) => id !== memberId),
+      }));
+    },
+    [state.setAccountForm],
+  );
   return {
     ...state,
     hasUserIdentity: Boolean(userId),
@@ -63,21 +66,40 @@ function useOnboardingState(userId?: string) {
   const [step, setStep] = useState<OnboardingStep>("llm");
   const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
-  const [providerForm, setProviderForm] = useState<ProviderForm>(emptyProviderForm);
+  const [providerForm, setProviderForm] =
+    useState<ProviderForm>(emptyProviderForm);
   const [accountForm, setAccountForm] = useState<AccountForm>(emptyAccountForm);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { void loadProviders(setProviders, setAccountForm, setStep, setLoading); }, []);
-  useEffect(() => { void loadMembers(userId, setMembers); }, [userId]);
+  useEffect(() => {
+    void loadProviders(setProviders, setAccountForm, setStep, setLoading);
+  }, []);
+  useEffect(() => {
+    void loadMembers(userId, setMembers);
+  }, [userId]);
   const currentMember = useMemo(
     () => members.find((member) => memberUserId(member) === userId),
     [members, userId],
   );
-  const canCreateShared = currentMember?.role === "owner" || currentMember?.role === "admin";
+  const canCreateShared =
+    currentMember?.role === "owner" || currentMember?.role === "admin";
   return {
-    step, setStep, providers, setProviders, members, providerForm, setProviderForm,
-    accountForm, setAccountForm, loading, error, setError, busy, setBusy, canCreateShared,
+    step,
+    setStep,
+    providers,
+    setProviders,
+    members,
+    providerForm,
+    setProviderForm,
+    accountForm,
+    setAccountForm,
+    loading,
+    error,
+    setError,
+    busy,
+    setBusy,
+    canCreateShared,
   };
 }
 
@@ -91,7 +113,10 @@ function useProviderSubmission(state: OnboardingState) {
         api_key: state.providerForm.api_key || null,
       });
       state.setProviders((current) => [...current, created]);
-      state.setAccountForm((current) => ({ ...current, llm_provider_id: created.id }));
+      state.setAccountForm((current) => ({
+        ...current,
+        llm_provider_id: created.id,
+      }));
       state.setStep("account");
     } catch (err) {
       state.setError(messageOf(err, "onboarding_provider_failed"));
@@ -122,20 +147,23 @@ function useAccountSubmission(
 }
 
 function useOAuthConnection(state: OnboardingState, userId?: string) {
-  return useCallback(async (provider: "gmail" | "microsoft") => {
-    state.setBusy(true);
-    state.setError(null);
-    try {
-      const result = await api.oauthAuthorizeUrl(
-        provider,
-        ownershipOptions(state.accountForm, userId),
-      );
-      window.location.href = result.authorize_url;
-    } catch (err) {
-      state.setError(messageOf(err, "onboarding_oauth_failed"));
-      state.setBusy(false);
-    }
-  }, [state, userId]);
+  return useCallback(
+    async (provider: "gmail" | "microsoft") => {
+      state.setBusy(true);
+      state.setError(null);
+      try {
+        const result = await api.oauthAuthorizeUrl(
+          provider,
+          ownershipOptions(state.accountForm, userId),
+        );
+        window.location.href = result.authorize_url;
+      } catch (err) {
+        state.setError(messageOf(err, "onboarding_oauth_failed"));
+        state.setBusy(false);
+      }
+    },
+    [state, userId],
+  );
 }
 
 export type OnboardingController = ReturnType<typeof useOnboardingPage>;
@@ -149,8 +177,13 @@ const emptyProviderForm: ProviderForm = {
   api_key: "",
 };
 const emptyAccountForm: AccountForm = {
-  imap_host: "", username: "", password: "", interval_minutes: 5,
-  llm_provider_id: "", ownership_mode: "private", shared_user_ids: [],
+  imap_host: "",
+  username: "",
+  password: "",
+  interval_minutes: 5,
+  llm_provider_id: "",
+  ownership_mode: "private",
+  shared_user_ids: [],
 };
 
 async function loadProviders(
@@ -163,7 +196,10 @@ async function loadProviders(
     const providers = await api.listProviders();
     setProviders(providers);
     if (providers.length > 0) {
-      setAccountForm((current) => ({ ...current, llm_provider_id: providers[0].id }));
+      setAccountForm((current) => ({
+        ...current,
+        llm_provider_id: providers[0].id,
+      }));
       setStep("account");
     }
   } catch {
@@ -196,10 +232,13 @@ function accountPayload(form: AccountForm, userId?: string) {
     password: form.password,
     interval_minutes: Number(form.interval_minutes),
     llm_provider_id: form.llm_provider_id || null,
-    ...(userId ? {
-      ownership_mode: form.ownership_mode,
-      shared_user_ids: form.ownership_mode === "shared" ? form.shared_user_ids : [],
-    } : {}),
+    ...(userId
+      ? {
+          ownership_mode: form.ownership_mode,
+          shared_user_ids:
+            form.ownership_mode === "shared" ? form.shared_user_ids : [],
+        }
+      : {}),
   };
 }
 
@@ -216,5 +255,7 @@ export function memberUserId(member: OrganizationMember): string | null {
 }
 
 function messageOf(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

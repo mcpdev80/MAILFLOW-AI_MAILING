@@ -1,7 +1,7 @@
 "use client";
 
-import { WorkspaceEditorUi } from "./workspace-editor-ui";
 import { useWorkspaceEditor } from "./use-workspace-editor";
+import { WorkspaceEditorUi } from "./workspace-editor-ui";
 
 export default function WorkspaceEditorPage() {
   const controller = useWorkspaceEditor();

@@ -35,5 +35,7 @@ export function useDailySummaryPage() {
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "daily_summary_request_failed";
+  return error instanceof Error
+    ? error.message
+    : "daily_summary_request_failed";
 }

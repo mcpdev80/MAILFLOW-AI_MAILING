@@ -49,13 +49,24 @@ export function useLoginPage() {
     finish();
   }, [email, finish, password, t]);
 
-  return { email, setEmail, password, setPassword, error, busy, signInWithPasskey, signInWithPassword };
+  return {
+    email,
+    setEmail,
+    password,
+    setPassword,
+    error,
+    busy,
+    signInWithPasskey,
+    signInWithPassword,
+  };
 }
 
 async function conditionalPasskey(): Promise<boolean> {
   if (typeof PublicKeyCredential === "undefined") return false;
-  if (typeof PublicKeyCredential.isConditionalMediationAvailable !== "function") return false;
-  if (!(await PublicKeyCredential.isConditionalMediationAvailable())) return false;
+  if (typeof PublicKeyCredential.isConditionalMediationAvailable !== "function")
+    return false;
+  if (!(await PublicKeyCredential.isConditionalMediationAvailable()))
+    return false;
   const result = await authClient.signIn.passkey({ autoFill: true });
   return !result.error;
 }

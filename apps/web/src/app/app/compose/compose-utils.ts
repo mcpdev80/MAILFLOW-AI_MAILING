@@ -21,7 +21,10 @@ export const AI_ACTIONS: readonly WritingAction[] = [
 ];
 
 export function splitRecipients(value: string): string[] {
-  return value.split(/[;,]/).map((item) => item.trim()).filter(Boolean);
+  return value
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 export function joinRecipients(values: string[]): string {
@@ -29,7 +32,9 @@ export function joinRecipients(values: string[]): string {
 }
 
 export function normalizeMessageType(value: string | null): MessageType {
-  return value === "reply" || value === "reply_all" || value === "forward" ? value : "new";
+  return value === "reply" || value === "reply_all" || value === "forward"
+    ? value
+    : "new";
 }
 
 export function formatBytes(value: number): string {
@@ -41,10 +46,13 @@ export function formatBytes(value: number): string {
 export async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("file_read_failed"));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("file_read_failed"));
     reader.onload = () => {
       const value = String(reader.result ?? "");
-      resolve(value.includes(",") ? value.slice(value.indexOf(",") + 1) : value);
+      resolve(
+        value.includes(",") ? value.slice(value.indexOf(",") + 1) : value,
+      );
     };
     reader.readAsDataURL(file);
   });

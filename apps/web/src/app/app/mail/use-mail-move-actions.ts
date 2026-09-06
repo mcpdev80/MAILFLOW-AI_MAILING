@@ -38,13 +38,25 @@ export function useMailMoveActions(options: MoveActionOptions) {
   const [dragTarget, setDragTarget] = useState<string | null>(null);
   const [undoMoves, setUndoMoves] = useState<UndoMove[]>([]);
 
-  async function runActionFor(message: InboxMessage, payload: MailActionRequest) {
+  async function runActionFor(
+    message: InboxMessage,
+    payload: MailActionRequest,
+  ) {
     if (!confirmAction(payload.action, t)) return;
     setActionLoading(true);
     options.setError(null);
     try {
-      const result = await api.mailAction(message.account_id, message.folder, message.uid, payload);
-      await refreshSelectedAfterAction(message, result.destination_folder, options);
+      const result = await api.mailAction(
+        message.account_id,
+        message.folder,
+        message.uid,
+        payload,
+      );
+      await refreshSelectedAfterAction(
+        message,
+        result.destination_folder,
+        options,
+      );
       await options.loadInbox();
     } catch (err) {
       options.setError(apiErrorMessage(err, t("mail.actionFailed")));
@@ -61,12 +73,18 @@ export function useMailMoveActions(options: MoveActionOptions) {
   function selectionForDrag(message: InboxMessage): InboxMessage[] {
     if (!selectedKeys.has(messageKey(message))) return [message];
     return (options.inbox?.messages ?? []).filter(
-      (item) => selectedKeys.has(messageKey(item)) && item.account_id === message.account_id,
+      (item) =>
+        selectedKeys.has(messageKey(item)) &&
+        item.account_id === message.account_id,
     );
   }
 
   async function dropMessagesIntoFolder(destination: string) {
-    const candidates = moveCandidates(options.selectedAccountId, dragMessages, destination);
+    const candidates = moveCandidates(
+      options.selectedAccountId,
+      dragMessages,
+      destination,
+    );
     if (!candidates.length) return;
     setActionLoading(true);
     const completed: UndoMove[] = [];
@@ -122,7 +140,10 @@ export function useMailMoveActions(options: MoveActionOptions) {
   };
 }
 
-function confirmAction(action: MailActionRequest["action"], t: ReturnType<typeof useI18n>["t"]): boolean {
+function confirmAction(
+  action: MailActionRequest["action"],
+  t: ReturnType<typeof useI18n>["t"],
+): boolean {
   if (action === "trash") return window.confirm(t("mail.trashConfirm"));
   if (action === "spam") return window.confirm(t("mail.spamConfirm"));
   return true;
@@ -133,13 +154,16 @@ async function refreshSelectedAfterAction(
   destination: string | null,
   options: MoveActionOptions,
 ) {
-  if (!options.selected || messageKey(options.selected) !== messageKey(message)) return;
+  if (!options.selected || messageKey(options.selected) !== messageKey(message))
+    return;
   if (destination && destination !== message.folder) {
     options.setSelected(null);
     options.setThread(null);
     return;
   }
-  options.setSelected(await api.messageDetail(message.account_id, message.folder, message.uid));
+  options.setSelected(
+    await api.messageDetail(message.account_id, message.folder, message.uid),
+  );
 }
 
 function toggleKey(current: Set<string>, key: string): Set<string> {
@@ -155,7 +179,9 @@ function moveCandidates(
   destination: string,
 ): InboxMessage[] {
   if (!accountId) return [];
-  return messages.filter((item) => item.account_id === accountId && item.folder !== destination);
+  return messages.filter(
+    (item) => item.account_id === accountId && item.folder !== destination,
+  );
 }
 
 async function moveCandidatesToFolder(
@@ -187,5 +213,7 @@ function clearSelectionState(
 }
 
 function apiErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

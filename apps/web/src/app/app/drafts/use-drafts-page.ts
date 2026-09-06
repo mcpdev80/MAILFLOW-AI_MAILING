@@ -41,5 +41,7 @@ export function useDraftsPage() {
 }
 
 function messageOf(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

@@ -1,7 +1,8 @@
 export const esSearch = {
   "common.all": "Todos",
   "search.title": "Buscar",
-  "search.description": "Metadatos y estado de clasificación de todos tus buzones autorizados.",
+  "search.description":
+    "Metadatos y estado de clasificación de todos tus buzones autorizados.",
   "search.advanced": "Buscar / Búsqueda avanzada",
   "search.senderSubject": "Remitente / asunto",
   "search.sender": "Remitente",
@@ -27,7 +28,8 @@ export const esSearch = {
   "search.results": "resultados",
   "search.relevance": "Relevancia",
   "search.sortBy": "Ordenar por",
-  "search.noResults": "Ningún mensaje coincide con la búsqueda y los filtros actuales.",
+  "search.noResults":
+    "Ningún mensaje coincide con la búsqueda y los filtros actuales.",
   "processing.execute": "Ejecutado",
   "processing.review": "Revisión",
   "processing.pending": "Pendiente",

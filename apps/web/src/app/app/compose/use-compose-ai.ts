@@ -2,7 +2,12 @@
 
 import { ApiError, api } from "@/lib/api";
 import type { TranslationKey } from "@/lib/i18n";
-import type { MailDraft, WritingAction, WritingPreview, WritingScope } from "@/lib/types";
+import type {
+  MailDraft,
+  WritingAction,
+  WritingPreview,
+  WritingScope,
+} from "@/lib/types";
 import { useCallback, useState } from "react";
 import { textToHtml } from "./compose-utils";
 import type { ComposerFields } from "./use-compose-draft";
@@ -21,7 +26,10 @@ export function useComposeAi(options: {
 }) {
   const [ai, setAi] = useState(initialAiState);
   const runAI = useRunAi(ai, setAi, options);
-  const applyAIPreview = useCallback(() => applyPreview(ai, setAi, options), [ai, options]);
+  const applyAIPreview = useCallback(
+    () => applyPreview(ai, setAi, options),
+    [ai, options],
+  );
   return { ai, setAi, runAI, applyAIPreview };
 }
 
@@ -30,20 +38,35 @@ function useRunAi(
   setAi: React.Dispatch<React.SetStateAction<typeof initialAiState>>,
   options: Parameters<typeof useComposeAi>[0],
 ) {
-  return useCallback(async (selectedText: string) => {
-    const current = options.draftRef.current;
-    if (!current || !validateAI(ai, selectedText, options.setError, options.t)) return;
-    setAi((state) => ({ ...state, loading: true, preview: null }));
-    options.setError(null);
-    try {
-      await options.persist();
-      const preview = await api.previewWriting(current.id, aiPayload(ai, selectedText));
-      setAi((state) => ({ ...state, loading: false, preview, selectedSource: selectedText }));
-    } catch (err) {
-      setAi((state) => ({ ...state, loading: false }));
-      options.setError(apiMessage(err, options.t("compose.aiFailed")));
-    }
-  }, [ai, options, setAi]);
+  return useCallback(
+    async (selectedText: string) => {
+      const current = options.draftRef.current;
+      if (
+        !current ||
+        !validateAI(ai, selectedText, options.setError, options.t)
+      )
+        return;
+      setAi((state) => ({ ...state, loading: true, preview: null }));
+      options.setError(null);
+      try {
+        await options.persist();
+        const preview = await api.previewWriting(
+          current.id,
+          aiPayload(ai, selectedText),
+        );
+        setAi((state) => ({
+          ...state,
+          loading: false,
+          preview,
+          selectedSource: selectedText,
+        }));
+      } catch (err) {
+        setAi((state) => ({ ...state, loading: false }));
+        options.setError(apiMessage(err, options.t("compose.aiFailed")));
+      }
+    },
+    [ai, options, setAi],
+  );
 }
 
 function applyPreview(
@@ -52,17 +75,27 @@ function applyPreview(
   options: Parameters<typeof useComposeAi>[0],
 ) {
   if (!ai.preview) return;
-  const next = applyPreviewText(options.fields.bodyText, ai.preview, ai.selectedSource);
+  const next = applyPreviewText(
+    options.fields.bodyText,
+    ai.preview,
+    ai.selectedSource,
+  );
   options.setFields((current) => ({
     ...current,
     bodyText: next,
-    bodyHtml: current.editorMode === "rich_text" ? textToHtml(next) : current.bodyHtml,
+    bodyHtml:
+      current.editorMode === "rich_text" ? textToHtml(next) : current.bodyHtml,
   }));
   setAi((state) => ({ ...state, preview: null, selectedSource: "" }));
   options.setNotice(options.t("compose.aiApplied"));
 }
 
-function validateAI(ai: typeof initialAiState, selectedText: string, setError: Setter, t: Translate) {
+function validateAI(
+  ai: typeof initialAiState,
+  selectedText: string,
+  setError: Setter,
+  t: Translate,
+) {
   if (ai.scope === "selection" && !selectedText) {
     setError(t("compose.selectText"));
     return false;
@@ -88,7 +121,11 @@ function aiPayload(ai: typeof initialAiState, selectedText: string) {
   };
 }
 
-function applyPreviewText(body: string, preview: WritingPreview, selectedSource: string) {
+function applyPreviewText(
+  body: string,
+  preview: WritingPreview,
+  selectedSource: string,
+) {
   if (preview.scope !== "selection" || !selectedSource) return preview.text;
   const index = body.indexOf(selectedSource);
   if (index < 0) return preview.text;
@@ -106,5 +143,7 @@ const initialAiState = {
 };
 
 function apiMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : fallback;
 }

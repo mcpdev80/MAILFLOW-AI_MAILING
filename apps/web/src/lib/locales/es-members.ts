@@ -12,6 +12,7 @@ export const esMembers: Partial<Record<TranslationKey, string>> = {
   "members.invite": "Invitar",
   "members.inviting": "Invitando…",
   "members.pending": "Invitaciones pendientes",
-  "members.loadFailed": "No se pudieron cargar los miembros de la organización.",
+  "members.loadFailed":
+    "No se pudieron cargar los miembros de la organización.",
   "members.inviteFailed": "No se pudo enviar la invitación.",
 };

@@ -1,6 +1,7 @@
 export const deSettings = {
   "settings.title": "Einstellungen",
-  "settings.description": "Verwalte Profil, Arbeitsbereiche, Sicherheitsintegrationen und Darstellungsoptionen.",
+  "settings.description":
+    "Verwalte Profil, Arbeitsbereiche, Sicherheitsintegrationen und Darstellungsoptionen.",
   "settings.nav.profile": "Profil & Konto",
   "settings.nav.mailboxes": "Postfächer",
   "settings.nav.providers": "KI-Anbieter",
@@ -10,7 +11,8 @@ export const deSettings = {
   "settings.nav.retention": "Daten & Aufbewahrung",
   "settings.nav.billing": "Abrechnung",
   "settings.appearance.title": "Darstellung & Arbeitsbereich",
-  "settings.appearance.description": "Passe Darstellung und Anordnung des Mail-Arbeitsbereichs an.",
+  "settings.appearance.description":
+    "Passe Darstellung und Anordnung des Mail-Arbeitsbereichs an.",
   "settings.appearance.theme": "Oberflächenthema",
   "settings.appearance.theme.light": "Hell",
   "settings.appearance.theme.dark": "Dunkel",
@@ -31,9 +33,11 @@ export const deSettings = {
   "settings.appearance.apply": "Einstellungen anwenden",
   "settings.appearance.reset": "Standardwerte wiederherstellen",
   "settings.appearance.saved": "Einstellungen gespeichert.",
-  "settings.appearance.failed": "Einstellungen konnten nicht gespeichert werden.",
+  "settings.appearance.failed":
+    "Einstellungen konnten nicht gespeichert werden.",
   "settings.workspaceEditor.title": "Arbeitsbereich-Layouteditor",
-  "settings.workspaceEditor.description": "Ordne, positioniere und skaliere die Bereiche des Mail-Arbeitsbereichs.",
+  "settings.workspaceEditor.description":
+    "Ordne, positioniere und skaliere die Bereiche des Mail-Arbeitsbereichs.",
   "settings.workspaceEditor.active": "Benutzerdefiniertes Layout aktiv",
   "settings.workspaceEditor.panelOptions": "Bereichsoptionen",
   "settings.workspaceEditor.overlay": "Nachrichteninhalt als Overlay",

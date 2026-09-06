@@ -10,9 +10,20 @@ export default function HomePage() {
       <section className="hero">
         <h1>MailFlow</h1>
         <p className="muted">{t("home.tagline")}</p>
-        <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", marginTop: "1.5rem" }}>
-          <Link className="btn" href="/onboarding">{t("home.getStarted")}</Link>
-          <Link className="btn secondary" href="/app/dashboard">{t("home.openDashboard")}</Link>
+        <div
+          style={{
+            display: "flex",
+            gap: "0.75rem",
+            justifyContent: "center",
+            marginTop: "1.5rem",
+          }}
+        >
+          <Link className="btn" href="/onboarding">
+            {t("home.getStarted")}
+          </Link>
+          <Link className="btn secondary" href="/app/dashboard">
+            {t("home.openDashboard")}
+          </Link>
         </div>
       </section>
       <div className="card">

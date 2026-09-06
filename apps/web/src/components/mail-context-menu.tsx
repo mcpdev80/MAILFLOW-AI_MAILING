@@ -34,7 +34,11 @@ function capabilityAllowed(
   return Boolean(capabilities?.[action.capability]);
 }
 
-function actionVisible(action: MailActionDefinition, seen: boolean, flagged: boolean): boolean {
+function actionVisible(
+  action: MailActionDefinition,
+  seen: boolean,
+  flagged: boolean,
+): boolean {
   if (action.id === "mark_read") return !seen;
   if (action.id === "mark_unread") return seen;
   if (action.id === "flag") return !flagged;
@@ -44,17 +48,25 @@ function actionVisible(action: MailActionDefinition, seen: boolean, flagged: boo
 
 function useVisibleGroups(seen: boolean, flagged: boolean) {
   return useMemo(
-    () => MAIL_ACTION_GROUPS.map((group) => ({
-      ...group,
-      actions: group.actions.filter((action) => actionVisible(action, seen, flagged)),
-    })),
+    () =>
+      MAIL_ACTION_GROUPS.map((group) => ({
+        ...group,
+        actions: group.actions.filter((action) =>
+          actionVisible(action, seen, flagged),
+        ),
+      })),
     [flagged, seen],
   );
 }
 
-function focusByKey(event: React.KeyboardEvent<HTMLElement>, root: HTMLDivElement | null) {
+function focusByKey(
+  event: React.KeyboardEvent<HTMLElement>,
+  root: HTMLDivElement | null,
+) {
   if (!root) return;
-  const items = Array.from(root.querySelectorAll<HTMLElement>("[role='menuitem']:not([disabled])"));
+  const items = Array.from(
+    root.querySelectorAll<HTMLElement>("[role='menuitem']:not([disabled])"),
+  );
   if (!items.length) return;
   const index = items.indexOf(event.currentTarget);
   const targets: Record<string, HTMLElement | undefined> = {
@@ -92,7 +104,9 @@ function ActionButton(props: {
       onClick={props.onRun}
     >
       {t(props.action.labelKey)}
-      {props.action.submenu?.length ? <span className={styles.chevron}>›</span> : null}
+      {props.action.submenu?.length ? (
+        <span className={styles.chevron}>›</span>
+      ) : null}
     </button>
   );
 }
@@ -116,7 +130,10 @@ function GroupMenu(props: {
   );
 }
 
-function GroupAction({ action, props }: { action: MailActionDefinition; props: Parameters<typeof GroupMenu>[0] }) {
+function GroupAction({
+  action,
+  props,
+}: { action: MailActionDefinition; props: Parameters<typeof GroupMenu>[0] }) {
   const submenuOpen = props.openSubmenu === action.id;
   return (
     <div>
@@ -124,15 +141,24 @@ function GroupAction({ action, props }: { action: MailActionDefinition; props: P
         action={action}
         allowed={capabilityAllowed(action, props.capabilities)}
         expanded={submenuOpen}
-        onRun={() => action.submenu?.length ? props.setOpenSubmenu(submenuOpen ? null : action.id) : props.run(action)}
+        onRun={() =>
+          action.submenu?.length
+            ? props.setOpenSubmenu(submenuOpen ? null : action.id)
+            : props.run(action)
+        }
         onKeyDown={props.onKeyDown}
       />
-      {submenuOpen && action.submenu?.length ? <Submenu action={action} props={props} /> : null}
+      {submenuOpen && action.submenu?.length ? (
+        <Submenu action={action} props={props} />
+      ) : null}
     </div>
   );
 }
 
-function Submenu({ action, props }: { action: MailActionDefinition; props: Parameters<typeof GroupMenu>[0] }) {
+function Submenu({
+  action,
+  props,
+}: { action: MailActionDefinition; props: Parameters<typeof GroupMenu>[0] }) {
   return (
     <div className={styles.submenu} role="menu">
       {action.submenu?.map((child) => (
@@ -183,11 +209,28 @@ export function MailContextMenu(props: MailContextMenuProps) {
   const groups = useVisibleGroups(props.seen, props.flagged);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-  useMenuDismiss(menuRef, openGroup, setOpenGroup, openSubmenu, setOpenSubmenu, props.onClose);
+  useMenuDismiss(
+    menuRef,
+    openGroup,
+    setOpenGroup,
+    openSubmenu,
+    setOpenSubmenu,
+    props.onClose,
+  );
   useInitialFocus(menuRef);
   const run = (action: MailActionDefinition) => runAction(action, props);
   return (
-    <div ref={menuRef} className={styles.menu} role="menu" aria-label={t("mail.group.more")} style={{ position: "fixed", left: props.position.x, top: props.position.y }}>
+    <div
+      ref={menuRef}
+      className={styles.menu}
+      role="menu"
+      aria-label={t("mail.group.more")}
+      style={{
+        position: "fixed",
+        left: props.position.x,
+        top: props.position.y,
+      }}
+    >
       <GroupList
         groups={groups}
         capabilities={props.capabilities}
@@ -204,7 +247,9 @@ export function MailContextMenu(props: MailContextMenuProps) {
 
 function useInitialFocus(menuRef: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
-    requestAnimationFrame(() => menuRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus());
+    requestAnimationFrame(() =>
+      menuRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus(),
+    );
   }, [menuRef]);
 }
 
@@ -225,31 +270,38 @@ function GroupList(props: {
   menuRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const { t } = useI18n();
-  return <>{props.groups.map((group) => (
-    <div className={styles.group} key={group.id}>
-      <button
-        className={styles.groupButton}
-        type="button"
-        role="menuitem"
-        aria-haspopup="menu"
-        aria-expanded={props.openGroup === group.id}
-        onKeyDown={(event) => focusByKey(event, props.menuRef.current)}
-        onClick={() => {
-          props.setOpenGroup(props.openGroup === group.id ? null : group.id);
-          props.setOpenSubmenu(null);
-        }}
-      >
-        {t(group.labelKey)}<span className={styles.chevron}>›</span>
-      </button>
-      <GroupMenu
-        group={group}
-        capabilities={props.capabilities}
-        expanded={props.openGroup === group.id}
-        openSubmenu={props.openSubmenu}
-        setOpenSubmenu={props.setOpenSubmenu}
-        run={props.run}
-        onKeyDown={(event) => focusByKey(event, props.menuRef.current)}
-      />
-    </div>
-  ))}</>;
+  return (
+    <>
+      {props.groups.map((group) => (
+        <div className={styles.group} key={group.id}>
+          <button
+            className={styles.groupButton}
+            type="button"
+            role="menuitem"
+            aria-haspopup="menu"
+            aria-expanded={props.openGroup === group.id}
+            onKeyDown={(event) => focusByKey(event, props.menuRef.current)}
+            onClick={() => {
+              props.setOpenGroup(
+                props.openGroup === group.id ? null : group.id,
+              );
+              props.setOpenSubmenu(null);
+            }}
+          >
+            {t(group.labelKey)}
+            <span className={styles.chevron}>›</span>
+          </button>
+          <GroupMenu
+            group={group}
+            capabilities={props.capabilities}
+            expanded={props.openGroup === group.id}
+            openSubmenu={props.openSubmenu}
+            setOpenSubmenu={props.setOpenSubmenu}
+            run={props.run}
+            onKeyDown={(event) => focusByKey(event, props.menuRef.current)}
+          />
+        </div>
+      ))}
+    </>
+  );
 }

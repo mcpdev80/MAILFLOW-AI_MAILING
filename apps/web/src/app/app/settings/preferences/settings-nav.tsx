@@ -1,6 +1,6 @@
 "use client";
 
-import { useI18n, type TranslationKey } from "@/lib/i18n";
+import { type TranslationKey, useI18n } from "@/lib/i18n";
 import styles from "./preferences.module.css";
 
 const items: TranslationKey[] = [

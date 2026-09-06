@@ -1,5 +1,5 @@
 import { api } from "./api";
-import { undoMailMove, type MoveUndoRequest } from "./mail-ux-api";
+import { type MoveUndoRequest, undoMailMove } from "./mail-ux-api";
 import type {
   EmailAccount,
   InboxMessage,
@@ -42,7 +42,9 @@ export async function loadWorkspaceBootstrap(
   return { accounts, inbox };
 }
 
-export function loadMailboxMetadata(accountId: string): Promise<MailboxMetadata> {
+export function loadMailboxMetadata(
+  accountId: string,
+): Promise<MailboxMetadata> {
   return api.mailboxMetadata(accountId);
 }
 

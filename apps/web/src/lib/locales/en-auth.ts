@@ -1,8 +1,10 @@
 export const enAuth = {
   "auth.login.title": "Sign in",
   "auth.login.passkey": "Sign in with passkey",
-  "auth.login.passkeyHint": "Use Windows Hello, Touch ID, your phone, or a security key.",
-  "auth.login.passwordHint": "Email and password remain available for migration and account recovery.",
+  "auth.login.passkeyHint":
+    "Use Windows Hello, Touch ID, your phone, or a security key.",
+  "auth.login.passwordHint":
+    "Email and password remain available for migration and account recovery.",
   "auth.login.email": "Email",
   "auth.login.password": "Password",
   "auth.login.passwordAction": "Sign in with password",
