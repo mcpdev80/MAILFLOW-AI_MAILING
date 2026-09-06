@@ -19,6 +19,8 @@ const appSurfaces = [
   ["/app/settings/models", "Model roles"],
   ["/app/settings/preferences", "Settings"],
   ["/app/settings/workspace", "Workspace Layout Editor"],
+  ["/app/settings/members", "Team members"],
+  ["/app/settings/security", "Security"],
 ];
 
 for (const [path, heading] of appSurfaces) {
