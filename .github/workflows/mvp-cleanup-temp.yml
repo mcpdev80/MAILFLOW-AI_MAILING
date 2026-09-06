@@ -1,0 +1,83 @@
+name: MVP cleanup on test-mvp (temporary)
+
+on:
+  push:
+    branches:
+      - test-mvp
+    paths:
+      - .github/workflows/mvp-cleanup-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test-mvp
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Remove legacy landing page and add setup welcome
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('apps/web/src/app/page.tsx')
+          root.write_text('''import { redirect } from "next/navigation";\n\nexport default function HomePage() {\n  redirect("/setup");\n}\n''')
+
+          shell = Path('apps/web/src/components/wizard-shell.tsx')
+          text = shell.read_text()
+          text = text.replace('''  next,\n}: {''', '''  next,\n  showProgress = true,\n}: {''', 1)
+          text = text.replace('''  next: { label: string; onClick: () => void; disabled?: boolean };\n}) {''', '''  next: { label: string; onClick: () => void; disabled?: boolean };\n  showProgress?: boolean;\n}) {''', 1)
+          text = text.replace('''          <StepIndicator current={step} total={total} />''', '''          {showProgress ? <StepIndicator current={step} total={total} /> : <span />}''', 1)
+          shell.write_text(text)
+
+          setup = Path('apps/web/src/app/setup/setup-ui.tsx')
+          text = setup.read_text()
+          text = text.replace('''  const [step, setStep] = useState(1);''', '''  const [started, setStarted] = useState(false);\n  const [step, setStep] = useState(1);''', 1)
+          marker = '''  if (step === 1) {\n'''
+          intro = '''  if (!started) {\n    return (\n      <WizardShell\n        kind="setup"\n        step={1}\n        total={4}\n        showProgress={false}\n        title="Welcome to Mailflow"\n        subtitle="We’ll guide you through the instance setup before the first user starts personal onboarding."\n        next={{ label: "Start setup", onClick: () => setStarted(true) }}\n      >\n        <div className={s.checklist}>\n          <div className={s.checkRow}><span>1</span><span>Language & Appearance</span><span>Defaults</span></div>\n          <div className={s.checkRow}><span>2</span><span>URL & HTTPS</span><span>Deployment</span></div>\n          <div className={s.checkRow}><span>3</span><span>AI Provider</span><span>Connection</span></div>\n          <div className={s.checkRow}><span>4</span><span>Instance Verification</span><span>Readiness</span></div>\n        </div>\n        <div className={s.info}>\n          <span className={s.infoIcon}>i</span>\n          <span>After these four instance steps, the first user continues with the separate 6-step personal onboarding wizard.</span>\n        </div>\n      </WizardShell>\n    );\n  }\n\n'''
+          if marker not in text:
+              raise SystemExit('setup step marker not found')
+          text = text.replace(marker, intro + marker, 1)
+          setup.write_text(text)
+
+          i18n = Path('apps/web/src/lib/i18n.tsx')
+          text = i18n.read_text()
+          for lang in ['de', 'en', 'es']:
+              text = text.replace(f'import {{ {lang}Home }} from "./locales/{lang}-home";\n', '')
+              text = text.replace(f'  ...{lang}Home,\n', '')
+          i18n.write_text(text)
+
+          types = Path('apps/web/src/lib/locales/types.ts')
+          text = types.read_text()
+          text = text.replace('import type { enHome } from "./en-home";\n', '')
+          text = text.replace('  | keyof typeof enHome\n', '')
+          types.write_text(text)
+
+          for lang in ['de', 'en', 'es']:
+              p = Path(f'apps/web/src/lib/locales/{lang}-home.ts')
+              if p.exists():
+                  p.unlink()
+
+          log = Path('docs/mvp-test-log.md')
+          current = log.read_text() if log.exists() else '# MVP Test Log\n\n'
+          current += '''\n## 2026-09-07 — Fresh install cleanup\n- [x] Removed legacy root landing page; `/` now routes into the canonical instance setup flow.\n- [x] Removed obsolete `home.*` localization bundles used only by the deleted landing page.\n- [x] Added an unnumbered setup welcome screen explaining the four instance setup steps.\n- [x] Preserved canonical Instance Setup A1-A4 as exactly four numbered steps.\n- [x] Clarified handoff from instance setup to the separate 6-step user onboarding wizard.\n- [ ] Re-test fresh installation in browser and verify all wizard styling/assets end-to-end.\n'''
+          log.write_text(current)
+          PY
+
+          pnpm install --frozen-lockfile --filter @mailflow/web...
+          pnpm --filter @mailflow/web typecheck
+          pnpm --filter @mailflow/web lint
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(mvp): remove legacy landing and add setup welcome"
+          git push origin HEAD:test-mvp
