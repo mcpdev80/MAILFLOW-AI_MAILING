@@ -59,6 +59,59 @@ choose_tls() {
   printf '%s' "${value:-1}"
 }
 
+resolve_path() {
+  local value="$1" base="$2"
+  case "$value" in
+    "~") value="$HOME" ;;
+    "~/"*) value="$HOME/${value#~/}" ;;
+  esac
+  if [[ "$value" != /* ]]; then
+    value="$base/$value"
+  fi
+  if command -v realpath >/dev/null 2>&1; then
+    realpath -m "$value"
+  else
+    printf '%s' "$value"
+  fi
+}
+
+normalize_public_url() {
+  local value="$1" host
+  value="${value%/}"
+  if [[ "$value" != http://* && "$value" != https://* ]]; then
+    value="https://$value"
+  fi
+  [[ "$value" == http://* || "$value" == https://* ]] || fail "Public URL must use http:// or https://."
+  host="${value#*://}"
+  host="${host%%/*}"
+  [ -n "$host" ] || fail "Public URL does not contain a host name."
+  [[ "$host" =~ ^[A-Za-z0-9._:-]+$ ]] || fail "Public URL contains an invalid host name: $host"
+  printf '%s' "$value"
+}
+
+validate_install_dir() {
+  local dir="$1" parent
+  if [ -e "$dir" ] && [ ! -d "$dir" ]; then
+    fail "Install path exists but is not a directory: $dir"
+  fi
+  if [ -d "$dir" ]; then
+    [ -w "$dir" ] || fail "Install directory is not writable: $dir"
+    return
+  fi
+  parent="$(dirname "$dir")"
+  while [ ! -d "$parent" ] && [ "$parent" != "/" ]; do
+    parent="$(dirname "$parent")"
+  done
+  [ -w "$parent" ] || fail "Cannot create install directory below: $parent"
+}
+
+validate_certificate_folder() {
+  local dir="$1"
+  [ -d "$dir" ] || fail "Certificate folder does not exist: $dir"
+  [ -r "$dir" ] || fail "Certificate folder is not readable: $dir"
+  find "$dir" -maxdepth 2 -type f \( -iname '*.cer' -o -iname '*.crt' -o -iname '*.pem' -o -iname '*.key' -o -iname '*.zip' -o -iname '*.p7b' -o -iname '*.p7c' -o -iname '*.p12' -o -iname '*.pfx' \) -print -quit | grep -q . || fail "No supported certificate files found in: $dir"
+}
+
 secret_hex() { openssl rand -hex 32; }
 secret_fernet() { openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n'; }
 
@@ -102,7 +155,7 @@ assemble_custom_tls() {
   local source_dir="$1" public_url="$2" output_dir="$3"
   local work cert_dir key_file="" p12_file="" p12_password="" host key_fp leaf=""
 
-  [ -d "$source_dir" ] || fail "Certificate folder does not exist: $source_dir"
+  validate_certificate_folder "$source_dir"
   work="$(mktemp -d)"
   trap 'rm -rf "$work"' RETURN
   cert_dir="$work/certs"
@@ -242,19 +295,33 @@ need docker "Docker is required. Install Docker Engine/Desktop first, then run t
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required (docker compose)."
 docker info >/dev/null 2>&1 || fail "Docker is installed but not reachable. Start Docker or fix your Docker permissions."
 
-INSTALL_DIR="$(prompt_path "Install directory" "$INSTALL_DIR_DEFAULT")"
-PUBLIC_URL="$(prompt "Public URL for this installation" "https://localhost")"
+INSTALL_INPUT="$(prompt_path "Install directory" "$INSTALL_DIR_DEFAULT")"
+INSTALL_DIR="$(resolve_path "$INSTALL_INPUT" "$HOME")"
+PUBLIC_URL="$(normalize_public_url "$(prompt "Public URL for this installation" "https://localhost")")"
 TLS_MODE="$(choose_tls)"
 TLS_SOURCE_DIR=""
+
+validate_install_dir "$INSTALL_DIR"
 
 case "$TLS_MODE" in
   1) TLS_MODE="automatic" ;;
   2)
     TLS_MODE="custom"
-    TLS_SOURCE_DIR="$(prompt_path "Certificate folder" "$HOME")"
+    TLS_INPUT="$(prompt_path "Certificate folder" "$HOME")"
+    TLS_SOURCE_DIR="$(resolve_path "$TLS_INPUT" "$HOME")"
+    validate_certificate_folder "$TLS_SOURCE_DIR"
     ;;
   *) fail "Invalid TLS choice. Use 1 or 2." ;;
 esac
+
+printf '\nValidated configuration:\n'
+printf '  Install directory:  %s\n' "$INSTALL_DIR"
+printf '  Public URL:         %s\n' "$PUBLIC_URL"
+if [ "$TLS_MODE" = "custom" ]; then
+  printf '  Certificate folder: %s\n' "$TLS_SOURCE_DIR"
+else
+  printf '  TLS:                automatic\n'
+fi
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   say "Updating existing checkout in $INSTALL_DIR"
