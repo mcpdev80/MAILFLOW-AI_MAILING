@@ -12,7 +12,9 @@ WorkspaceLayout = Literal[
 ]
 SidePanelAlignment = Literal["left", "right"]
 WorkspacePanel = Literal["accounts", "folders", "message_list", "message_content"]
-WorkspaceDock = Literal["left", "center", "right"]
+WorkspaceDock = Literal["left", "center", "right", "top", "bottom"]
+ActionBarDock = Literal["top", "bottom"]
+SystemStatusPosition = Literal["top", "bottom", "hidden"]
 
 
 class WorkspacePanelConfig(BaseModel):
@@ -28,6 +30,8 @@ class WorkspaceCustomConfig(BaseModel):
     panels: list[WorkspacePanelConfig]
     message_content_overlay: bool = False
     show_resize_handles: bool = True
+    action_bar_dock: ActionBarDock = "top"
+    system_status_position: SystemStatusPosition = "top"
 
     @model_validator(mode="after")
     def validate_panel_set(self) -> "WorkspaceCustomConfig":
