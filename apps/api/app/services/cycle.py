@@ -53,6 +53,7 @@ from app.repositories.decision_memory import DecisionMemoryRepository
 from app.repositories.thread import ThreadRepository
 from app.routing import destination_for_classification
 from app.secrets import redact_text
+from app.services.attachment_library import ingest_message_attachments
 
 log = logging.getLogger("mailflow.cycle")
 
@@ -394,6 +395,29 @@ async def _process_one(
         if action_decision.execute
         else account.inbox_folder
     )
+
+    # Attachment bytes must be fetched before the source message is moved because
+    # provider attachment access is UID/source-folder based. The attachment library
+    # is deliberately best-effort and never makes normal mail processing fail.
+    try:
+        async with sf() as session:
+            await ingest_message_attachments(
+                session,
+                account=account,
+                email_data=email_data,
+                thread_id=thread_id,
+                classification=result,
+                provider=provider,
+                source_folder=account.inbox_folder,
+            )
+            await session.commit()
+    except Exception as exc:  # noqa: BLE001 - isolated optional subsystem
+        log.warning(
+            "Attachment library ingestion failed for account=%s uid=%s: %s",
+            account.id,
+            email_data.uid,
+            redact_text(str(exc)),
+        )
 
     await asyncio.to_thread(provider.mark_as_processed, email_data.uid)
     if action_decision.execute:
