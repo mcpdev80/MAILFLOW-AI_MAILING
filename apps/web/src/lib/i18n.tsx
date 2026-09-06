@@ -12,6 +12,7 @@ import {
 } from "react";
 import { de } from "./locales/de";
 import { deAccount } from "./locales/de-account";
+import { deAuth } from "./locales/de-auth";
 import { deBilling } from "./locales/de-billing";
 import { deCompose } from "./locales/de-compose";
 import { deDashboard } from "./locales/de-dashboard";
@@ -29,6 +30,7 @@ import { deSettings } from "./locales/de-settings";
 import { deShell } from "./locales/de-shell";
 import { en } from "./locales/en";
 import { enAccount } from "./locales/en-account";
+import { enAuth } from "./locales/en-auth";
 import { enBilling } from "./locales/en-billing";
 import { enCompose } from "./locales/en-compose";
 import { enDashboard } from "./locales/en-dashboard";
@@ -46,6 +48,7 @@ import { enSettings } from "./locales/en-settings";
 import { enShell } from "./locales/en-shell";
 import { es } from "./locales/es";
 import { esAccount } from "./locales/es-account";
+import { esAuth } from "./locales/es-auth";
 import { esBilling } from "./locales/es-billing";
 import { esCompose } from "./locales/es-compose";
 import { esDashboard } from "./locales/es-dashboard";
@@ -76,6 +79,7 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 const fallback = {
   ...en,
   ...enAccount,
+  ...enAuth,
   ...enBilling,
   ...enCompose,
   ...enDashboard,
@@ -96,6 +100,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
   de: {
     ...de,
     ...deAccount,
+    ...deAuth,
     ...deBilling,
     ...deCompose,
     ...deDashboard,
@@ -116,6 +121,7 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
   es: {
     ...es,
     ...esAccount,
+    ...esAuth,
     ...esBilling,
     ...esCompose,
     ...esDashboard,
