@@ -1,6 +1,7 @@
 export const esShell = {
   "nav.search": "Buscar",
   "nav.processing": "Procesamiento",
+  "nav.attachments": "Adjuntos",
   "nav.mailboxes": "Buzones",
   "nav.learning": "Aprendizaje",
   "shell.systemStatus": "Estado del sistema",
