@@ -40,7 +40,6 @@ resolve_install_ref() {
     return
   fi
 
-  # For a local/resume invocation, stay on the currently checked out branch.
   if [ -d "$DEFAULT_INSTALL/.git" ]; then
     current="$(git -C "$DEFAULT_INSTALL" branch --show-current 2>/dev/null || true)"
     if [ -n "$current" ]; then
@@ -50,6 +49,17 @@ resolve_install_ref() {
   fi
 
   printf 'main'
+}
+
+checkout_ref() {
+  local dir="$1" ref="$2"
+  git -C "$dir" fetch origin "$ref"
+  if git -C "$dir" show-ref --verify --quiet "refs/heads/$ref"; then
+    git -C "$dir" checkout "$ref"
+  else
+    git -C "$dir" checkout -b "$ref" --track "origin/$ref"
+  fi
+  git -C "$dir" pull --ff-only origin "$ref"
 }
 
 BRANCH="$(resolve_install_ref "${1:-}")"
@@ -122,9 +132,7 @@ if is_mailflow_install "$DEFAULT_INSTALL"; then
   case "$choice" in
     1)
       printf '\n==> %s\n' "$(msg updating)"
-      git -C "$DEFAULT_INSTALL" fetch origin "$BRANCH"
-      git -C "$DEFAULT_INSTALL" checkout "$BRANCH"
-      git -C "$DEFAULT_INSTALL" pull --ff-only origin "$BRANCH"
+      checkout_ref "$DEFAULT_INSTALL" "$BRANCH"
       MAILFLOW_INSTALL_REF="$BRANCH" MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
       ;;
     2)
