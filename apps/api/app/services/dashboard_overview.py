@@ -70,7 +70,10 @@ def _counter_columns(range_start: datetime, today_start: datetime):
         _count("review_required", ProcessedEmail.review_required.is_(True)),
         _count("urgent", ProcessedEmail.urgency.in_(("immediate", "today"))),
         _count("action_required", ProcessedEmail.action_required == "yes"),
-        _count("failed_or_deferred", ProcessedEmail.mailbox_action_status.in_(FAILED_STATES)),
+        _count(
+            "failed_or_deferred",
+            ProcessedEmail.mailbox_action_status.in_(FAILED_STATES),
+        ),
         _count("automated_actions", automated),
         _count("decision_memory", ProcessedEmail.decision_memory_id.is_not(None)),
         _count("fast_model", fast),
@@ -114,7 +117,9 @@ async def _build_trend(
                 day_expr.label("day"),
                 _count("processed"),
                 _count("review", ProcessedEmail.review_required.is_(True)),
-                _count("failures", ProcessedEmail.mailbox_action_status.in_(FAILED_STATES)),
+                _count(
+                    "failures", ProcessedEmail.mailbox_action_status.in_(FAILED_STATES)
+                ),
             )
             .where(scope, ProcessedEmail.processed_at >= range_start)
             .group_by(func.date(ProcessedEmail.processed_at))
@@ -217,14 +222,20 @@ async def _backfills(
 async def _inference(accounts: list[EmailAccount]) -> tuple[dict, str, str | None]:
     try:
         snapshots = await asyncio.wait_for(
-            asyncio.gather(*(read_inference_health(account.id) for account in accounts)),
+            asyncio.gather(
+                *(read_inference_health(account.id) for account in accounts)
+            ),
             timeout=1.5,
         )
     except Exception:
         return {}, "unknown", None
     mapping = dict(zip((account.id for account in accounts), snapshots, strict=True))
     if any(bool(snapshot and snapshot.get("degraded")) for snapshot in snapshots):
-        return mapping, "degraded", "Inference is degraded for at least one authorized mailbox."
+        return (
+            mapping,
+            "degraded",
+            "Inference is degraded for at least one authorized mailbox.",
+        )
     if any(snapshot and snapshot.get("status") == "ok" for snapshot in snapshots):
         return mapping, "ok", None
     return mapping, "unknown", None
@@ -273,7 +284,9 @@ async def build_dashboard(
             mailboxes=[],
         )
     scope = ProcessedEmail.account_id.in_(account_ids)
-    counters = await _build_counters(session, scope, account_ids, range_start, today_start)
+    counters = await _build_counters(
+        session, scope, account_ids, range_start, today_start
+    )
     trend = await _build_trend(session, scope, range_start, range_days)
     categories, handling = await _build_breakdowns(session, scope, range_start)
     counts = await _mailbox_counts(session, scope, today_start)

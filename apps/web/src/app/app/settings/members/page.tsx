@@ -6,5 +6,9 @@ import { useMembersPage } from "./use-members-page";
 
 export default function MembersPage() {
   const controller = useMembersPage();
-  return <SettingsShell><MembersUi controller={controller} /></SettingsShell>;
+  return (
+    <SettingsShell>
+      <MembersUi controller={controller} />
+    </SettingsShell>
+  );
 }

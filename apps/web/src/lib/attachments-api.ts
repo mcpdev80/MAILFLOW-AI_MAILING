@@ -81,7 +81,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (response.status === 204) return undefined as T;
   const body = await response.json().catch(() => undefined);
-  if (!response.ok) throw new Error(body?.detail ?? response.statusText ?? "request_failed");
+  if (!response.ok)
+    throw new Error(body?.detail ?? response.statusText ?? "request_failed");
   return body as T;
 }
 
@@ -99,12 +100,16 @@ export const attachmentsApi = {
       method: "POST",
       body: JSON.stringify({ name, parent_id: parentId ?? null }),
     }),
-  updateFolder: (id: string, payload: { name?: string; parent_id?: string | null }) =>
+  updateFolder: (
+    id: string,
+    payload: { name?: string; parent_id?: string | null },
+  ) =>
     request<AttachmentFolder>(`/attachments/folders/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  deleteFolder: (id: string) => request<void>(`/attachments/folders/${id}`, { method: "DELETE" }),
+  deleteFolder: (id: string) =>
+    request<void>(`/attachments/folders/${id}`, { method: "DELETE" }),
   correct: (id: string, payload: Correction) =>
     request<AttachmentDetail>(`/attachments/${id}`, {
       method: "PATCH",
@@ -117,7 +122,9 @@ export function attachmentDownloadUrl(id: string): string {
   return `${API_BASE}/attachments/${encodeURIComponent(id)}/download`;
 }
 
-export function sourceMailUrl(source: AttachmentSource | BlockedAttachment): string {
+export function sourceMailUrl(
+  source: AttachmentSource | BlockedAttachment,
+): string {
   const params = new URLSearchParams({
     account_id: source.account_id,
     folder: source.folder,

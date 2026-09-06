@@ -7,7 +7,11 @@ import { useComposePage } from "./use-compose-page";
 
 function ComposePageContent() {
   const controller = useComposePage();
-  return <div className={styles.overlay}><ComposeUi controller={controller} /></div>;
+  return (
+    <div className={styles.overlay}>
+      <ComposeUi controller={controller} />
+    </div>
+  );
 }
 
 export default function ComposePage() {

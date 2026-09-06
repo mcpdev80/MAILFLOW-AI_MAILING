@@ -30,13 +30,20 @@ export function SettingsShell({ children }: { children: ReactNode }) {
     <main className={styles.page}>
       <div className={styles.titleBlock}>
         <h1>Settings</h1>
-        <p>Manage your profile, workspace, security, integrations and mailbox behavior</p>
+        <p>
+          Manage your profile, workspace, security, integrations and mailbox
+          behavior
+        </p>
       </div>
       <div className={styles.split}>
         <nav className={styles.nav} aria-label="Settings">
-          {items.map((item) => <SettingsLink key={item.href} {...item} pathname={pathname} />)}
+          {items.map((item) => (
+            <SettingsLink key={item.href} {...item} pathname={pathname} />
+          ))}
           <span className={styles.navGroupLabel}>Mailbox Intelligence</span>
-          {mailboxTools.map((item) => <SettingsLink key={item.href} {...item} pathname={pathname} />)}
+          {mailboxTools.map((item) => (
+            <SettingsLink key={item.href} {...item} pathname={pathname} />
+          ))}
         </nav>
         {children}
       </div>
@@ -44,9 +51,20 @@ export function SettingsShell({ children }: { children: ReactNode }) {
   );
 }
 
-function SettingsLink({ href, label, pathname }: { href: string; label: string; pathname: string }) {
+function SettingsLink({
+  href,
+  label,
+  pathname,
+}: { href: string; label: string; pathname: string }) {
   const active = pathname === href || pathname.startsWith(`${href}/`);
-  return <Link href={href} className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}>{label}</Link>;
+  return (
+    <Link
+      href={href}
+      className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
+    >
+      {label}
+    </Link>
+  );
 }
 
 export { styles as settingsShellStyles };

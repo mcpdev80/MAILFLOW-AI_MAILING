@@ -2,7 +2,8 @@ export const enOperations = {
   "nav.processing": "Processing",
   "nav.learning": "Learning",
   "processing.title": "Processing & Jobs",
-  "processing.subtitle": "Monitor real-time mailbox processing, historical backfill and classification work",
+  "processing.subtitle":
+    "Monitor real-time mailbox processing, historical backfill and classification work",
   "processing.activePipelines": "Active Pipelines",
   "processing.totalProcessedToday": "Total Processed Today",
   "processing.deferredDelayed": "Deferred or Delayed",
@@ -37,7 +38,8 @@ export const enOperations = {
   "processing.unablePause": "Unable to pause jobs",
   "processing.resumeFailedSuffix": "job(s) could not be resumed.",
   "learning.title": "Decision Memory",
-  "learning.subtitle": "Inspect and optimize automated classification learning and human interventions",
+  "learning.subtitle":
+    "Inspect and optimize automated classification learning and human interventions",
   "learning.newRule": "New Learning Rule",
   "learning.activeRules": "Active Rules",
   "learning.trustedMemory": "Trusted memory",
@@ -60,7 +62,8 @@ export const enOperations = {
   "learning.routing": "Routing",
   "learning.disableAutomation": "Disable Automation",
   "learning.enableAutomation": "Enable Automation",
-  "learning.createSubtitle": "Create a trusted mailbox-scoped Decision Memory rule.",
+  "learning.createSubtitle":
+    "Create a trusted mailbox-scoped Decision Memory rule.",
   "learning.senderDomain": "Sender domain",
   "learning.senderEmail": "Sender email",
   "learning.category": "Category",
@@ -70,7 +73,8 @@ export const enOperations = {
   "learning.confirm": "Confirm",
   "learning.creating": "Creating…",
   "learning.selectMailbox": "Select a mailbox.",
-  "learning.matcherRequired": "Sender email, sender domain or thread ID is required.",
+  "learning.matcherRequired":
+    "Sender email, sender domain or thread ID is required.",
   "learning.unableLoad": "Unable to load Decision Memory",
   "learning.unableUpdate": "Unable to update rule",
   "learning.unableCreate": "Unable to create rule",

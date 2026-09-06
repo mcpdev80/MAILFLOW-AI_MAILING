@@ -43,10 +43,15 @@ def _append_text_predicates(predicates: list, filters: SearchFilters) -> None:
     if filters.query:
         needle = f"%{filters.query.strip()}%"
         predicates.append(
-            or_(ProcessedEmail.subject.ilike(needle), ProcessedEmail.from_email.ilike(needle))
+            or_(
+                ProcessedEmail.subject.ilike(needle),
+                ProcessedEmail.from_email.ilike(needle),
+            )
         )
     if filters.sender:
-        predicates.append(ProcessedEmail.from_email.ilike(f"%{filters.sender.strip()}%"))
+        predicates.append(
+            ProcessedEmail.from_email.ilike(f"%{filters.sender.strip()}%")
+        )
     if filters.subject:
         predicates.append(ProcessedEmail.subject.ilike(f"%{filters.subject.strip()}%"))
 
@@ -86,7 +91,9 @@ def _append_boolean_predicates(predicates: list, filters: SearchFilters) -> None
     if filters.review_required is not None:
         predicates.append(ProcessedEmail.review_required.is_(filters.review_required))
     if filters.suspicious_content is not None:
-        predicates.append(ProcessedEmail.suspicious_content.is_(filters.suspicious_content))
+        predicates.append(
+            ProcessedEmail.suspicious_content.is_(filters.suspicious_content)
+        )
 
 
 def _append_tag_predicate(predicates: list, tag: str | None) -> None:

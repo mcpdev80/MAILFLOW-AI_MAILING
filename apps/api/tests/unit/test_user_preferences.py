@@ -30,7 +30,9 @@ def _custom_layout() -> WorkspaceCustomConfig:
         panels=[
             WorkspacePanelConfig(panel="accounts", dock="left", order=1, size_px=220),
             WorkspacePanelConfig(panel="folders", dock="left", order=2, size_px=240),
-            WorkspacePanelConfig(panel="message_list", dock="center", order=3, size_px=360),
+            WorkspacePanelConfig(
+                panel="message_list", dock="center", order=3, size_px=360
+            ),
             WorkspacePanelConfig(panel="message_content", dock="right", order=4),
         ],
         message_content_overlay=True,

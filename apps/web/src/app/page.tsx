@@ -10,9 +10,7 @@ export default function HomePage() {
       <section className="home-hero">
         <div className="home-badge">MailFlow</div>
         <h1>{t("home.tagline")}</h1>
-        <p className="home-lead">
-          {t("home.stepAutomation")}
-        </p>
+        <p className="home-lead">{t("home.stepAutomation")}</p>
         <div className="home-actions">
           <Link className="btn btn-lg" href="/signup">
             {t("home.getStarted")}

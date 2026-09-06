@@ -56,22 +56,41 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const text = await response.text();
   const body = text ? JSON.parse(text) : undefined;
-  if (!response.ok) throw new Error((body?.detail as string | undefined) ?? response.statusText);
+  if (!response.ok)
+    throw new Error(
+      (body?.detail as string | undefined) ?? response.statusText,
+    );
   return body as T;
 }
 
-export function loadStructureProposal(accountId: string, locale: "de" | "en" | "es") {
-  return request<StructureProposal>(`/accounts/${accountId}/structure/proposal?locale=${locale}`);
+export function loadStructureProposal(
+  accountId: string,
+  locale: "de" | "en" | "es",
+) {
+  return request<StructureProposal>(
+    `/accounts/${accountId}/structure/proposal?locale=${locale}`,
+  );
 }
 
 export function applyStructure(accountId: string, draft: StructureDraft) {
-  return request<StructureApplyResult>(`/accounts/${accountId}/structure/apply`, {
-    method: "POST",
-    body: JSON.stringify({ locale: draft.locale, folders: draft.folders, tags: draft.tags, routes: draft.routes }),
-  });
+  return request<StructureApplyResult>(
+    `/accounts/${accountId}/structure/apply`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        locale: draft.locale,
+        folders: draft.folders,
+        tags: draft.tags,
+        routes: draft.routes,
+      }),
+    },
+  );
 }
 
-export function proposalToDraft(accountId: string, proposal: StructureProposal): StructureDraft {
+export function proposalToDraft(
+  accountId: string,
+  proposal: StructureProposal,
+): StructureDraft {
   const mapItem = (item: StructureProposalItem): StructureDraftItem => ({
     internal_id: item.internal_id,
     mailbox_name: item.existing_match ?? item.proposed_name,
@@ -92,7 +111,10 @@ function storageKey(accountId: string) {
 
 export function saveStructureDraft(draft: StructureDraft) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(storageKey(draft.account_id), JSON.stringify(draft));
+  window.sessionStorage.setItem(
+    storageKey(draft.account_id),
+    JSON.stringify(draft),
+  );
 }
 
 export function readStructureDraft(accountId: string): StructureDraft | null {

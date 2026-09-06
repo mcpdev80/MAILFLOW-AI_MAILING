@@ -6,5 +6,9 @@ import { useSecuritySettings } from "./use-security-settings";
 
 export default function SecuritySettingsPage() {
   const controller = useSecuritySettings();
-  return <SettingsShell><SecuritySettingsUi controller={controller} /></SettingsShell>;
+  return (
+    <SettingsShell>
+      <SecuritySettingsUi controller={controller} />
+    </SettingsShell>
+  );
 }

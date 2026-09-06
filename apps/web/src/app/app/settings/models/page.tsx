@@ -6,5 +6,9 @@ import { useModelSettings } from "./use-model-settings";
 
 export default function ModelSettingsPage() {
   const controller = useModelSettings();
-  return <SettingsShell><ModelSettingsUi controller={controller} /></SettingsShell>;
+  return (
+    <SettingsShell>
+      <ModelSettingsUi controller={controller} />
+    </SettingsShell>
+  );
 }

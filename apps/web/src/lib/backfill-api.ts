@@ -1,7 +1,13 @@
 import { API_BASE } from "./config";
 
 export type BackfillMode = "dry_run" | "review" | "apply";
-export type BackfillState = "running" | "paused" | "completed" | "cancelled" | "failed" | string;
+export type BackfillState =
+  | "running"
+  | "paused"
+  | "completed"
+  | "cancelled"
+  | "failed"
+  | string;
 
 export interface BackfillJob {
   id: string;
@@ -36,18 +42,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const text = await response.text();
   const body = text ? JSON.parse(text) : undefined;
-  if (!response.ok) throw new Error((body?.detail as string | undefined) ?? response.statusText);
+  if (!response.ok)
+    throw new Error(
+      (body?.detail as string | undefined) ?? response.statusText,
+    );
   return body as T;
 }
 
 export const backfillApi = {
-  list: (accountId: string) => request<BackfillJob[]>(`/accounts/${accountId}/backfill`),
-  start: (accountId: string, payload: { folder?: string; mode?: BackfillMode; batch_size?: number }) =>
-    request<BackfillControl>(`/accounts/${accountId}/backfill`, { method: "POST", body: JSON.stringify(payload) }),
+  list: (accountId: string) =>
+    request<BackfillJob[]>(`/accounts/${accountId}/backfill`),
+  start: (
+    accountId: string,
+    payload: { folder?: string; mode?: BackfillMode; batch_size?: number },
+  ) =>
+    request<BackfillControl>(`/accounts/${accountId}/backfill`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   pause: (accountId: string, jobId: string) =>
-    request<BackfillControl>(`/accounts/${accountId}/backfill/${jobId}/pause`, { method: "POST" }),
+    request<BackfillControl>(`/accounts/${accountId}/backfill/${jobId}/pause`, {
+      method: "POST",
+    }),
   resume: (accountId: string, jobId: string) =>
-    request<BackfillControl>(`/accounts/${accountId}/backfill/${jobId}/resume`, { method: "POST" }),
+    request<BackfillControl>(
+      `/accounts/${accountId}/backfill/${jobId}/resume`,
+      { method: "POST" },
+    ),
   cancel: (accountId: string, jobId: string) =>
-    request<BackfillControl>(`/accounts/${accountId}/backfill/${jobId}/cancel`, { method: "POST" }),
+    request<BackfillControl>(
+      `/accounts/${accountId}/backfill/${jobId}/cancel`,
+      { method: "POST" },
+    ),
 };

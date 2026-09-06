@@ -1,10 +1,12 @@
 export const deRules = {
   "rules.title": "Regeln & Aktionen",
-  "rules.subtitle": "Automatisiere Klassifikation und Postfachaktionen mit der echten Mailflow-Regel-Engine.",
+  "rules.subtitle":
+    "Automatisiere Klassifikation und Postfachaktionen mit der echten Mailflow-Regel-Engine.",
   "rules.mailbox": "Postfach",
   "rules.noMailbox": "Kein Postfach konfiguriert.",
   "rules.actionPolicies": "Postfach-Aktionsrichtlinien",
-  "rules.actionPoliciesSubtitle": "Lege fest, ob sichere Verschiebe- und Archivaktionen automatisch erfolgen, geprüft werden oder deaktiviert bleiben.",
+  "rules.actionPoliciesSubtitle":
+    "Lege fest, ob sichere Verschiebe- und Archivaktionen automatisch erfolgen, geprüft werden oder deaktiviert bleiben.",
   "rules.move": "In Ordner verschieben",
   "rules.archive": "Archivieren",
   "rules.automaticSafe": "Automatisch, wenn sicher",
@@ -32,7 +34,8 @@ export const deRules = {
   "rules.delete": "Löschen",
   "rules.unableLoad": "Regeln konnten nicht geladen werden",
   "rules.unableLoadMailboxes": "Postfächer konnten nicht geladen werden",
-  "rules.unableUpdatePolicy": "Postfachrichtlinie konnte nicht aktualisiert werden",
+  "rules.unableUpdatePolicy":
+    "Postfachrichtlinie konnte nicht aktualisiert werden",
   "rules.unableCreate": "Regel konnte nicht erstellt werden",
   "rules.unableCreateInternal": "Interne Domain konnte nicht erstellt werden",
   "rules.unableDelete": "Regel konnte nicht gelöscht werden",

@@ -1,6 +1,7 @@
 export const enStructure = {
   "structure.folderDiscovery": "Folder Discovery",
-  "structure.folderDiscoverySubtitle": "Scan the mailbox and decide which real folders should be reused or created.",
+  "structure.folderDiscoverySubtitle":
+    "Scan the mailbox and decide which real folders should be reused or created.",
   "structure.step1": "Step 1 of 3",
   "structure.step2": "Step 2 of 3",
   "structure.step3": "Step 3 of 3",
@@ -9,7 +10,8 @@ export const enStructure = {
   "structure.scanning": "Scanning…",
   "structure.scanAgain": "Scan again",
   "structure.discoverFolders": "Discover folders",
-  "structure.startDiscovery": "Start discovery to inspect the actual mailbox structure. Nothing is changed during this step.",
+  "structure.startDiscovery":
+    "Start discovery to inspect the actual mailbox structure. Nothing is changed during this step.",
   "structure.folder": "Folder",
   "structure.mailboxName": "Mailbox name",
   "structure.action": "Action",
@@ -19,17 +21,21 @@ export const enStructure = {
   "structure.reuseExisting": "Reuse existing",
   "structure.createNew": "Create new",
   "structure.tagSuggestions": "Tag suggestions",
-  "structure.tagMappingsDiscovered": "tag mapping(s) were discovered and will be included in the review step.",
+  "structure.tagMappingsDiscovered":
+    "tag mapping(s) were discovered and will be included in the review step.",
   "structure.existingFoldersFound": "existing folders found",
   "structure.proposedMappings": "proposed mappings",
   "structure.nextCategoryMapping": "Next: Category Mapping",
   "structure.unableLoadMailboxes": "Unable to load mailboxes",
   "structure.discoveryFailed": "Folder discovery failed",
   "structure.categoryMapping": "Category Mapping",
-  "structure.categoryMappingSubtitle": "Map Mailflow classification categories to the discovered folder structure.",
-  "structure.noDraft": "No discovery draft is available. Start with Folder Discovery.",
+  "structure.categoryMappingSubtitle":
+    "Map Mailflow classification categories to the discovered folder structure.",
+  "structure.noDraft":
+    "No discovery draft is available. Start with Folder Discovery.",
   "structure.openDiscovery": "Open Folder Discovery",
-  "structure.noRoutes": "The discovery proposal did not contain category routes. You can continue and review the folder/tag changes only.",
+  "structure.noRoutes":
+    "The discovery proposal did not contain category routes. You can continue and review the folder/tag changes only.",
   "structure.classification": "Classification",
   "structure.targetFolder": "Target folder",
   "structure.classificationRoutes": "classification route(s)",
@@ -37,11 +43,13 @@ export const enStructure = {
   "structure.back": "Back",
   "structure.nextReview": "Next: Review & Apply",
   "structure.reviewApply": "Review & Apply",
-  "structure.reviewApplySubtitle": "Review every folder, tag and classification mapping before committing changes.",
+  "structure.reviewApplySubtitle":
+    "Review every folder, tag and classification mapping before committing changes.",
   "structure.noReview": "No structure changes are waiting for review.",
   "structure.startFolderDiscovery": "Start Folder Discovery",
   "structure.applied": "Structure applied",
-  "structure.appliedSubtitle": "Mailflow applied the reviewed folder, tag and classification mappings. Existing folders were reused where selected.",
+  "structure.appliedSubtitle":
+    "Mailflow applied the reviewed folder, tag and classification mappings. Existing folders were reused where selected.",
   "structure.reused": "reused",
   "structure.created": "created",
   "structure.tagMappings": "tag mappings",
@@ -52,21 +60,26 @@ export const enStructure = {
   "structure.folderName": "Folder name",
   "structure.mappedCategories": "Mapped categories",
   "structure.status": "Status",
-  "structure.safetyNotice": "Existing folders are not renamed or deleted. Apply only creates selected missing folders/tags and updates Mailflow's stored classification routing configuration.",
+  "structure.safetyNotice":
+    "Existing folders are not renamed or deleted. Apply only creates selected missing folders/tags and updates Mailflow's stored classification routing configuration.",
   "structure.applying": "Applying…",
   "structure.applyChanges": "Apply Changes",
   "structure.unableApply": "Unable to apply structure changes",
   "structure.foldersTags": "Folders & Tags",
-  "structure.foldersTagsSubtitle": "Manage the folder structure and classification mappings for each connected mailbox.",
+  "structure.foldersTagsSubtitle":
+    "Manage the folder structure and classification mappings for each connected mailbox.",
   "structure.loadingMailboxStructure": "Loading mailbox structure…",
-  "structure.connectMailboxFirst": "Connect a mailbox before configuring folders and tags.",
+  "structure.connectMailboxFirst":
+    "Connect a mailbox before configuring folders and tags.",
   "structure.mappedSystemFolders": "Mapped system folders",
-  "structure.mappedSystemFoldersSubtitle": "These values come directly from the mailbox configuration. Discovery never renames or deletes existing folders.",
+  "structure.mappedSystemFoldersSubtitle":
+    "These values come directly from the mailbox configuration. Discovery never renames or deletes existing folders.",
   "structure.discoverStructure": "Discover structure",
   "structure.system": "System",
   "structure.activeMapping": "Active mapping",
   "structure.smartDiscovery": "Smart folder discovery & category mapping",
-  "structure.smartDiscoverySubtitle": "Mailflow can inspect the real mailbox folder tree, suggest reuse/create decisions and map classification categories. Changes are reviewed before anything is applied.",
+  "structure.smartDiscoverySubtitle":
+    "Mailflow can inspect the real mailbox folder tree, suggest reuse/create decisions and map classification categories. Changes are reviewed before anything is applied.",
   "structure.mailboxDetails": "Mailbox details",
   "structure.startSetup": "Start 3-step setup",
   "structure.roleInbox": "Inbox",
@@ -74,5 +87,6 @@ export const enStructure = {
   "structure.roleUnclassified": "Unclassified",
   "structure.detailInbox": "Primary incoming mailbox folder",
   "structure.detailDrafts": "Draft storage used by Mailflow",
-  "structure.detailUnclassified": "Fallback for messages without a safe mapping",
+  "structure.detailUnclassified":
+    "Fallback for messages without a safe mapping",
 } as const;

@@ -1,6 +1,7 @@
 export const enAttachments = {
   "attachments.title": "Attachments",
-  "attachments.subtitle": "Documents collected safely across your authorized mailboxes.",
+  "attachments.subtitle":
+    "Documents collected safely across your authorized mailboxes.",
   "attachments.search": "Search documents",
   "attachments.allDocuments": "All documents",
   "attachments.folders": "Folders",
@@ -19,9 +20,11 @@ export const enAttachments = {
   "attachments.empty": "No documents found.",
   "attachments.loading": "Loading attachments…",
   "attachments.error": "Attachments could not be loaded.",
-  "attachments.securityHidden": "{count} attachments from flagged messages are hidden.",
+  "attachments.securityHidden":
+    "{count} attachments from flagged messages are hidden.",
   "attachments.securityTitle": "Blocked attachments",
-  "attachments.securitySubtitle": "Metadata only. Blocked files cannot be opened or downloaded.",
+  "attachments.securitySubtitle":
+    "Metadata only. Blocked files cannot be opened or downloaded.",
   "attachments.blockedReason": "Reason blocked",
   "attachments.remember": "Remember this decision for similar documents",
   "attachments.aiOrganized": "AI organized",
@@ -35,5 +38,6 @@ export const enAttachments = {
   "attachments.sender": "Sender",
   "attachments.mailbox": "Mailbox",
   "attachments.subject": "Subject",
-  "attachments.previewUnavailable": "Preview is not available for this file type.",
+  "attachments.previewUnavailable":
+    "Preview is not available for this file type.",
 } as const;

@@ -1,6 +1,7 @@
 export const esAttachments = {
   "attachments.title": "Adjuntos",
-  "attachments.subtitle": "Documentos recopilados de forma segura de tus buzones autorizados.",
+  "attachments.subtitle":
+    "Documentos recopilados de forma segura de tus buzones autorizados.",
   "attachments.search": "Buscar documentos",
   "attachments.allDocuments": "Todos los documentos",
   "attachments.folders": "Carpetas",
@@ -19,9 +20,11 @@ export const esAttachments = {
   "attachments.empty": "No se encontraron documentos.",
   "attachments.loading": "Cargando adjuntos…",
   "attachments.error": "No se pudieron cargar los adjuntos.",
-  "attachments.securityHidden": "{count} adjuntos de mensajes marcados están ocultos.",
+  "attachments.securityHidden":
+    "{count} adjuntos de mensajes marcados están ocultos.",
   "attachments.securityTitle": "Adjuntos bloqueados",
-  "attachments.securitySubtitle": "Solo metadatos. Los archivos bloqueados no se pueden abrir ni descargar.",
+  "attachments.securitySubtitle":
+    "Solo metadatos. Los archivos bloqueados no se pueden abrir ni descargar.",
   "attachments.blockedReason": "Motivo del bloqueo",
   "attachments.remember": "Recordar esta decisión para documentos similares",
   "attachments.aiOrganized": "Organizado por IA",
@@ -35,5 +38,6 @@ export const esAttachments = {
   "attachments.sender": "Remitente",
   "attachments.mailbox": "Buzón",
   "attachments.subject": "Asunto",
-  "attachments.previewUnavailable": "No hay vista previa disponible para este tipo de archivo.",
+  "attachments.previewUnavailable":
+    "No hay vista previa disponible para este tipo de archivo.",
 } as const;

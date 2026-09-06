@@ -1,10 +1,12 @@
 export const esRules = {
   "rules.title": "Reglas y acciones",
-  "rules.subtitle": "Automatiza la clasificación y las acciones del buzón con el motor real de reglas de Mailflow.",
+  "rules.subtitle":
+    "Automatiza la clasificación y las acciones del buzón con el motor real de reglas de Mailflow.",
   "rules.mailbox": "Buzón",
   "rules.noMailbox": "No hay ningún buzón configurado.",
   "rules.actionPolicies": "Políticas de acciones del buzón",
-  "rules.actionPoliciesSubtitle": "Elige si las acciones seguras de mover y archivar se ejecutan automáticamente, requieren revisión o permanecen deshabilitadas.",
+  "rules.actionPoliciesSubtitle":
+    "Elige si las acciones seguras de mover y archivar se ejecutan automáticamente, requieren revisión o permanecen deshabilitadas.",
   "rules.move": "Mover a carpetas",
   "rules.archive": "Archivar",
   "rules.automaticSafe": "Automático cuando sea seguro",

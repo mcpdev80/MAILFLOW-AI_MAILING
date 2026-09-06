@@ -1,10 +1,12 @@
 export const enRules = {
   "rules.title": "Rules & Actions",
-  "rules.subtitle": "Automate classification and mailbox actions using the real Mailflow rule engine.",
+  "rules.subtitle":
+    "Automate classification and mailbox actions using the real Mailflow rule engine.",
   "rules.mailbox": "Mailbox",
   "rules.noMailbox": "No mailbox configured.",
   "rules.actionPolicies": "Mailbox action policies",
-  "rules.actionPoliciesSubtitle": "Choose whether safe move and archive actions happen automatically, require review, or stay disabled.",
+  "rules.actionPoliciesSubtitle":
+    "Choose whether safe move and archive actions happen automatically, require review, or stay disabled.",
   "rules.move": "Move to folders",
   "rules.archive": "Archive",
   "rules.automaticSafe": "Automatic when safe",

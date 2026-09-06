@@ -67,8 +67,15 @@ export function useAttachmentsPage() {
     await load();
   };
 
-  const moveDocument = async (id: string, nextFolderId: string | null, remember: boolean) => {
-    const updated = await attachmentsApi.correct(id, { folder_id: nextFolderId, remember });
+  const moveDocument = async (
+    id: string,
+    nextFolderId: string | null,
+    remember: boolean,
+  ) => {
+    const updated = await attachmentsApi.correct(id, {
+      folder_id: nextFolderId,
+      remember,
+    });
     setSelected(updated);
     await load();
   };

@@ -7,9 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 Locale = Literal["de", "en", "es"]
 Theme = Literal["light", "dark", "system"]
 Density = Literal["comfortable", "compact"]
-WorkspaceLayout = Literal[
-    "classic", "vertical", "focus", "compact", "wide", "custom"
-]
+WorkspaceLayout = Literal["classic", "vertical", "focus", "compact", "wide", "custom"]
 SidePanelAlignment = Literal["left", "right"]
 WorkspacePanel = Literal["accounts", "folders", "message_list", "message_content"]
 WorkspaceDock = Literal["left", "center", "right", "top", "bottom"]

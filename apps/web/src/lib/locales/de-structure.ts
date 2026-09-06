@@ -1,6 +1,7 @@
 export const deStructure = {
   "structure.folderDiscovery": "Ordnererkennung",
-  "structure.folderDiscoverySubtitle": "Scanne das Postfach und entscheide, welche echten Ordner wiederverwendet oder erstellt werden sollen.",
+  "structure.folderDiscoverySubtitle":
+    "Scanne das Postfach und entscheide, welche echten Ordner wiederverwendet oder erstellt werden sollen.",
   "structure.step1": "Schritt 1 von 3",
   "structure.step2": "Schritt 2 von 3",
   "structure.step3": "Schritt 3 von 3",
@@ -9,7 +10,8 @@ export const deStructure = {
   "structure.scanning": "Scanne…",
   "structure.scanAgain": "Erneut scannen",
   "structure.discoverFolders": "Ordner erkennen",
-  "structure.startDiscovery": "Starte die Erkennung, um die tatsächliche Postfachstruktur zu prüfen. In diesem Schritt wird noch nichts geändert.",
+  "structure.startDiscovery":
+    "Starte die Erkennung, um die tatsächliche Postfachstruktur zu prüfen. In diesem Schritt wird noch nichts geändert.",
   "structure.folder": "Ordner",
   "structure.mailboxName": "Postfachname",
   "structure.action": "Aktion",
@@ -19,17 +21,21 @@ export const deStructure = {
   "structure.reuseExisting": "Bestehenden verwenden",
   "structure.createNew": "Neu erstellen",
   "structure.tagSuggestions": "Tag-Vorschläge",
-  "structure.tagMappingsDiscovered": "Tag-Zuordnung(en) wurden erkannt und in den Prüfschritt übernommen.",
+  "structure.tagMappingsDiscovered":
+    "Tag-Zuordnung(en) wurden erkannt und in den Prüfschritt übernommen.",
   "structure.existingFoldersFound": "bestehende Ordner gefunden",
   "structure.proposedMappings": "vorgeschlagene Zuordnungen",
   "structure.nextCategoryMapping": "Weiter: Kategorie-Zuordnung",
   "structure.unableLoadMailboxes": "Postfächer konnten nicht geladen werden",
   "structure.discoveryFailed": "Ordnererkennung fehlgeschlagen",
   "structure.categoryMapping": "Kategorie-Zuordnung",
-  "structure.categoryMappingSubtitle": "Ordne Mailflow-Klassifikationskategorien der erkannten Ordnerstruktur zu.",
-  "structure.noDraft": "Es ist kein Erkennungsentwurf vorhanden. Beginne mit der Ordnererkennung.",
+  "structure.categoryMappingSubtitle":
+    "Ordne Mailflow-Klassifikationskategorien der erkannten Ordnerstruktur zu.",
+  "structure.noDraft":
+    "Es ist kein Erkennungsentwurf vorhanden. Beginne mit der Ordnererkennung.",
   "structure.openDiscovery": "Ordnererkennung öffnen",
-  "structure.noRoutes": "Der Erkennungsvorschlag enthält keine Kategorierouten. Du kannst fortfahren und nur die Ordner-/Tag-Änderungen prüfen.",
+  "structure.noRoutes":
+    "Der Erkennungsvorschlag enthält keine Kategorierouten. Du kannst fortfahren und nur die Ordner-/Tag-Änderungen prüfen.",
   "structure.classification": "Klassifikation",
   "structure.targetFolder": "Zielordner",
   "structure.classificationRoutes": "Klassifikationsroute(n)",
@@ -37,11 +43,13 @@ export const deStructure = {
   "structure.back": "Zurück",
   "structure.nextReview": "Weiter: Prüfen & Anwenden",
   "structure.reviewApply": "Prüfen & Anwenden",
-  "structure.reviewApplySubtitle": "Prüfe jede Ordner-, Tag- und Klassifikationszuordnung, bevor Änderungen übernommen werden.",
+  "structure.reviewApplySubtitle":
+    "Prüfe jede Ordner-, Tag- und Klassifikationszuordnung, bevor Änderungen übernommen werden.",
   "structure.noReview": "Es warten keine Strukturänderungen auf eine Prüfung.",
   "structure.startFolderDiscovery": "Ordnererkennung starten",
   "structure.applied": "Struktur angewendet",
-  "structure.appliedSubtitle": "Mailflow hat die geprüften Ordner-, Tag- und Klassifikationszuordnungen angewendet. Bestehende Ordner wurden wie ausgewählt wiederverwendet.",
+  "structure.appliedSubtitle":
+    "Mailflow hat die geprüften Ordner-, Tag- und Klassifikationszuordnungen angewendet. Bestehende Ordner wurden wie ausgewählt wiederverwendet.",
   "structure.reused": "wiederverwendet",
   "structure.created": "erstellt",
   "structure.tagMappings": "Tag-Zuordnungen",
@@ -52,21 +60,27 @@ export const deStructure = {
   "structure.folderName": "Ordnername",
   "structure.mappedCategories": "Zugeordnete Kategorien",
   "structure.status": "Status",
-  "structure.safetyNotice": "Bestehende Ordner werden nicht umbenannt oder gelöscht. Anwenden erstellt nur ausgewählte fehlende Ordner/Tags und aktualisiert Mailflows gespeicherte Klassifikations-Routing-Konfiguration.",
+  "structure.safetyNotice":
+    "Bestehende Ordner werden nicht umbenannt oder gelöscht. Anwenden erstellt nur ausgewählte fehlende Ordner/Tags und aktualisiert Mailflows gespeicherte Klassifikations-Routing-Konfiguration.",
   "structure.applying": "Wird angewendet…",
   "structure.applyChanges": "Änderungen anwenden",
   "structure.unableApply": "Strukturänderungen konnten nicht angewendet werden",
   "structure.foldersTags": "Ordner & Tags",
-  "structure.foldersTagsSubtitle": "Verwalte Ordnerstruktur und Klassifikationszuordnungen für jedes verbundene Postfach.",
+  "structure.foldersTagsSubtitle":
+    "Verwalte Ordnerstruktur und Klassifikationszuordnungen für jedes verbundene Postfach.",
   "structure.loadingMailboxStructure": "Postfachstruktur wird geladen…",
-  "structure.connectMailboxFirst": "Verbinde zuerst ein Postfach, bevor Ordner und Tags konfiguriert werden.",
+  "structure.connectMailboxFirst":
+    "Verbinde zuerst ein Postfach, bevor Ordner und Tags konfiguriert werden.",
   "structure.mappedSystemFolders": "Zugeordnete Systemordner",
-  "structure.mappedSystemFoldersSubtitle": "Diese Werte stammen direkt aus der Postfachkonfiguration. Die Erkennung benennt bestehende Ordner niemals um und löscht sie nicht.",
+  "structure.mappedSystemFoldersSubtitle":
+    "Diese Werte stammen direkt aus der Postfachkonfiguration. Die Erkennung benennt bestehende Ordner niemals um und löscht sie nicht.",
   "structure.discoverStructure": "Struktur erkennen",
   "structure.system": "System",
   "structure.activeMapping": "Aktive Zuordnung",
-  "structure.smartDiscovery": "Intelligente Ordnererkennung & Kategorie-Zuordnung",
-  "structure.smartDiscoverySubtitle": "Mailflow kann den echten Ordnerbaum prüfen, Wiederverwenden/Erstellen vorschlagen und Klassifikationskategorien zuordnen. Änderungen werden vor dem Anwenden geprüft.",
+  "structure.smartDiscovery":
+    "Intelligente Ordnererkennung & Kategorie-Zuordnung",
+  "structure.smartDiscoverySubtitle":
+    "Mailflow kann den echten Ordnerbaum prüfen, Wiederverwenden/Erstellen vorschlagen und Klassifikationskategorien zuordnen. Änderungen werden vor dem Anwenden geprüft.",
   "structure.mailboxDetails": "Postfachdetails",
   "structure.startSetup": "3-Schritt-Einrichtung starten",
   "structure.roleInbox": "Posteingang",
@@ -74,5 +88,6 @@ export const deStructure = {
   "structure.roleUnclassified": "Nicht klassifiziert",
   "structure.detailInbox": "Primärer Ordner für eingehende Nachrichten",
   "structure.detailDrafts": "Von Mailflow verwendeter Entwurfsspeicher",
-  "structure.detailUnclassified": "Fallback für Nachrichten ohne sichere Zuordnung",
+  "structure.detailUnclassified":
+    "Fallback für Nachrichten ohne sichere Zuordnung",
 } as const;

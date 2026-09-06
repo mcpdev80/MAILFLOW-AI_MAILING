@@ -68,10 +68,7 @@ export async function createReplyDraft(
         ),
     to_recipients: target.to,
     cc_recipients: target.cc,
-    subject: prefixedSubject(
-      source.subject,
-      isForward ? "Fwd:" : "Re:",
-    ),
+    subject: prefixedSubject(source.subject, isForward ? "Fwd:" : "Re:"),
     body_text: isForward ? forwardBody(source) : "",
     editor_mode: "rich_text",
   });

@@ -2,7 +2,8 @@ export const esOperations = {
   "nav.processing": "Procesamiento",
   "nav.learning": "Aprendizaje",
   "processing.title": "Procesamiento y trabajos",
-  "processing.subtitle": "Supervisa el procesamiento del buzón, el backfill histórico y las tareas de clasificación en tiempo real",
+  "processing.subtitle":
+    "Supervisa el procesamiento del buzón, el backfill histórico y las tareas de clasificación en tiempo real",
   "processing.activePipelines": "Pipelines activos",
   "processing.totalProcessedToday": "Procesados hoy",
   "processing.deferredDelayed": "Diferidos o retrasados",
@@ -33,11 +34,13 @@ export const esOperations = {
   "processing.deferred": "Diferido",
   "processing.failed": "Fallido",
   "processing.cancelled": "Cancelado",
-  "processing.unableLoad": "No se pudieron cargar los trabajos de procesamiento",
+  "processing.unableLoad":
+    "No se pudieron cargar los trabajos de procesamiento",
   "processing.unablePause": "No se pudieron pausar los trabajos",
   "processing.resumeFailedSuffix": "trabajo(s) no se pudieron reanudar.",
   "learning.title": "Memoria de decisiones",
-  "learning.subtitle": "Inspecciona y optimiza el aprendizaje automático de clasificación y las intervenciones humanas",
+  "learning.subtitle":
+    "Inspecciona y optimiza el aprendizaje automático de clasificación y las intervenciones humanas",
   "learning.newRule": "Nueva regla de aprendizaje",
   "learning.activeRules": "Reglas activas",
   "learning.trustedMemory": "Memoria de confianza",
@@ -51,7 +54,8 @@ export const esOperations = {
   "learning.humanCorrected": "Corregida por humano",
   "learning.aiObserved": "Observada por IA",
   "learning.loading": "Cargando memoria de decisiones…",
-  "learning.noMatches": "No hay entradas coincidentes en la memoria de decisiones.",
+  "learning.noMatches":
+    "No hay entradas coincidentes en la memoria de decisiones.",
   "learning.timesUsed": "veces usada",
   "learning.updated": "Actualizada",
   "learning.trust": "confianza",
@@ -60,7 +64,8 @@ export const esOperations = {
   "learning.routing": "Enrutamiento",
   "learning.disableAutomation": "Deshabilitar automatización",
   "learning.enableAutomation": "Habilitar automatización",
-  "learning.createSubtitle": "Crea una regla de Decision Memory de confianza limitada a un buzón.",
+  "learning.createSubtitle":
+    "Crea una regla de Decision Memory de confianza limitada a un buzón.",
   "learning.senderDomain": "Dominio del remitente",
   "learning.senderEmail": "Correo del remitente",
   "learning.category": "Categoría",
@@ -70,7 +75,8 @@ export const esOperations = {
   "learning.confirm": "Confirmar",
   "learning.creating": "Creando…",
   "learning.selectMailbox": "Selecciona un buzón.",
-  "learning.matcherRequired": "Se requiere correo del remitente, dominio del remitente o ID del hilo.",
+  "learning.matcherRequired":
+    "Se requiere correo del remitente, dominio del remitente o ID del hilo.",
   "learning.unableLoad": "No se pudo cargar Decision Memory",
   "learning.unableUpdate": "No se pudo actualizar la regla",
   "learning.unableCreate": "No se pudo crear la regla",

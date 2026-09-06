@@ -1,6 +1,7 @@
 export const deAttachments = {
   "attachments.title": "Anhänge",
-  "attachments.subtitle": "Sicher gesammelte Dokumente aus deinen freigegebenen Postfächern.",
+  "attachments.subtitle":
+    "Sicher gesammelte Dokumente aus deinen freigegebenen Postfächern.",
   "attachments.search": "Dokumente durchsuchen",
   "attachments.allDocuments": "Alle Dokumente",
   "attachments.folders": "Ordner",
@@ -19,9 +20,11 @@ export const deAttachments = {
   "attachments.empty": "Keine Dokumente gefunden.",
   "attachments.loading": "Anhänge werden geladen…",
   "attachments.error": "Anhänge konnten nicht geladen werden.",
-  "attachments.securityHidden": "{count} Anhänge aus markierten Nachrichten sind ausgeblendet.",
+  "attachments.securityHidden":
+    "{count} Anhänge aus markierten Nachrichten sind ausgeblendet.",
   "attachments.securityTitle": "Blockierte Anhänge",
-  "attachments.securitySubtitle": "Nur Metadaten. Blockierte Dateien können nicht geöffnet oder heruntergeladen werden.",
+  "attachments.securitySubtitle":
+    "Nur Metadaten. Blockierte Dateien können nicht geöffnet oder heruntergeladen werden.",
   "attachments.blockedReason": "Grund der Blockierung",
   "attachments.remember": "Diese Entscheidung für ähnliche Dokumente merken",
   "attachments.aiOrganized": "Von KI organisiert",
@@ -35,5 +38,6 @@ export const deAttachments = {
   "attachments.sender": "Absender",
   "attachments.mailbox": "Postfach",
   "attachments.subject": "Betreff",
-  "attachments.previewUnavailable": "Für diesen Dateityp ist keine Vorschau verfügbar.",
+  "attachments.previewUnavailable":
+    "Für diesen Dateityp ist keine Vorschau verfügbar.",
 } as const;

@@ -133,7 +133,9 @@ test("delete requires confirmation and moves the selected message to Trash", asy
   expect(actions).toContainEqual({ action: "trash" });
 });
 
-test("reply draft targets the sender and preserves reply threading", async ({ page }) => {
+test("reply draft targets the sender and preserves reply threading", async ({
+  page,
+}) => {
   const drafts = await installDraftRecorder(page);
   await openMessage(page);
 
@@ -152,7 +154,9 @@ test("reply draft targets the sender and preserves reply threading", async ({ pa
   });
 });
 
-test("reply all excludes the mailbox owner from recipients", async ({ page }) => {
+test("reply all excludes the mailbox owner from recipients", async ({
+  page,
+}) => {
   const drafts = await installDraftRecorder(page);
   await openMessage(page);
 
@@ -168,7 +172,9 @@ test("reply all excludes the mailbox owner from recipients", async ({ page }) =>
   expect(drafts[0].to_recipients).not.toContain("owner@example.test");
 });
 
-test("forward starts a new thread without reply references", async ({ page }) => {
+test("forward starts a new thread without reply references", async ({
+  page,
+}) => {
   const drafts = await installDraftRecorder(page);
   await openMessage(page);
 
@@ -184,5 +190,7 @@ test("forward starts a new thread without reply references", async ({ page }) =>
     cc_recipients: [],
     subject: "Fwd: Project update",
   });
-  expect(drafts[0].body_text).toContain("---------- Forwarded message ----------");
+  expect(drafts[0].body_text).toContain(
+    "---------- Forwarded message ----------",
+  );
 });

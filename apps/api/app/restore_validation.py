@@ -157,7 +157,9 @@ async def validate_restore_state(session: AsyncSession) -> RestoreValidationResu
 
     passkeys = 0
     if await _table_exists(session, '"passkey"'):
-        passkeys = int(await session.scalar(text('SELECT count(*) FROM "passkey"')) or 0)
+        passkeys = int(
+            await session.scalar(text('SELECT count(*) FROM "passkey"')) or 0
+        )
 
     return RestoreValidationResult(
         schema_revision=schema_revision,

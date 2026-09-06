@@ -32,7 +32,9 @@ def test_single_tenant_identity_remains_allowed() -> None:
 
 async def test_direct_multi_tenant_api_key_remains_privileged(monkeypatch) -> None:
     org = Organization(name="Test", slug="test", plan="free")
-    request = Request({"type": "http", "method": "POST", "path": "/llm-providers", "headers": []})
+    request = Request(
+        {"type": "http", "method": "POST", "path": "/llm-providers", "headers": []}
+    )
     monkeypatch.setattr(settings, "AUTH_MODE", "multi")
     result = await require_org_admin(
         request,

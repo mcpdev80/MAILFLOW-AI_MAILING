@@ -25,16 +25,58 @@ export function SignupUi({ state }: { state: SignupState }) {
         {state.error && <div className="alert error">{state.error}</div>}
 
         <form onSubmit={submit} className="auth-form">
-          <Field id="name" label={t("auth.signup.name")} value={state.name} autoComplete="name" onChange={state.setName} />
-          <Field id="organization" label={t("auth.signup.organization")} value={state.organization} autoComplete="organization" onChange={state.setOrganization} />
-          <Field id="email" label={t("auth.signup.email")} type="email" value={state.email} autoComplete="email" onChange={state.setEmail} />
-          <Field id="password" label={t("auth.signup.password")} type="password" value={state.password} autoComplete="new-password" minLength={8} onChange={state.setPassword} />
-          <p className="auth-hint" style={{ marginTop: -8, textAlign: "left" }}>At least 8 characters.</p>
-          <Field id="confirm-password" label="Confirm password" type="password" value={state.confirmPassword} autoComplete="new-password" minLength={8} onChange={state.setConfirmPassword} />
-          <p className="auth-hint" style={{ marginTop: -4 }}>
-            By creating an account you agree to the Terms of Service and Privacy Policy.
+          <Field
+            id="name"
+            label={t("auth.signup.name")}
+            value={state.name}
+            autoComplete="name"
+            onChange={state.setName}
+          />
+          <Field
+            id="organization"
+            label={t("auth.signup.organization")}
+            value={state.organization}
+            autoComplete="organization"
+            onChange={state.setOrganization}
+          />
+          <Field
+            id="email"
+            label={t("auth.signup.email")}
+            type="email"
+            value={state.email}
+            autoComplete="email"
+            onChange={state.setEmail}
+          />
+          <Field
+            id="password"
+            label={t("auth.signup.password")}
+            type="password"
+            value={state.password}
+            autoComplete="new-password"
+            minLength={8}
+            onChange={state.setPassword}
+          />
+          <p className="auth-hint" style={{ marginTop: -8, textAlign: "left" }}>
+            At least 8 characters.
           </p>
-          <button type="submit" className="btn btn-lg auth-primary" disabled={state.busy}>
+          <Field
+            id="confirm-password"
+            label="Confirm password"
+            type="password"
+            value={state.confirmPassword}
+            autoComplete="new-password"
+            minLength={8}
+            onChange={state.setConfirmPassword}
+          />
+          <p className="auth-hint" style={{ marginTop: -4 }}>
+            By creating an account you agree to the Terms of Service and Privacy
+            Policy.
+          </p>
+          <button
+            type="submit"
+            className="btn btn-lg auth-primary"
+            disabled={state.busy}
+          >
             {state.busy ? t("auth.signup.creating") : t("auth.signup.action")}
           </button>
         </form>
@@ -48,7 +90,15 @@ export function SignupUi({ state }: { state: SignupState }) {
   );
 }
 
-function Field({ id, label, value, onChange, type = "text", autoComplete, minLength }: {
+function Field({
+  id,
+  label,
+  value,
+  onChange,
+  type = "text",
+  autoComplete,
+  minLength,
+}: {
   id: string;
   label: string;
   value: string;
@@ -60,7 +110,15 @@ function Field({ id, label, value, onChange, type = "text", autoComplete, minLen
   return (
     <label className="field" htmlFor={id}>
       <span>{label}</span>
-      <input id={id} type={type} autoComplete={autoComplete} minLength={minLength} required value={value} onChange={(event) => onChange(event.target.value)} />
+      <input
+        id={id}
+        type={type}
+        autoComplete={autoComplete}
+        minLength={minLength}
+        required
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </label>
   );
 }

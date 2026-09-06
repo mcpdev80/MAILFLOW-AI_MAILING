@@ -2,7 +2,8 @@ export const deOperations = {
   "nav.processing": "Verarbeitung",
   "nav.learning": "Lernen",
   "processing.title": "Verarbeitung & Jobs",
-  "processing.subtitle": "Überwache Postfachverarbeitung, historische Nachverarbeitung und Klassifizierungsaufgaben in Echtzeit",
+  "processing.subtitle":
+    "Überwache Postfachverarbeitung, historische Nachverarbeitung und Klassifizierungsaufgaben in Echtzeit",
   "processing.activePipelines": "Aktive Pipelines",
   "processing.totalProcessedToday": "Heute verarbeitet",
   "processing.deferredDelayed": "Zurückgestellt oder verzögert",
@@ -37,7 +38,8 @@ export const deOperations = {
   "processing.unablePause": "Jobs konnten nicht pausiert werden",
   "processing.resumeFailedSuffix": "Job(s) konnten nicht fortgesetzt werden.",
   "learning.title": "Entscheidungsgedächtnis",
-  "learning.subtitle": "Prüfe und optimiere automatisches Klassifikationslernen und menschliche Eingriffe",
+  "learning.subtitle":
+    "Prüfe und optimiere automatisches Klassifikationslernen und menschliche Eingriffe",
   "learning.newRule": "Neue Lernregel",
   "learning.activeRules": "Aktive Regeln",
   "learning.trustedMemory": "Vertrauenswürdiges Gedächtnis",
@@ -60,7 +62,8 @@ export const deOperations = {
   "learning.routing": "Routing",
   "learning.disableAutomation": "Automatisierung deaktivieren",
   "learning.enableAutomation": "Automatisierung aktivieren",
-  "learning.createSubtitle": "Erstelle eine vertrauenswürdige, postfachbezogene Decision-Memory-Regel.",
+  "learning.createSubtitle":
+    "Erstelle eine vertrauenswürdige, postfachbezogene Decision-Memory-Regel.",
   "learning.senderDomain": "Absender-Domain",
   "learning.senderEmail": "Absender-E-Mail",
   "learning.category": "Kategorie",
@@ -70,7 +73,8 @@ export const deOperations = {
   "learning.confirm": "Bestätigen",
   "learning.creating": "Wird erstellt…",
   "learning.selectMailbox": "Wähle ein Postfach aus.",
-  "learning.matcherRequired": "Absender-E-Mail, Absender-Domain oder Thread-ID ist erforderlich.",
+  "learning.matcherRequired":
+    "Absender-E-Mail, Absender-Domain oder Thread-ID ist erforderlich.",
   "learning.unableLoad": "Decision Memory konnte nicht geladen werden",
   "learning.unableUpdate": "Regel konnte nicht aktualisiert werden",
   "learning.unableCreate": "Regel konnte nicht erstellt werden",

@@ -172,7 +172,13 @@ const catalogs: Record<Locale, Partial<Record<TranslationKey, string>>> = {
 };
 
 export function detectBrowserLocale(languages?: readonly string[]): Locale {
-  const candidates = languages ?? (typeof navigator !== "undefined" ? (navigator.languages.length > 0 ? navigator.languages : [navigator.language]) : []);
+  const candidates =
+    languages ??
+    (typeof navigator !== "undefined"
+      ? navigator.languages.length > 0
+        ? navigator.languages
+        : [navigator.language]
+      : []);
   for (const value of candidates) {
     const normalized = value.toLowerCase();
     if (normalized === "de" || normalized.startsWith("de-")) return "de";
@@ -210,11 +216,20 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const browserLocale = detectBrowserLocale();
     const cached = asLocale(window.localStorage.getItem(LOCAL_KEY));
 
-    void Promise.allSettled([api.getUserPreferences(), getBootstrapStatus()]).then(async ([preferencesResult, bootstrapResult]) => {
+    void Promise.allSettled([
+      api.getUserPreferences(),
+      getBootstrapStatus(),
+    ]).then(async ([preferencesResult, bootstrapResult]) => {
       if (!active) return;
-      const deploymentLocale = bootstrapResult.status === "fulfilled" ? asLocale(bootstrapResult.value.fields.language.value) : null;
+      const deploymentLocale =
+        bootstrapResult.status === "fulfilled"
+          ? asLocale(bootstrapResult.value.fields.language.value)
+          : null;
       const firstRunLocale = cached ?? deploymentLocale ?? browserLocale;
-      if (preferencesResult.status === "fulfilled" && preferencesResult.value.locale_configured) {
+      if (
+        preferencesResult.status === "fulfilled" &&
+        preferencesResult.value.locale_configured
+      ) {
         const userLocale = preferencesResult.value.locale;
         setLocaleState(userLocale);
         applyLocale(userLocale);
@@ -224,26 +239,39 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       setLocaleState(firstRunLocale);
       applyLocale(firstRunLocale);
       if (preferencesResult.status === "fulfilled") {
-        try { await api.updateUserPreferences({ locale: firstRunLocale }); } catch { /* keep local choice */ }
+        try {
+          await api.updateUserPreferences({ locale: firstRunLocale });
+        } catch {
+          /* keep local choice */
+        }
       }
       if (active) setReady(true);
     });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   const setLocale = useCallback(async (next: Locale) => {
     setLocaleState(next);
     applyLocale(next);
-    try { await api.updateUserPreferences({ locale: next }); } catch { /* keep local choice */ }
+    try {
+      await api.updateUserPreferences({ locale: next });
+    } catch {
+      /* keep local choice */
+    }
   }, []);
 
-  const value = useMemo<I18nContextValue>(() => ({
-    locale,
-    ready,
-    t: (key) => catalogs[locale][key] ?? fallback[key],
-    setLocale,
-  }), [locale, ready, setLocale]);
+  const value = useMemo<I18nContextValue>(
+    () => ({
+      locale,
+      ready,
+      t: (key) => catalogs[locale][key] ?? fallback[key],
+      setLocale,
+    }),
+    [locale, ready, setLocale],
+  );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

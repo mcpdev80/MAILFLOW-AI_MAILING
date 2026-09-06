@@ -17,23 +17,44 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "user_preferences",
-        sa.Column("theme", sa.String(length=16), nullable=False, server_default="system"),
+        sa.Column(
+            "theme", sa.String(length=16), nullable=False, server_default="system"
+        ),
     )
     op.add_column(
         "user_preferences",
-        sa.Column("density", sa.String(length=16), nullable=False, server_default="comfortable"),
+        sa.Column(
+            "density",
+            sa.String(length=16),
+            nullable=False,
+            server_default="comfortable",
+        ),
     )
     op.add_column(
         "user_preferences",
-        sa.Column("workspace_layout", sa.String(length=16), nullable=False, server_default="classic"),
+        sa.Column(
+            "workspace_layout",
+            sa.String(length=16),
+            nullable=False,
+            server_default="classic",
+        ),
     )
     op.add_column(
         "user_preferences",
-        sa.Column("side_panel_alignment", sa.String(length=16), nullable=False, server_default="left"),
+        sa.Column(
+            "side_panel_alignment",
+            sa.String(length=16),
+            nullable=False,
+            server_default="left",
+        ),
     )
     op.add_column(
         "user_preferences",
-        sa.Column("workspace_custom_config", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column(
+            "workspace_custom_config",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=True,
+        ),
     )
     op.create_check_constraint(
         "ck_user_preferences_theme",

@@ -49,7 +49,9 @@ def build_bootstrap_status() -> dict[str, object]:
     if tls_mode not in _ALLOWED_TLS_MODES:
         # Backward-compatible inference for deployments created before the
         # explicit TLS mode variable existed.
-        tls_mode = "custom" if _clean("TLS_CERT_FILE") and _clean("TLS_KEY_FILE") else ""
+        tls_mode = (
+            "custom" if _clean("TLS_CERT_FILE") and _clean("TLS_KEY_FILE") else ""
+        )
     if language not in _ALLOWED_LANGUAGES:
         language = ""
 

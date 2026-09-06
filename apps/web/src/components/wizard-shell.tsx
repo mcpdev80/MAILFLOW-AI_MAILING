@@ -42,9 +42,25 @@ export function WizardShell({
         </div>
         <footer className={styles.footer}>
           {back ? (
-            <button className={styles.secondary} type="button" onClick={back.onClick} disabled={back.disabled}>← {back.label ?? "Back"}</button>
-          ) : <span />}
-          <button className={styles.primary} type="button" onClick={next.onClick} disabled={next.disabled}>{next.label} →</button>
+            <button
+              className={styles.secondary}
+              type="button"
+              onClick={back.onClick}
+              disabled={back.disabled}
+            >
+              ← {back.label ?? "Back"}
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            className={styles.primary}
+            type="button"
+            onClick={next.onClick}
+            disabled={next.disabled}
+          >
+            {next.label} →
+          </button>
         </footer>
       </section>
     </main>
@@ -56,8 +72,14 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
     <div className={styles.progress} aria-label={`Step ${current} of ${total}`}>
       {Array.from({ length: total }, (_, index) => index + 1).map((value) => (
         <div className={styles.stepGroup} key={value}>
-          {value > 1 && <span className={`${styles.connector} ${value <= current ? styles.connectorDone : ""}`} />}
-          <span className={`${styles.step} ${value === current ? styles.stepActive : ""} ${value < current ? styles.stepDone : ""}`}>
+          {value > 1 && (
+            <span
+              className={`${styles.connector} ${value <= current ? styles.connectorDone : ""}`}
+            />
+          )}
+          <span
+            className={`${styles.step} ${value === current ? styles.stepActive : ""} ${value < current ? styles.stepDone : ""}`}
+          >
             {value < current ? "✓" : value}
           </span>
         </div>
