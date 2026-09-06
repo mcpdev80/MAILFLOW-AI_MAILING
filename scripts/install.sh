@@ -5,12 +5,56 @@ set -euo pipefail
 # Start from a stable directory so readline/tab completion and path hooks can resolve cwd.
 cd "$HOME"
 
-# This installer belongs to the test-mvp branch. Keep the selected ref for
-# existing installs, fresh installs, resume and teardown.
-BRANCH="test-mvp"
-export MAILFLOW_INSTALL_REF="$BRANCH"
-RAW_BASE="https://raw.githubusercontent.com/mcpdev80/MAILFLOW-AI_MAILING/$BRANCH/scripts"
+REPO_SLUG="mcpdev80/MAILFLOW-AI_MAILING"
 DEFAULT_INSTALL="$HOME/mailflow"
+
+parse_ref_from_url() {
+  local url="$1" rest
+  case "$url" in
+    https://raw.githubusercontent.com/$REPO_SLUG/*/scripts/install.sh)
+      rest="${url#https://raw.githubusercontent.com/$REPO_SLUG/}"
+      printf '%s' "${rest%/scripts/install.sh}"
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+resolve_install_ref() {
+  local candidate="${MAILFLOW_INSTALL_REF:-}" source_url="${MAILFLOW_INSTALL_URL:-}" current=""
+
+  if [ -n "$candidate" ]; then
+    printf '%s' "$candidate"
+    return
+  fi
+
+  if [ -n "$source_url" ]; then
+    parse_ref_from_url "$source_url" && return
+  fi
+
+  if [ -n "${1:-}" ]; then
+    if parse_ref_from_url "$1" 2>/dev/null; then
+      return
+    fi
+    printf '%s' "$1"
+    return
+  fi
+
+  # For a local/resume invocation, stay on the currently checked out branch.
+  if [ -d "$DEFAULT_INSTALL/.git" ]; then
+    current="$(git -C "$DEFAULT_INSTALL" branch --show-current 2>/dev/null || true)"
+    if [ -n "$current" ]; then
+      printf '%s' "$current"
+      return
+    fi
+  fi
+
+  printf 'main'
+}
+
+BRANCH="$(resolve_install_ref "${1:-}")"
+export MAILFLOW_INSTALL_REF="$BRANCH"
+RAW_BASE="https://raw.githubusercontent.com/$REPO_SLUG/$BRANCH/scripts"
 
 language() {
   local locale="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
@@ -63,6 +107,7 @@ is_mailflow_install() {
 }
 
 printf '\n==> %s\n' "$(msg title)"
+printf 'Git ref: %s\n' "$BRANCH"
 
 if is_mailflow_install "$DEFAULT_INSTALL"; then
   printf '\n%s\n  %s\n\n' "$(msg found)" "$DEFAULT_INSTALL"
