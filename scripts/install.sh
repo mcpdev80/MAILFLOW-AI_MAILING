@@ -26,18 +26,21 @@ msg() {
     de:new) printf 'Neue Installation starten' ;;
     de:choice) printf 'Auswahl' ;;
     de:new_hint) printf 'Für eine neue Installation im nächsten Schritt bitte ein anderes Installationsverzeichnis wählen.' ;;
+    de:updating) printf 'Vorhandene Installation wird aktualisiert' ;;
     es:title) printf 'Instalación guiada de Mailflow' ;;
     es:found) printf 'Se encontró una instalación existente de Mailflow:' ;;
     es:continue) printf 'Continuar la instalación existente' ;;
     es:new) printf 'Iniciar una instalación nueva' ;;
     es:choice) printf 'Selección' ;;
     es:new_hint) printf 'Para una instalación nueva, elige otro directorio de instalación en el siguiente paso.' ;;
+    es:updating) printf 'Actualizando la instalación existente' ;;
     *:title) printf 'Mailflow guided installer' ;;
     *:found) printf 'Existing Mailflow installation found:' ;;
     *:continue) printf 'Continue existing installation' ;;
     *:new) printf 'Start a new installation' ;;
     *:choice) printf 'Choice' ;;
     *:new_hint) printf 'For a new installation, choose a different install directory in the next step.' ;;
+    *:updating) printf 'Updating existing installation' ;;
   esac
 }
 
@@ -66,7 +69,11 @@ if is_mailflow_install "$DEFAULT_INSTALL"; then
   choice="${choice:-1}"
   case "$choice" in
     1)
-      exec bash <(curl -fsSL "$RAW_BASE/resume.sh") "$DEFAULT_INSTALL"
+      printf '\n==> %s\n' "$(msg updating)"
+      git -C "$DEFAULT_INSTALL" fetch origin "$BRANCH"
+      git -C "$DEFAULT_INSTALL" checkout "$BRANCH"
+      git -C "$DEFAULT_INSTALL" pull --ff-only origin "$BRANCH"
+      exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
       ;;
     2)
       printf '\n%s\n' "$(msg new_hint)"
