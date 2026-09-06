@@ -23,10 +23,10 @@ prompt() {
 }
 
 prompt_path() {
-  local label="$1" default="$2" value
+  local label="$1" default="$2" value prompt_text
   if [ -r /dev/tty ]; then
-    printf '%s [%s]: ' "$label" "$default" > /dev/tty
-    IFS= read -e -r value < /dev/tty || true
+    printf -v prompt_text '%s [%s]: ' "$label" "$default"
+    IFS= read -e -r -p "$prompt_text" value < /dev/tty || true
   else
     value=""
   fi
