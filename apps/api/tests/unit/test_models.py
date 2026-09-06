@@ -27,6 +27,11 @@ def test_all_tables_registered():
         "notification_preferences",
         "notification_events",
         "user_preferences",
+        "attachment_documents",
+        "attachment_folders",
+        "attachment_memory",
+        "attachment_placements",
+        "attachment_sources",
     }
     assert expected == set(Base.metadata.tables.keys())
 
