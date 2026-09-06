@@ -243,7 +243,7 @@ function QuickOptions({
         label={t("settings.workspaceEditor.actionBar")}
         value={controller.config.action_bar_dock}
         values={["top", "bottom"]}
-        labelFor={(value) => dockLabel(t, value)}
+        labelFor={(value) => dockLabel(t, value as WorkspaceDock)}
         onChange={(value) =>
           controller.setConfig((current) => ({
             ...current,
