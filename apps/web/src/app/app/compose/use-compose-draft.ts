@@ -20,14 +20,16 @@ type Translate = (key: TranslationKey) => string;
 
 export function useComposeDraft(setError: SetError, t: Translate) {
   const searchParams = useSearchParams();
+  const translateRef = useRef(t);
   const draftRef = useRef<MailDraft | null>(null);
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [draft, setDraft] = useState<MailDraft | null>(null);
   const [fields, setFields] = useState(emptyFields);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  useEffect(() => { translateRef.current = t; }, [t]);
   const applyDraft = useCallback((value: MailDraft) => applyDraftState(value, draftRef, setDraft, setFields), []);
-  useComposerInitialization(searchParams, applyDraft, setAccounts, setLoading, setError, t);
+  useComposerInitialization(searchParams, applyDraft, setAccounts, setLoading, setError, translateRef);
   const persist = useDraftPersist(draftRef, fields, setDraft, setSaveState, setError, t);
   useDraftAutosave(draftRef, persist);
   return { loading, accounts, draft, setDraft, fields, setFields, saveState, draftRef, applyDraft, persist };
@@ -39,13 +41,14 @@ function useComposerInitialization(
   setAccounts: (accounts: EmailAccount[]) => void,
   setLoading: (value: boolean) => void,
   setError: SetError,
-  t: Translate,
+  translateRef: React.RefObject<Translate>,
 ) {
   useEffect(() => {
     let cancelled = false;
-    void initializeComposer(params, applyDraft, setAccounts, setError, setLoading, () => cancelled, t("compose.openFailed"));
+    const openFailed = translateRef.current("compose.openFailed");
+    void initializeComposer(params, applyDraft, setAccounts, setError, setLoading, () => cancelled, openFailed);
     return () => { cancelled = true; };
-  }, [applyDraft, params, setAccounts, setError, setLoading, t]);
+  }, [applyDraft, params, setAccounts, setError, setLoading, translateRef]);
 }
 
 function useDraftPersist(
