@@ -33,6 +33,16 @@ MailFlow has evolved substantially beyond the original upstream baseline. Curren
 - localization support for German, English, and Spanish
 - operational dashboard and search
 
+## Support MailFlow
+
+MailFlow is developed independently in spare time and remains open source under AGPL-3.0 regardless of sponsorship.
+
+If MailFlow saves you time, you use it regularly, or your organization depends on it, you can support continued development through GitHub Sponsors. Sponsorship helps fund development time, CI and test infrastructure, compatibility testing with local and hosted LLMs, security work, documentation, localization, and project infrastructure.
+
+Sponsorship is completely optional and does **not** buy proprietary features, guaranteed feature delivery, priority support, an SLA, or a different software license.
+
+See [`SPONSORS.md`](SPONSORS.md) for the sponsorship policy and suggested support levels.
+
 ## Development
 
 See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for development setup and contribution guidance.
