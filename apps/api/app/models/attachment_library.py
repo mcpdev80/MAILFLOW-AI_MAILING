@@ -26,7 +26,7 @@ from app.models.base import Base, uuid_pk
 
 
 class AttachmentFolder(Base):
-    """User-visible virtual folder; files are never physically copied between folders."""
+    """Per-user virtual folder; files are never physically copied between folders."""
 
     __tablename__ = "attachment_folders"
     __table_args__ = (
@@ -36,19 +36,20 @@ class AttachmentFolder(Base):
         ),
         UniqueConstraint(
             "org_id",
-            "owner_user_id",
+            "owner_scope",
             "parent_id",
             "name",
             name="uq_attachment_folder_sibling_name",
         ),
-        Index("ix_attachment_folders_owner", "org_id", "owner_user_id"),
+        Index("ix_attachment_folders_owner", "org_id", "owner_scope"),
     )
 
     id: Mapped[UUID] = uuid_pk()
     org_id: Mapped[UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE")
     )
-    owner_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Better Auth user id; legacy single-tenant mode uses the literal "__single__".
+    owner_scope: Mapped[str] = mapped_column(String(255))
     parent_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("attachment_folders.id", ondelete="CASCADE"), nullable=True
     )
@@ -83,7 +84,6 @@ class AttachmentDocument(Base):
         ),
         Index("ix_attachment_documents_org_created", "org_id", "created_at"),
         Index("ix_attachment_documents_org_category", "org_id", "ai_category"),
-        Index("ix_attachment_documents_folder", "user_folder_id"),
     )
 
     id: Mapped[UUID] = uuid_pk()
@@ -102,14 +102,43 @@ class AttachmentDocument(Base):
     ai_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     ai_subcategory: Mapped[str | None] = mapped_column(String(150), nullable=True)
     ai_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ai_tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
-    user_folder_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("attachment_folders.id", ondelete="SET NULL"), nullable=True
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AttachmentPlacement(Base):
+    """Per-user organization overrides for one otherwise shared/deduplicated document."""
+
+    __tablename__ = "attachment_placements"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_id", "owner_scope", name="uq_attachment_placement_owner"
+        ),
+        Index("ix_attachment_placements_owner", "org_id", "owner_scope"),
+        Index("ix_attachment_placements_folder", "folder_id"),
+    )
+
+    id: Mapped[UUID] = uuid_pk()
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("attachment_documents.id", ondelete="CASCADE")
+    )
+    org_id: Mapped[UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE")
+    )
+    owner_scope: Mapped[str] = mapped_column(String(255))
+    folder_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("attachment_folders.id", ondelete="SET NULL"), nullable=True
+    )
+    category_override: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    subcategory_override: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    user_tags: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    corrected: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -167,14 +196,14 @@ class AttachmentMemory(Base):
 
     __tablename__ = "attachment_memory"
     __table_args__ = (
-        Index("ix_attachment_memory_owner", "org_id", "owner_user_id", "active"),
+        Index("ix_attachment_memory_owner", "org_id", "owner_scope", "active"),
     )
 
     id: Mapped[UUID] = uuid_pk()
     org_id: Mapped[UUID] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE")
     )
-    owner_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    owner_scope: Mapped[str] = mapped_column(String(255))
     folder_id: Mapped[UUID] = mapped_column(
         ForeignKey("attachment_folders.id", ondelete="CASCADE")
     )
