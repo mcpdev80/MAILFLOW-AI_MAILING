@@ -37,6 +37,7 @@ def _view(row: UserPreference | None) -> UserPreferencesView:
         theme=row.theme,
         density=row.density,
         workspace_layout=row.workspace_layout,
+        side_panel_alignment=row.side_panel_alignment,
         workspace_custom_config=row.workspace_custom_config,
     )
 
