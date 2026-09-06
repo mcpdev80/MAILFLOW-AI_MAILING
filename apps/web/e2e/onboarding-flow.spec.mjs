@@ -82,6 +82,18 @@ async function useEnglish(page) {
   });
 }
 
+async function setSessionCookie(page, userId) {
+  await page.context().addCookies([
+    {
+      name: "better-auth.session_token",
+      value: `session-token-${userId}`,
+      url: "http://127.0.0.1:3000",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+}
+
 async function mockAuth(
   page,
   { userId, email, role, initiallySignedIn = true },
@@ -96,6 +108,10 @@ async function mockAuth(
     acceptInvitation: 0,
     setActiveOrganization: 0,
   };
+
+  if (initiallySignedIn) {
+    await setSessionCookie(page, userId);
+  }
 
   await page.route("**/api/auth/**", async (route) => {
     const request = route.request();
@@ -120,6 +136,7 @@ async function mockAuth(
     if (path.endsWith("/sign-up/email")) {
       calls.signup += 1;
       signedIn = true;
+      await setSessionCookie(page, userId);
       return json(route, {
         token: "test-token",
         user: { id: userId, name: "Owner", email },
@@ -128,6 +145,7 @@ async function mockAuth(
     if (path.endsWith("/sign-in/email")) {
       calls.signIn += 1;
       signedIn = true;
+      await setSessionCookie(page, userId);
       return json(route, {
         redirect: false,
         token: "test-token",
