@@ -16,11 +16,19 @@ Substantial portions of those later changes were authored by **Marcel Pfingstgr�
 
 This section is intended to provide a prominent modification notice and relevant date for the modified work. It does not imply ownership of upstream portions.
 
+## AI-assisted development
+
+Development of this fork has included assistance from **ChatGPT by OpenAI** for planning, code generation and refactoring suggestions, testing, debugging, analysis, and documentation.
+
+AI assistance is treated as a development tool. It is not identified in this repository as a legal author or copyright holder. Human maintainers and contributors remain responsible for selecting, reviewing, testing, and integrating submitted material.
+
+See [`AI_ASSISTANCE.md`](AI_ASSISTANCE.md) for the detailed transparency statement.
+
 ## Copyright
 
 Copyright in the original upstream portions remains with their original author(s), including **Jonatan Garcia / JonatanGhub**, and with any other contributors to those portions.
 
-Copyright in modifications and new functionality authored in this fork remains with the respective author(s), including **Marcel Pfingstgräf** for his original contributions, unless rights have been explicitly assigned otherwise.
+Copyright in modifications and new functionality authored in this fork remains with the respective human author(s), where copyright subsists, including **Marcel Pfingstgräf** for his original contributions, unless rights have been explicitly assigned otherwise.
 
 **Copyright © 2026 Marcel Pfingstgräf — original modifications and additions authored by him in this fork.**
 
