@@ -37,6 +37,7 @@ def _view(row: UserPreference | None) -> UserPreferencesView:
         theme=row.theme,
         density=row.density,
         workspace_layout=row.workspace_layout,
+        workspace_custom_config=row.workspace_custom_config,
     )
 
 
@@ -48,7 +49,7 @@ async def get_user_preferences(
 
 
 def _apply(row: UserPreference, payload: UserPreferencesUpdate) -> None:
-    values = payload.model_dump(exclude_none=True)
+    values = payload.model_dump(mode="json", exclude_none=True)
     for key, value in values.items():
         setattr(row, key, value)
 
