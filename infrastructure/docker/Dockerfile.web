@@ -22,6 +22,11 @@ RUN pnpm --filter @mailflow/web build
 # --- runtime ---
 FROM base AS runner
 ENV NODE_ENV=production
+# Next.js standalone otherwise derives HOSTNAME from the container hostname. On
+# multi-network containers that can bind to only one Docker network and make
+# the service unreachable from the edge proxy on another network.
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 # La salida standalone trae el server + node_modules trazados.
 COPY --from=builder --chown=node:node /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
