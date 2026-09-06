@@ -1,4 +1,12 @@
 export const enOnboarding = {
+  "onboarding.bootstrap.title": "Installation detected",
+  "onboarding.bootstrap.description":
+    "These settings were provided by the deployment and do not need to be entered again.",
+  "onboarding.bootstrap.publicUrl": "Public URL",
+  "onboarding.bootstrap.tls": "TLS",
+  "onboarding.bootstrap.language": "Language",
+  "onboarding.bootstrap.source": "Source",
+  "onboarding.bootstrap.configured": "Already configured",
   "onboarding.providerLabel": "Label",
   "onboarding.providerType": "Type",
   "onboarding.baseUrl": "Base URL",
