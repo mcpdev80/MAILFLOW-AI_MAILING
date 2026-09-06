@@ -1,6 +1,8 @@
 /**
  * Route protection in authenticated deployments. The cookie check is optimistic;
  * the server validates the real session and authorization on each request.
+ *
+ * Instance setup must stay public: a fresh installation has no user/session yet.
  */
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
@@ -22,7 +24,6 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/app/:path*",
-    "/setup",
     "/onboarding",
     "/accept-invitation/:path*",
   ],
