@@ -113,16 +113,17 @@ function NumberPreference({ preferences, onPatch }: { preferences: NotificationP
   const { t } = useI18n();
   return (
     <label>
-      <span className="muted" style={{ display: "block", marginBottom: 4 }}>{t("nav.dailySummary")}</span>
+      <span className="muted" style={{ display: "block", marginBottom: 4 }}>{t("notifications.summaryHour")}</span>
       <input type="number" min={0} max={23} value={preferences.daily_summary_hour} onChange={(event) => onPatch({ daily_summary_hour: Number(event.target.value) })} style={{ width: "100%" }} />
     </label>
   );
 }
 
 function TimezonePreference({ preferences, onPatch }: { preferences: NotificationPreference; onPatch: (patch: Partial<NotificationPreference>) => void }) {
+  const { t } = useI18n();
   return (
     <label>
-      <span className="muted" style={{ display: "block", marginBottom: 4 }}>Timezone</span>
+      <span className="muted" style={{ display: "block", marginBottom: 4 }}>{t("notifications.timezone")}</span>
       <input value={preferences.timezone} onChange={(event) => onPatch({ timezone: event.target.value })} style={{ width: "100%" }} />
     </label>
   );
