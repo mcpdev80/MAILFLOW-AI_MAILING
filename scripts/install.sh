@@ -7,6 +7,125 @@ INSTALL_DIR_DEFAULT="$HOME/mailflow"
 COMPOSE_FILE="infrastructure/docker-compose.yml"
 TLS_COMPOSE_FILE="infrastructure/docker-compose.custom-tls.yml"
 
+detect_system_language() {
+  local locale="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+  locale="${locale,,}"
+  case "$locale" in
+    de*|*de_de*) printf 'de' ;;
+    es*|*es_es*) printf 'es' ;;
+    *) printf 'en' ;;
+  esac
+}
+
+INSTALL_LANGUAGE="$(detect_system_language)"
+
+msg() {
+  local key="$1"
+  case "$INSTALL_LANGUAGE:$key" in
+    de:title) printf 'Geführte Mailflow-Installation' ;;
+    de:motto) printf 'So wenig wie möglich, so viel wie nötig.' ;;
+    de:install_dir) printf 'Installationsverzeichnis' ;;
+    de:tls_title) printf 'TLS-Zertifikat:' ;;
+    de:tls_auto) printf 'Automatisch (empfohlen: Caddy verwaltet Zertifikate)' ;;
+    de:tls_custom) printf 'Vorhandene Zertifikate aus einem Ordner verwenden' ;;
+    de:choice) printf 'Auswahl' ;;
+    de:cert_dir) printf 'Zertifikatsordner' ;;
+    de:analyze_cert) printf 'Zertifikatspaket wird analysiert' ;;
+    de:cert_detected) printf 'Zertifikat erkannt:' ;;
+    de:names) printf 'Namen' ;;
+    de:expires) printf 'Gültig bis' ;;
+    de:private_key) printf 'Privater Schlüssel' ;;
+    de:chain) printf 'Zertifikatskette' ;;
+    de:hostname) printf 'Hostname' ;;
+    de:invalid_hostname) printf 'Ungültiger Hostname. Verwende genau einen DNS-Namensteil, z. B. mail oder mailflow.' ;;
+    de:not_covered) printf 'wird vom Zertifikat nicht abgedeckt.' ;;
+    de:validated) printf 'Geprüfte Konfiguration:' ;;
+    de:public_url) printf 'Öffentliche URL' ;;
+    de:language) printf 'Sprache' ;;
+    de:cert_folder) printf 'Zertifikatsordner' ;;
+    de:updating) printf 'Vorhandene Installation wird aktualisiert in' ;;
+    de:cloning) printf 'Mailflow wird geklont nach' ;;
+    de:create_config) printf 'Sichere lokale Konfiguration wird erstellt' ;;
+    de:check_config) printf 'Vorhandene lokale Konfiguration wird geprüft' ;;
+    de:prepare_tls) printf 'TLS-Dateien werden vorbereitet' ;;
+    de:start_db) printf 'Datenbank wird gestartet' ;;
+    de:prepare_auth) printf 'Web-Authentifizierungsschema wird vorbereitet' ;;
+    de:build_start) printf 'Mailflow wird gebaut und gestartet' ;;
+    de:wait_ready) printf 'Warte, bis Mailflow bereit ist' ;;
+    de:ready) printf 'Mailflow ist bereit.' ;;
+    de:open) printf 'Öffnen' ;;
+    de:next) printf 'Als Nächstes: Lege im Browser den ersten Benutzer an und fahre mit der Einrichtung in Mailflow fort.' ;;
+
+    es:title) printf 'Instalación guiada de Mailflow' ;;
+    es:motto) printf 'Lo mínimo posible, todo lo necesario.' ;;
+    es:install_dir) printf 'Directorio de instalación' ;;
+    es:tls_title) printf 'Certificado TLS:' ;;
+    es:tls_auto) printf 'Automático (recomendado: Caddy gestiona los certificados)' ;;
+    es:tls_custom) printf 'Usar certificados existentes de una carpeta' ;;
+    es:choice) printf 'Selección' ;;
+    es:cert_dir) printf 'Carpeta de certificados' ;;
+    es:analyze_cert) printf 'Analizando paquete de certificados' ;;
+    es:cert_detected) printf 'Certificado detectado:' ;;
+    es:names) printf 'Nombres' ;;
+    es:expires) printf 'Válido hasta' ;;
+    es:private_key) printf 'Clave privada' ;;
+    es:chain) printf 'Cadena' ;;
+    es:hostname) printf 'Nombre de host' ;;
+    es:invalid_hostname) printf 'Nombre de host no válido. Usa una sola etiqueta DNS, por ejemplo mail o mailflow.' ;;
+    es:not_covered) printf 'no está cubierto por el certificado.' ;;
+    es:validated) printf 'Configuración validada:' ;;
+    es:public_url) printf 'URL pública' ;;
+    es:language) printf 'Idioma' ;;
+    es:cert_folder) printf 'Carpeta de certificados' ;;
+    es:updating) printf 'Actualizando instalación existente en' ;;
+    es:cloning) printf 'Clonando Mailflow en' ;;
+    es:create_config) printf 'Creando configuración local segura' ;;
+    es:check_config) printf 'Comprobando configuración local existente' ;;
+    es:prepare_tls) printf 'Preparando archivos TLS' ;;
+    es:start_db) printf 'Iniciando base de datos' ;;
+    es:prepare_auth) printf 'Preparando esquema de autenticación web' ;;
+    es:build_start) printf 'Compilando e iniciando Mailflow' ;;
+    es:wait_ready) printf 'Esperando a que Mailflow esté listo' ;;
+    es:ready) printf 'Mailflow está listo.' ;;
+    es:open) printf 'Abrir' ;;
+    es:next) printf 'Siguiente: crea el primer usuario en el navegador y continúa con la configuración de Mailflow.' ;;
+
+    *:title) printf 'Mailflow guided installer' ;;
+    *:motto) printf 'As little as possible, as much as necessary.' ;;
+    *:install_dir) printf 'Install directory' ;;
+    *:tls_title) printf 'TLS certificate:' ;;
+    *:tls_auto) printf 'Automatic (recommended: Caddy manages certificates)' ;;
+    *:tls_custom) printf 'Use certificates from a folder' ;;
+    *:choice) printf 'Choice' ;;
+    *:cert_dir) printf 'Certificate folder' ;;
+    *:analyze_cert) printf 'Analyzing certificate bundle' ;;
+    *:cert_detected) printf 'Certificate detected:' ;;
+    *:names) printf 'Names' ;;
+    *:expires) printf 'Expires' ;;
+    *:private_key) printf 'Private key' ;;
+    *:chain) printf 'Chain' ;;
+    *:hostname) printf 'Hostname' ;;
+    *:invalid_hostname) printf 'Invalid hostname. Use one DNS label, for example mail or mailflow.' ;;
+    *:not_covered) printf 'is not covered by the certificate.' ;;
+    *:validated) printf 'Validated configuration:' ;;
+    *:public_url) printf 'Public URL' ;;
+    *:language) printf 'Language' ;;
+    *:cert_folder) printf 'Certificate folder' ;;
+    *:updating) printf 'Updating existing checkout in' ;;
+    *:cloning) printf 'Cloning Mailflow into' ;;
+    *:create_config) printf 'Creating secure local configuration' ;;
+    *:check_config) printf 'Checking existing local configuration' ;;
+    *:prepare_tls) printf 'Preparing TLS files' ;;
+    *:start_db) printf 'Starting database' ;;
+    *:prepare_auth) printf 'Preparing web authentication schema' ;;
+    *:build_start) printf 'Building and starting Mailflow' ;;
+    *:wait_ready) printf 'Waiting for the stack to become ready' ;;
+    *:ready) printf 'Mailflow is ready.' ;;
+    *:open) printf 'Open' ;;
+    *:next) printf 'Next: create your first user in the browser and continue with the in-app onboarding.' ;;
+  esac
+}
+
 say() { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || fail "$2"; }
@@ -45,24 +164,14 @@ prompt_secret() {
 choose_tls() {
   local value
   if [ -r /dev/tty ]; then
-    printf '\nTLS certificate:\n' > /dev/tty
-    printf '  1) Automatic (recommended: Caddy manages certificates)\n' > /dev/tty
-    printf '  2) Use certificates from a folder\n' > /dev/tty
-    IFS= read -r -p 'Choice [1]: ' value < /dev/tty || true
+    printf '\n%s\n' "$(msg tls_title)" > /dev/tty
+    printf '  1) %s\n' "$(msg tls_auto)" > /dev/tty
+    printf '  2) %s\n' "$(msg tls_custom)" > /dev/tty
+    IFS= read -r -p "$(msg choice) [1]: " value < /dev/tty || true
   else
     value="1"
   fi
   printf '%s' "${value:-1}"
-}
-
-detect_system_language() {
-  local locale="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
-  locale="${locale,,}"
-  case "$locale" in
-    de*|*de_de*) printf 'de' ;;
-    es*|*es_es*) printf 'es' ;;
-    *) printf 'en' ;;
-  esac
 }
 
 resolve_path() {
@@ -219,40 +328,39 @@ prepare_custom_tls() {
 choose_url_from_certificate() {
   local wildcard="" name base host fqdn default_name
   while IFS= read -r name; do case "$name" in \*.*) wildcard="$name"; break ;; esac; done <<< "$TLS_CERT_NAMES"
-  printf '\nCertificate detected:\n'
-  printf '  Names:       %s\n' "$(printf '%s' "$TLS_CERT_NAMES" | paste -sd ', ' -)"
-  printf '  Expires:     %s\n' "$TLS_CERT_EXPIRES"
-  printf '  Private key: OK\n'
-  printf '  Chain:       prepared\n'
+  printf '\n%s\n' "$(msg cert_detected)"
+  printf '  %s: %s\n' "$(msg names)" "$(printf '%s' "$TLS_CERT_NAMES" | paste -sd ', ' -)"
+  printf '  %s: %s\n' "$(msg expires)" "$TLS_CERT_EXPIRES"
+  printf '  %s: OK\n' "$(msg private_key)"
+  printf '  %s: OK\n' "$(msg chain)"
   if [ -n "$wildcard" ]; then
     base="${wildcard#*.}"
     while :; do
-      host="$(prompt "Hostname" "mailflow")"
-      [[ "$host" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]] || { printf 'Invalid hostname. Use one DNS label, for example mail or mailflow.\n' > /dev/tty; continue; }
+      host="$(prompt "$(msg hostname)" "mailflow")"
+      [[ "$host" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]] || { printf '%s\n' "$(msg invalid_hostname)" > /dev/tty; continue; }
       fqdn="$host.$base"
       if openssl x509 -in "$TLS_PREVIEW_DIR/fullchain.pem" -noout -checkhost "$fqdn" >/dev/null 2>&1; then PUBLIC_URL="https://$fqdn"; break; fi
-      printf 'Hostname %s is not covered by the certificate.\n' "$fqdn" > /dev/tty
+      printf '%s %s\n' "$fqdn" "$(msg not_covered)" > /dev/tty
     done
   else
     default_name="${TLS_CERT_PRIMARY:-localhost}"
     while :; do
       fqdn="$(prompt "FQDN" "$default_name")"; fqdn="${fqdn#https://}"; fqdn="${fqdn#http://}"; fqdn="${fqdn%%/*}"
       if openssl x509 -in "$TLS_PREVIEW_DIR/fullchain.pem" -noout -checkhost "$fqdn" >/dev/null 2>&1; then PUBLIC_URL="https://$fqdn"; break; fi
-      printf 'FQDN %s is not covered by the certificate.\n' "$fqdn" > /dev/tty
+      printf '%s %s\n' "$fqdn" "$(msg not_covered)" > /dev/tty
     done
   fi
 }
 
-INSTALL_LANGUAGE="$(detect_system_language)"
-say "Mailflow guided installer"
-printf '%s\n' "As little as possible, as much as necessary."
+say "$(msg title)"
+printf '%s\n' "$(msg motto)"
 need git "git is required. Please install git and run this command again."
 need openssl "openssl is required. Please install openssl and run this command again."
 need docker "Docker is required. Install Docker Engine/Desktop first, then run this command again."
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required (docker compose)."
 docker info >/dev/null 2>&1 || fail "Docker is installed but not reachable. Start Docker or fix your Docker permissions."
 
-INSTALL_INPUT="$(prompt_path "Install directory" "$INSTALL_DIR_DEFAULT")"
+INSTALL_INPUT="$(prompt_path "$(msg install_dir)" "$INSTALL_DIR_DEFAULT")"
 INSTALL_DIR="$(resolve_path "$INSTALL_INPUT" "$HOME")"
 validate_install_dir "$INSTALL_DIR"
 TLS_MODE="$(choose_tls)"; TLS_SOURCE_DIR=""; TLS_PREVIEW_DIR=""
@@ -263,27 +371,27 @@ case "$TLS_MODE" in
     ;;
   2)
     TLS_MODE="custom"
-    TLS_INPUT="$(prompt_path "Certificate folder" "$HOME")"
+    TLS_INPUT="$(prompt_path "$(msg cert_dir)" "$HOME")"
     TLS_SOURCE_DIR="$(resolve_path "$TLS_INPUT" "$HOME")"
     validate_certificate_folder "$TLS_SOURCE_DIR"
     TLS_PREVIEW_DIR="$(mktemp -d)"
-    say "Analyzing certificate bundle"
+    say "$(msg analyze_cert)"
     prepare_custom_tls "$TLS_SOURCE_DIR" "" "$TLS_PREVIEW_DIR"
     choose_url_from_certificate
     ;;
   *) fail "Invalid TLS choice. Use 1 or 2." ;;
 esac
 
-printf '\nValidated configuration:\n  Install directory:  %s\n  Public URL:         %s\n  Language:           %s\n' "$INSTALL_DIR" "$PUBLIC_URL" "$INSTALL_LANGUAGE"
-if [ "$TLS_MODE" = "custom" ]; then printf '  Certificate folder: %s\n' "$TLS_SOURCE_DIR"; else printf '  TLS:                automatic\n'; fi
+printf '\n%s\n  %s: %s\n  %s: %s\n  %s: %s\n' "$(msg validated)" "$(msg install_dir)" "$INSTALL_DIR" "$(msg public_url)" "$PUBLIC_URL" "$(msg language)" "$INSTALL_LANGUAGE"
+if [ "$TLS_MODE" = "custom" ]; then printf '  %s: %s\n' "$(msg cert_folder)" "$TLS_SOURCE_DIR"; else printf '  TLS: automatic\n'; fi
 
 if [ -d "$INSTALL_DIR/.git" ]; then
-  say "Updating existing checkout in $INSTALL_DIR"; git -C "$INSTALL_DIR" fetch origin "$BRANCH"; git -C "$INSTALL_DIR" checkout "$BRANCH"; git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
+  say "$(msg updating) $INSTALL_DIR"; git -C "$INSTALL_DIR" fetch origin "$BRANCH"; git -C "$INSTALL_DIR" checkout "$BRANCH"; git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
 elif [ -e "$INSTALL_DIR" ]; then fail "$INSTALL_DIR already exists but is not a Mailflow git checkout."
-else say "Cloning Mailflow into $INSTALL_DIR"; git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$INSTALL_DIR"; fi
+else say "$(msg cloning) $INSTALL_DIR"; git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$INSTALL_DIR"; fi
 
 cd "$INSTALL_DIR"; ENV_FILE="$INSTALL_DIR/.env"
-if [ ! -f "$ENV_FILE" ]; then cp .env.example "$ENV_FILE"; say "Creating secure local configuration"; else say "Checking existing local configuration"; fi
+if [ ! -f "$ENV_FILE" ]; then cp .env.example "$ENV_FILE"; say "$(msg create_config)"; else say "$(msg check_config)"; fi
 ensure_env_secret SECRET_KEY secret_fernet "$ENV_FILE"
 ensure_env_secret BETTER_AUTH_SECRET secret_hex "$ENV_FILE"
 ensure_env_secret WEB_SECRET_KEY secret_hex "$ENV_FILE"
@@ -295,21 +403,21 @@ set_env MAILFLOW_TLS_MODE "$TLS_MODE" "$ENV_FILE"
 set_env MAILFLOW_PUBLIC_URL "$PUBLIC_URL" "$ENV_FILE"
 set_env AUTH_MODE "single" "$ENV_FILE"; set_env WEB_AUTH "on" "$ENV_FILE"; set_env API_INTERNAL_URL "http://api:8000" "$ENV_FILE"; set_env API_DOCS_ENABLED "false" "$ENV_FILE"; set_env WORKER_MAX_EMAILS_PER_CYCLE "10" "$ENV_FILE"
 if [ "$TLS_MODE" = "custom" ]; then
-  say "Preparing TLS files"; prepare_custom_tls "$TLS_SOURCE_DIR" "$PUBLIC_URL" "$INSTALL_DIR/.mailflow/tls"; set_env TLS_CERT_FILE "$TLS_CERT_FILE" "$ENV_FILE"; set_env TLS_KEY_FILE "$TLS_KEY_FILE" "$ENV_FILE"; rm -rf "$TLS_PREVIEW_DIR"
+  say "$(msg prepare_tls)"; prepare_custom_tls "$TLS_SOURCE_DIR" "$PUBLIC_URL" "$INSTALL_DIR/.mailflow/tls"; set_env TLS_CERT_FILE "$TLS_CERT_FILE" "$ENV_FILE"; set_env TLS_KEY_FILE "$TLS_KEY_FILE" "$ENV_FILE"; rm -rf "$TLS_PREVIEW_DIR"
 else set_env TLS_CERT_FILE "" "$ENV_FILE"; set_env TLS_KEY_FILE "" "$ENV_FILE"; fi
 host="${PUBLIC_URL#*://}"; host="${host%%/*}"; host="${host%%:*}"
 set_env BETTER_AUTH_URL "$PUBLIC_URL" "$ENV_FILE"; set_env NEXT_PUBLIC_APP_URL "$PUBLIC_URL" "$ENV_FILE"; set_env PASSKEY_RP_ID "${host:-localhost}" "$ENV_FILE"; set_env PASSKEY_ORIGIN "$PUBLIC_URL" "$ENV_FILE"; set_env CORS_ORIGINS "$PUBLIC_URL" "$ENV_FILE"
 validate_env "$ENV_FILE"
 COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE"); [ "$TLS_MODE" != "custom" ] || COMPOSE_ARGS+=(-f "$TLS_COMPOSE_FILE")
-say "Starting database"; docker compose "${COMPOSE_ARGS[@]}" config >/dev/null || fail "Docker Compose configuration is invalid."; docker compose "${COMPOSE_ARGS[@]}" up -d postgres
-say "Preparing web authentication schema"; docker compose "${COMPOSE_ARGS[@]}" --profile migrate run --rm web-migrate
-say "Building and starting Mailflow"; docker compose "${COMPOSE_ARGS[@]}" up -d --build
-say "Waiting for the stack to become ready"; ready=0
+say "$(msg start_db)"; docker compose "${COMPOSE_ARGS[@]}" config >/dev/null || fail "Docker Compose configuration is invalid."; docker compose "${COMPOSE_ARGS[@]}" up -d postgres
+say "$(msg prepare_auth)"; docker compose "${COMPOSE_ARGS[@]}" --profile migrate run --rm web-migrate
+say "$(msg build_start)"; docker compose "${COMPOSE_ARGS[@]}" up -d --build
+say "$(msg wait_ready)"; ready=0
 for _ in $(seq 1 30); do if docker compose "${COMPOSE_ARGS[@]}" exec -T api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)" >/dev/null 2>&1; then ready=1; break; fi; sleep 2; done
 [ "$ready" -eq 1 ] || fail "Mailflow started, but the API health check did not become ready."
 if [[ "$PUBLIC_URL" = https://* ]]; then
   if [ "$TLS_MODE" = "custom" ]; then curl -fsS --connect-timeout 10 "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS verification failed for $PUBLIC_URL"; else curl -kfsS --connect-timeout 10 "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS is not reachable at $PUBLIC_URL"; fi
 fi
-printf '\nMailflow is ready.\n\nOpen: %s\n\n' "$PUBLIC_URL"
+printf '\n%s\n\n%s: %s\n\n' "$(msg ready)" "$(msg open)" "$PUBLIC_URL"
 if [ "$TLS_MODE" = "automatic" ]; then printf '%s\n' "TLS: automatic certificate management enabled."; else printf '%s\n' "TLS: certificate bundle auto-detected, assembled, validated and HTTPS verified."; fi
-printf '%s\n' "Next: create your first user in the browser and continue with the in-app onboarding."
+printf '%s\n' "$(msg next)"
