@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -142,7 +143,7 @@ class AttachmentSource(Base):
     account_id: Mapped[UUID] = mapped_column(
         ForeignKey("email_accounts.id", ondelete="CASCADE")
     )
-    uid: Mapped[int] = mapped_column(Integer)
+    uid: Mapped[int] = mapped_column(BigInteger)
     folder: Mapped[str] = mapped_column(String(500))
     part_id: Mapped[str] = mapped_column(String(255))
     message_id: Mapped[str | None] = mapped_column(String(500), nullable=True)
