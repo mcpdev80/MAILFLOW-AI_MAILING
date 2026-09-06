@@ -3,85 +3,52 @@
 **Open source AI email assistant. Use any LLM. Your inbox, your rules, your privacy.**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![CI](https://github.com/JonatanGhub/mailflow/actions/workflows/ci.yml/badge.svg)](https://github.com/JonatanGhub/mailflow/actions/workflows/ci.yml)
 
-MailFlow automatically classifies incoming emails into your IMAP folders and generates draft replies in your writing style — powered by **any LLM you choose** (local Ollama, OpenAI, Anthropic, Gemini, vLLM, LM Studio, or any OpenAI-compatible endpoint).
-
-## Why MailFlow?
-
-| Feature | MailFlow | Superhuman | Shortwave | Spark |
-|---|---|---|---|---|
-| Open source | ✅ AGPL | ❌ | ❌ | ❌ |
-| Self-hostable | ✅ Docker | ❌ | ❌ | ❌ |
-| Multi-LLM support | ✅ 100+ | ❌ GPT-only | ❌ Claude-only | ❌ |
-| Privacy (local AI) | ✅ Ollama | ❌ | ❌ | ❌ |
-| Bilingual EN/ES | ✅ | ❌ | ❌ | ❌ |
-| Price | Free / $12/mo | $30-40/mo | $24/mo | $10/mo |
+MailFlow automatically classifies incoming emails, supports AI-assisted mail workflows, and can run with local or hosted LLMs.
 
 ## Quick Start (Self-hosted)
 
 ```bash
-git clone https://github.com/JonatanGhub/mailflow.git
-cd mailflow
+git clone https://github.com/mcpdev80/MAILFLOW-AI_MAILING.git
+cd MAILFLOW-AI_MAILING
 cp .env.example .env
-# Set SECRET_KEY in .env (a Fernet key):
-#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 docker compose -f infrastructure/docker-compose.yml up -d --build
 ```
 
-This brings up the full stack (postgres + redis + API + worker + web); the API
-migrates the database on startup. Then open:
+This brings up the application stack. See the documentation under [`docs/`](docs/) for configuration, deployment, and operational details.
 
-- **Web app**: <http://localhost:3000> — onboarding wizard + dashboard
-- API health: `curl http://localhost:8000/health`
-- API docs: <http://localhost:8000/docs>
+## Current capabilities
 
-See **[docs/self-hosting.md](docs/self-hosting.md)** for full configuration and
-operations.
+MailFlow has evolved substantially beyond the original upstream baseline. Current development includes, among other things:
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 15 (App Router) |
-| Backend API | Python 3.13 + FastAPI |
-| Workers | ARQ (asyncio jobs) |
-| Database | PostgreSQL |
-| Auth | API-key per organization (multi-tenant); Better Auth integration planned |
-| LLM Router | LiteLLM (100+ providers) |
-| Email | IMAP + M365 OAuth2 + Gmail OAuth2 |
-
-## Features
-
-- **Auto-classification** — deterministic cascade (internal/client domain → thread → keyword) + LLM fallback
-- **Draft generation** — replies saved as IMAP Drafts (never auto-sent)
-- **Multi-LLM** — choose any engine per workspace: Ollama, OpenAI, Anthropic, Gemini, vLLM…
-- **One-click mailbox connect** — Gmail / Microsoft 365 via OAuth2, or generic IMAP
-- **Web dashboard** — onboarding wizard, mailboxes, cycle history & stats, billing
-- **Multi-tenant SaaS or single-tenant self-host** — same codebase, one env var
-
-### Roadmap (not yet implemented)
-
-- Template library with keyword auto-detection
-- Learning loop (corrections feed back into future drafts)
-- Writing-style capture, semantic search
+- multi-mailbox and multi-user workflows
+- AI-assisted classification and writing
+- DecisionMemory-based learning from confirmed corrections
+- review inbox, notifications, and daily summaries
+- safe historical bulk review/apply workflows
+- mailbox ownership and access controls
+- composer, drafts, SMTP/XOAuth2 sending, and attachments
+- unified inbox and core mail client actions
+- TLS edge, custom certificate support, and network isolation
+- localization support for German, English, and Spanish
+- operational dashboard and search
 
 ## Development
 
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup instructions.
-
-```bash
-# Backend
-uv sync
-uvicorn apps.api.app.main:app --reload
-
-# Frontend
-pnpm install
-pnpm dev
-```
+See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for development setup and contribution guidance.
 
 ## License
 
-GNU Affero General Public License v3.0 — see [LICENSE](LICENSE).
+This repository is distributed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE`](LICENSE).
 
-Commercial SaaS use requires a commercial license. Contact tecnicosestudios@igex.es.
+The AGPL permits commercial use, modification, distribution, and operation of the software subject to its license conditions, including the source-code obligations that apply to modified versions offered to users over a network.
+
+There is **no separate commercial-license requirement provided by this repository**.
+
+## Provenance and copyright
+
+This repository is derived from the original MailFlow project created by **Jonatan Garcia / JonatanGhub** and retains the upstream AGPL-3.0 licensing history.
+
+Substantial later modifications and additions in this fork were created by **Marcel Pfingstgräf** and contributors. Copyright remains with the respective authors of their contributions unless explicitly stated otherwise.
+
+For attribution and provenance details, see [`NOTICE.md`](NOTICE.md).
