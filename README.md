@@ -41,14 +41,24 @@ See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for development setup and con
 
 This repository is distributed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE`](LICENSE).
 
-The AGPL permits commercial use, modification, distribution, and operation of the software subject to its license conditions, including the source-code obligations that apply to modified versions offered to users over a network.
+The AGPL permits commercial use, modification, distribution, and paid operation of the software, provided its conditions are met. In particular, a party that modifies a covered version and lets users interact with it remotely through a computer network must provide those users an opportunity to receive the Corresponding Source of that modified version as required by AGPL section 13.
 
-There is **no separate commercial-license requirement provided by this repository**.
+When distributing modified source versions, the AGPL also requires preservation of applicable notices and prominent notices that the work was modified, including a relevant date.
+
+There is **no separate commercial-license requirement provided by this repository**. No proprietary license to third-party upstream code is granted here.
 
 ## Provenance and copyright
 
-This repository is derived from the original MailFlow project created by **Jonatan Garcia / JonatanGhub** and retains the upstream AGPL-3.0 licensing history.
+This repository is derived from the original **MailFlow** project created by **Jonatan Garcia / JonatanGhub** and retains the upstream AGPL-3.0 licensing history.
 
-Substantial later modifications and additions in this fork were created by **Marcel Pfingstgräf** and contributors. Copyright remains with the respective authors of their contributions unless explicitly stated otherwise.
+**Modification notice:** this fork contains substantial modifications and new functionality made from **September 2026 onward**, including work authored by **Marcel Pfingstgräf** and other contributors.
 
-For attribution and provenance details, see [`NOTICE.md`](NOTICE.md).
+Copyright in the original upstream portions remains with the respective upstream author(s). Copyright in later modifications and new contributions remains with the respective author(s) unless explicitly assigned otherwise.
+
+For detailed provenance and copyright scope, see [`NOTICE.md`](NOTICE.md) and [`COPYRIGHT.md`](COPYRIGHT.md).
+
+## For forks and derivative works
+
+If you copy, fork, modify, redistribute, or operate a modified covered version of this project, review the full AGPL-3.0 terms in [`LICENSE`](LICENSE). Among other things, do not remove applicable copyright, license, warranty, provenance, or modification notices that the license requires to remain intact.
+
+The project name and upstream branding are not claimed here as exclusive trademarks of this fork.
