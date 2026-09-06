@@ -410,9 +410,9 @@ test("reply all keeps other recipients but excludes the mailbox owner", async ({
   await expect(page.getByRole("textbox", { name: "To" })).toHaveValue(
     "sender@example.test, colleague@example.test",
   );
-  await expect(page.getByRole("textbox", { name: "CC" })).toHaveValue(
-    "copy@example.test",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "CC", exact: true }),
+  ).toHaveValue("copy@example.test");
   expect(flow.createPayload()).toMatchObject({
     account_id: "acct-1",
     message_type: "reply_all",
