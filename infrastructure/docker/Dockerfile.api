@@ -14,12 +14,16 @@ COPY --chown=appuser:appuser packages/core/pyproject.toml packages/core/
 USER appuser
 RUN uv sync --no-dev
 
-# Application code, migrations and entrypoint are copied with final ownership.
+# Application code, migrations and shared core package are copied with final ownership.
 COPY --chown=appuser:appuser apps/api/app/ apps/api/app/
 COPY --chown=appuser:appuser apps/api/alembic/ apps/api/alembic/
 COPY --chown=appuser:appuser apps/api/alembic.ini apps/api/alembic.ini
 COPY --chown=appuser:appuser packages/core/mailflow_core/ packages/core/mailflow_core/
 COPY --chown=appuser:appuser infrastructure/docker/entrypoint.api.sh /entrypoint.api.sh
+
+# The API imports `app.*` and the shared `mailflow_core` package directly from
+# the workspace source tree. Keep both source roots explicit at runtime.
+ENV PYTHONPATH=/app/apps/api:/app/packages/core
 
 USER root
 RUN chmod +x /entrypoint.api.sh && chown appuser:appuser /entrypoint.api.sh
