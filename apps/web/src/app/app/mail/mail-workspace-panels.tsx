@@ -97,6 +97,7 @@ export function MessageListPane({ state }: { state: WorkspaceState }) {
 function MessageRow({ state, message }: { state: WorkspaceState; message: InboxMessage }) {
   const { t } = useI18n();
   const key = messageKey(message);
+  const attachments = t("mail.attachments").replace("{count}", String(message.attachments.length));
   return (
     <button
       type="button"
@@ -109,7 +110,7 @@ function MessageRow({ state, message }: { state: WorkspaceState; message: InboxM
     >
       <span className={styles.rowTop}><span className={styles.sender}>{message.from_email}</span><span className={styles.date}>{displayMailDate(message.date)}</span></span>
       <span className={styles.subject}>{message.flagged ? "★ " : ""}{message.subject || t("mail.noSubject")}</span>
-      <span className={styles.rowMeta}><span className={styles.pill}>{message.account_address}</span>{message.attachments.length > 0 && <span>{message.attachments.length} attachment(s)</span>}{message.thread_id && <span>{t("mail.thread")}</span>}</span>
+      <span className={styles.rowMeta}><span className={styles.pill}>{message.account_address}</span>{message.attachments.length > 0 && <span>{attachments}</span>}{message.thread_id && <span>{t("mail.thread")}</span>}</span>
     </button>
   );
 }
