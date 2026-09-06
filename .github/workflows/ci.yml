@@ -118,12 +118,14 @@ jobs:
           node-version: "20"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Install Playwright test runner
+        run: npm --prefix apps/web/e2e install --no-package-lock --ignore-scripts
       - name: Install Chromium
-        working-directory: apps/web
-        run: pnpm dlx @playwright/test@1.63.0 install --with-deps chromium
+        working-directory: apps/web/e2e
+        run: npx playwright install --with-deps chromium
       - name: Run browser tests
-        working-directory: apps/web
-        run: pnpm test:e2e
+        working-directory: apps/web/e2e
+        run: npm test
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
