@@ -73,6 +73,15 @@ type Correction = {
   remember?: boolean;
 };
 
+type AttachmentListOptions = {
+  q?: string;
+  accountId?: string | null;
+  folderId?: string | null;
+  category?: string | null;
+  documentType?: string | null;
+  mimeType?: string | null;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -81,17 +90,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (response.status === 204) return undefined as T;
   const body = await response.json().catch(() => undefined);
-  if (!response.ok)
+  if (!response.ok) {
     throw new Error(body?.detail ?? response.statusText ?? "request_failed");
+  }
   return body as T;
 }
 
 export const attachmentsApi = {
-  list: (options: { q?: string; folderId?: string | null } = {}) => {
+  list: (options: AttachmentListOptions = {}) => {
     const params = new URLSearchParams();
     if (options.q) params.set("q", options.q);
+    if (options.accountId) params.set("account_id", options.accountId);
     if (options.folderId) params.set("folder_id", options.folderId);
-    return request<AttachmentDocument[]>(`/attachments?${params.toString()}`);
+    if (options.category) params.set("category", options.category);
+    if (options.documentType) params.set("document_type", options.documentType);
+    if (options.mimeType) params.set("mime_type", options.mimeType);
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    return request<AttachmentDocument[]>(`/attachments${suffix}`);
   },
   detail: (id: string) => request<AttachmentDetail>(`/attachments/${id}`),
   folders: () => request<AttachmentFolder[]>("/attachments/folders"),
