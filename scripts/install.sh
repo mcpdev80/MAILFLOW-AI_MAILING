@@ -14,8 +14,7 @@ need() { command -v "$1" >/dev/null 2>&1 || fail "$2"; }
 prompt() {
   local label="$1" default="$2" value
   if [ -r /dev/tty ]; then
-    printf '%s [%s]: ' "$label" "$default" > /dev/tty
-    IFS= read -r value < /dev/tty || true
+    IFS= read -r -p "$label [$default]: " value < /dev/tty || true
   else
     value=""
   fi
@@ -23,10 +22,9 @@ prompt() {
 }
 
 prompt_path() {
-  local label="$1" default="$2" value prompt_text
+  local label="$1" default="$2" value
   if [ -r /dev/tty ]; then
-    printf -v prompt_text '%s [%s]: ' "$label" "$default"
-    IFS= read -e -r -p "$prompt_text" value < /dev/tty || true
+    IFS= read -e -r -p "$label [$default]: " value < /dev/tty || true
   else
     value=""
   fi
@@ -36,8 +34,7 @@ prompt_path() {
 prompt_secret() {
   local label="$1" value
   if [ -r /dev/tty ]; then
-    printf '%s: ' "$label" > /dev/tty
-    IFS= read -s -r value < /dev/tty || true
+    IFS= read -s -r -p "$label: " value < /dev/tty || true
     printf '\n' > /dev/tty
   else
     value=""
@@ -51,8 +48,7 @@ choose_tls() {
     printf '\nTLS certificate:\n' > /dev/tty
     printf '  1) Automatic (recommended: Caddy manages certificates)\n' > /dev/tty
     printf '  2) Use certificates from a folder\n' > /dev/tty
-    printf 'Choice [1]: ' > /dev/tty
-    IFS= read -r value < /dev/tty || true
+    IFS= read -r -p 'Choice [1]: ' value < /dev/tty || true
   else
     value="1"
   fi
@@ -65,42 +61,26 @@ resolve_path() {
     "~") value="$HOME" ;;
     "~/"*) value="$HOME/${value#~/}" ;;
   esac
-  if [[ "$value" != /* ]]; then
-    value="$base/$value"
-  fi
-  if command -v realpath >/dev/null 2>&1; then
-    realpath -m "$value"
-  else
-    printf '%s' "$value"
-  fi
+  [[ "$value" = /* ]] || value="$base/$value"
+  if command -v realpath >/dev/null 2>&1; then realpath -m "$value"; else printf '%s' "$value"; fi
 }
 
 normalize_public_url() {
   local value="$1" host
   value="${value%/}"
-  if [[ "$value" != http://* && "$value" != https://* ]]; then
-    value="https://$value"
-  fi
-  host="${value#*://}"
-  host="${host%%/*}"
+  [[ "$value" = http://* || "$value" = https://* ]] || value="https://$value"
+  host="${value#*://}"; host="${host%%/*}"; host="${host%%:*}"
   [ -n "$host" ] || fail "Public URL does not contain a host name."
-  [[ "$host" =~ ^[A-Za-z0-9._:-]+$ ]] || fail "Public URL contains an invalid host name: $host"
+  [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]] || fail "Public URL contains an invalid host name: $host"
   printf '%s' "$value"
 }
 
 validate_install_dir() {
   local dir="$1" parent
-  if [ -e "$dir" ] && [ ! -d "$dir" ]; then
-    fail "Install path exists but is not a directory: $dir"
-  fi
-  if [ -d "$dir" ]; then
-    [ -w "$dir" ] || fail "Install directory is not writable: $dir"
-    return
-  fi
+  [ ! -e "$dir" ] || [ -d "$dir" ] || fail "Install path exists but is not a directory: $dir"
+  if [ -d "$dir" ]; then [ -w "$dir" ] || fail "Install directory is not writable: $dir"; return; fi
   parent="$(dirname "$dir")"
-  while [ ! -d "$parent" ] && [ "$parent" != "/" ]; do
-    parent="$(dirname "$parent")"
-  done
+  while [ ! -d "$parent" ] && [ "$parent" != "/" ]; do parent="$(dirname "$parent")"; done
   [ -w "$parent" ] || fail "Cannot create install directory below: $parent"
 }
 
@@ -124,84 +104,52 @@ set_env() {
   fi
 }
 
-get_env() {
-  local key="$1" file="$2"
-  awk -F= -v k="$key" '$1==k {sub(/^[^=]*=/, ""); print; exit}' "$file"
-}
-
+get_env() { awk -F= -v k="$1" '$1==k {sub(/^[^=]*=/, ""); print; exit}' "$2"; }
 ensure_env_secret() {
-  local key="$1" generator="$2" file="$3" value
-  value="$(get_env "$key" "$file")"
-  if [ -z "$value" ]; then
-    set_env "$key" "$($generator)" "$file"
-    printf '  generated %s\n' "$key"
-  fi
+  local key="$1" generator="$2" file="$3"
+  if [ -z "$(get_env "$key" "$file")" ]; then set_env "$key" "$($generator)" "$file"; printf '  generated %s\n' "$key"; fi
 }
-
 validate_env() {
-  local file="$1" value
-  [ -f "$file" ] || fail "Environment file is missing: $file"
-  value="$(get_env SECRET_KEY "$file")"
-  [ -n "$value" ] || fail "SECRET_KEY is still empty after configuration repair."
-  value="$(get_env POSTGRES_PASSWORD "$file")"
-  [ -n "$value" ] || fail "POSTGRES_PASSWORD is still empty after configuration repair."
+  [ -n "$(get_env SECRET_KEY "$1")" ] || fail "SECRET_KEY is empty after configuration repair."
+  [ -n "$(get_env POSTGRES_PASSWORD "$1")" ] || fail "POSTGRES_PASSWORD is empty after configuration repair."
 }
 
 cert_to_pem() {
-  local src="$1" dst="$2"
-  if openssl x509 -in "$src" -outform PEM -out "$dst" >/dev/null 2>&1; then return 0; fi
-  if openssl x509 -inform DER -in "$src" -outform PEM -out "$dst" >/dev/null 2>&1; then return 0; fi
-  return 1
+  openssl x509 -in "$1" -outform PEM -out "$2" >/dev/null 2>&1 && return 0
+  openssl x509 -inform DER -in "$1" -outform PEM -out "$2" >/dev/null 2>&1
 }
-
-pubkey_fingerprint_from_key() {
-  openssl pkey -in "$1" -pubout 2>/dev/null | openssl sha256 | awk '{print $2}'
-}
-
-pubkey_fingerprint_from_cert() {
-  openssl x509 -in "$1" -pubkey -noout 2>/dev/null | openssl sha256 | awk '{print $2}'
-}
-
+pubkey_fingerprint_from_key() { openssl pkey -in "$1" -pubout 2>/dev/null | openssl sha256 | awk '{print $2}'; }
+pubkey_fingerprint_from_cert() { openssl x509 -in "$1" -pubkey -noout 2>/dev/null | openssl sha256 | awk '{print $2}'; }
 is_self_signed() {
-  local cert="$1" subject issuer
-  subject="$(openssl x509 -in "$cert" -noout -subject -nameopt RFC2253 | sed 's/^subject=//')"
-  issuer="$(openssl x509 -in "$cert" -noout -issuer -nameopt RFC2253 | sed 's/^issuer=//')"
-  [ "$subject" = "$issuer" ]
+  [ "$(openssl x509 -in "$1" -noout -subject -nameopt RFC2253 | sed 's/^subject=//')" = "$(openssl x509 -in "$1" -noout -issuer -nameopt RFC2253 | sed 's/^issuer=//')" ]
 }
 
-assemble_custom_tls() {
+certificate_names() {
+  local cert="$1" names cn
+  names="$(openssl x509 -in "$cert" -noout -ext subjectAltName 2>/dev/null | grep -oE 'DNS:[^, ]+' | cut -d: -f2- || true)"
+  cn="$(openssl x509 -in "$cert" -noout -subject -nameopt RFC2253 | sed -n 's/^subject=.*CN=\([^,]*\).*$/\1/p')"
+  if [ -n "$cn" ] && ! printf '%s\n' "$names" | grep -Fxq "$cn"; then names="${names}${names:+$'\n'}$cn"; fi
+  printf '%s\n' "$names" | sed '/^$/d' | awk '!seen[$0]++'
+}
+
+prepare_custom_tls() {
   local source_dir="$1" public_url="$2" output_dir="$3"
-  local work cert_dir key_file="" p12_file="" p12_password="" host key_fp leaf=""
-
+  local work cert_dir key_file="" p12_file="" p12_password="" key_fp leaf="" host current current_issuer candidate candidate_subject added=0 n=0
   validate_certificate_folder "$source_dir"
-  work="$(mktemp -d)"
-  cert_dir="$work/certs"
-  mkdir -p "$cert_dir"
-
-  say "Scanning certificate folder"
+  work="$(mktemp -d)"; cert_dir="$work/certs"; mkdir -p "$cert_dir"
 
   while IFS= read -r -d '' file; do
     case "${file,,}" in
-      *.zip)
-        need unzip "A ZIP certificate bundle was found, but unzip is not installed."
-        mkdir -p "$work/unpacked"
-        unzip -qq -o "$file" -d "$work/unpacked" || fail "Could not unpack: $file"
-        ;;
+      *.zip) need unzip "A ZIP certificate bundle was found, but unzip is not installed."; mkdir -p "$work/unpacked"; unzip -qq -o "$file" -d "$work/unpacked" || fail "Could not unpack: $file" ;;
     esac
   done < <(find "$source_dir" -maxdepth 2 -type f -print0)
 
   while IFS= read -r -d '' file; do
-    case "${file,,}" in
-      *.key)
-        if openssl pkey -in "$file" -noout >/dev/null 2>&1; then key_file="$file"; break; fi
-        ;;
-    esac
+    case "${file,,}" in *.key) if openssl pkey -in "$file" -noout >/dev/null 2>&1; then key_file="$file"; break; fi ;; esac
   done < <(find "$source_dir" "$work" -type f -print0)
 
   if [ -z "$key_file" ]; then
-    while IFS= read -r -d '' file; do
-      case "${file,,}" in *.p12|*.pfx) p12_file="$file"; break ;; esac
-    done < <(find "$source_dir" "$work" -type f -print0)
+    while IFS= read -r -d '' file; do case "${file,,}" in *.p12|*.pfx) p12_file="$file"; break ;; esac; done < <(find "$source_dir" "$work" -type f -print0)
     if [ -n "$p12_file" ]; then
       p12_password="$(prompt_secret "PKCS#12 password (leave empty if none)")"
       openssl pkcs12 -in "$p12_file" -nocerts -nodes -passin "pass:$p12_password" -out "$work/from-p12.key" >/dev/null 2>&1 || fail "Could not read the PKCS#12/PFX file with that password."
@@ -210,29 +158,16 @@ assemble_custom_tls() {
       openssl pkcs12 -in "$p12_file" -cacerts -nokeys -passin "pass:$p12_password" -out "$work/from-p12-chain.pem" >/dev/null 2>&1 || true
     fi
   fi
-
   [ -n "$key_file" ] || fail "No usable private key found (.key, .p12 or .pfx)."
-  openssl pkey -in "$key_file" -noout >/dev/null 2>&1 || fail "Private key is not usable."
 
-  local n=0
   while IFS= read -r -d '' file; do
     case "${file,,}" in
-      *.cer|*.crt|*.pem)
-        n=$((n+1))
-        cert_to_pem "$file" "$cert_dir/cert-$n.pem" || rm -f "$cert_dir/cert-$n.pem"
-        ;;
-      *.p7b|*.p7c)
-        n=$((n+1))
-        if ! openssl pkcs7 -print_certs -in "$file" -out "$work/p7-$n.pem" >/dev/null 2>&1; then
-          openssl pkcs7 -inform DER -print_certs -in "$file" -out "$work/p7-$n.pem" >/dev/null 2>&1 || true
-        fi
-        ;;
+      *.cer|*.crt|*.pem) n=$((n+1)); cert_to_pem "$file" "$cert_dir/cert-$n.pem" || rm -f "$cert_dir/cert-$n.pem" ;;
+      *.p7b|*.p7c) n=$((n+1)); openssl pkcs7 -print_certs -in "$file" -out "$work/p7-$n.pem" >/dev/null 2>&1 || openssl pkcs7 -inform DER -print_certs -in "$file" -out "$work/p7-$n.pem" >/dev/null 2>&1 || true ;;
     esac
   done < <(find "$source_dir" "$work" -type f -print0)
-
-  if [ -f "$work/from-p12-leaf.pem" ]; then cp "$work/from-p12-leaf.pem" "$cert_dir/from-p12-leaf.pem"; fi
-  if [ -f "$work/from-p12-chain.pem" ]; then cp "$work/from-p12-chain.pem" "$cert_dir/from-p12-chain.pem"; fi
-
+  [ ! -f "$work/from-p12-leaf.pem" ] || cp "$work/from-p12-leaf.pem" "$cert_dir/from-p12-leaf.pem"
+  [ ! -f "$work/from-p12-chain.pem" ] || cp "$work/from-p12-chain.pem" "$cert_dir/from-p12-chain.pem"
   for bundle in "$work"/p7-*.pem "$cert_dir"/from-p12-chain.pem; do
     [ -f "$bundle" ] || continue
     awk -v dir="$cert_dir" 'BEGIN{n=0;out=""} /-----BEGIN CERTIFICATE-----/{n++;out=dir "/split-" n "-" systime() ".pem"} out!=""{print >> out} /-----END CERTIFICATE-----/{close(out);out=""}' "$bundle"
@@ -243,54 +178,63 @@ assemble_custom_tls() {
     openssl x509 -in "$cert" -noout >/dev/null 2>&1 || continue
     if [ "$(pubkey_fingerprint_from_cert "$cert")" = "$key_fp" ]; then leaf="$cert"; break; fi
   done < <(find "$cert_dir" -type f -name '*.pem' -print)
-
   [ -n "$leaf" ] || fail "No certificate matching the private key was found."
   openssl x509 -in "$leaf" -checkend 0 -noout >/dev/null 2>&1 || fail "The server certificate is expired or not yet valid."
 
-  host="${public_url#*://}"
-  host="${host%%/*}"
-  host="${host%%:*}"
-  if [ -n "$host" ] && [ "$host" != "localhost" ]; then
+  TLS_CERT_NAMES="$(certificate_names "$leaf")"
+  TLS_CERT_PRIMARY="$(printf '%s\n' "$TLS_CERT_NAMES" | head -n1)"
+  TLS_CERT_EXPIRES="$(openssl x509 -in "$leaf" -noout -enddate | cut -d= -f2-)"
+
+  if [ -n "$public_url" ]; then
+    host="${public_url#*://}"; host="${host%%/*}"; host="${host%%:*}"
     openssl x509 -in "$leaf" -noout -checkhost "$host" >/dev/null 2>&1 || fail "Certificate does not match host: $host"
   fi
 
-  mkdir -p "$output_dir"
-  cp "$key_file" "$output_dir/privkey.pem"
-  chmod 600 "$output_dir/privkey.pem"
-  cp "$leaf" "$output_dir/fullchain.pem"
-
-  local current="$leaf" current_issuer candidate candidate_subject added=0
+  mkdir -p "$output_dir"; cp "$key_file" "$output_dir/privkey.pem"; chmod 600 "$output_dir/privkey.pem"; cp "$leaf" "$output_dir/fullchain.pem"
+  current="$leaf"
   while :; do
-    current_issuer="$(openssl x509 -in "$current" -noout -issuer -nameopt RFC2253 | sed 's/^issuer=//')"
-    candidate=""
+    current_issuer="$(openssl x509 -in "$current" -noout -issuer -nameopt RFC2253 | sed 's/^issuer=//')"; candidate=""
     while IFS= read -r cert; do
       [ "$cert" = "$leaf" ] && continue
       candidate_subject="$(openssl x509 -in "$cert" -noout -subject -nameopt RFC2253 2>/dev/null | sed 's/^subject=//')"
       if [ "$candidate_subject" = "$current_issuer" ]; then candidate="$cert"; break; fi
     done < <(find "$cert_dir" -type f -name '*.pem' -print)
-    [ -n "$candidate" ] || break
-    if is_self_signed "$candidate"; then break; fi
-    cat "$candidate" >> "$output_dir/fullchain.pem"
-    current="$candidate"
-    added=$((added+1))
-    [ "$added" -lt 8 ] || break
+    [ -n "$candidate" ] || break; is_self_signed "$candidate" && break
+    cat "$candidate" >> "$output_dir/fullchain.pem"; current="$candidate"; added=$((added+1)); [ "$added" -lt 8 ] || break
   done
-
-  [ "$(pubkey_fingerprint_from_key "$output_dir/privkey.pem")" = "$(pubkey_fingerprint_from_cert "$leaf")" ] || fail "Generated certificate and key do not match."
-
-  TLS_CERT_FILE="$output_dir/fullchain.pem"
-  TLS_KEY_FILE="$output_dir/privkey.pem"
-  printf '\nDetected and prepared TLS files:\n'
-  printf '  Certificate: %s\n' "$(openssl x509 -in "$leaf" -noout -subject | sed 's/^subject=//')"
-  printf '  Expires:     %s\n' "$(openssl x509 -in "$leaf" -noout -enddate | cut -d= -f2-)"
-  printf '  Full chain:  %s\n' "$TLS_CERT_FILE"
-  printf '  Private key: %s\n' "$TLS_KEY_FILE"
+  TLS_CERT_FILE="$output_dir/fullchain.pem"; TLS_KEY_FILE="$output_dir/privkey.pem"
   rm -rf "$work"
+}
+
+choose_url_from_certificate() {
+  local wildcard="" name base host fqdn default_name
+  while IFS= read -r name; do case "$name" in \*.*) wildcard="$name"; break ;; esac; done <<< "$TLS_CERT_NAMES"
+  printf '\nCertificate detected:\n'
+  printf '  Names:       %s\n' "$(printf '%s' "$TLS_CERT_NAMES" | paste -sd ', ' -)"
+  printf '  Expires:     %s\n' "$TLS_CERT_EXPIRES"
+  printf '  Private key: OK\n'
+  printf '  Chain:       prepared\n'
+  if [ -n "$wildcard" ]; then
+    base="${wildcard#*.}"
+    while :; do
+      host="$(prompt "Hostname" "mailflow")"
+      [[ "$host" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]] || { printf 'Invalid hostname. Use one DNS label, for example mail or mailflow.\n' > /dev/tty; continue; }
+      fqdn="$host.$base"
+      if openssl x509 -in "$TLS_PREVIEW_DIR/fullchain.pem" -noout -checkhost "$fqdn" >/dev/null 2>&1; then PUBLIC_URL="https://$fqdn"; break; fi
+      printf 'Hostname %s is not covered by the certificate.\n' "$fqdn" > /dev/tty
+    done
+  else
+    default_name="${TLS_CERT_PRIMARY:-localhost}"
+    while :; do
+      fqdn="$(prompt "FQDN" "$default_name")"; fqdn="${fqdn#https://}"; fqdn="${fqdn#http://}"; fqdn="${fqdn%%/*}"
+      if openssl x509 -in "$TLS_PREVIEW_DIR/fullchain.pem" -noout -checkhost "$fqdn" >/dev/null 2>&1; then PUBLIC_URL="https://$fqdn"; break; fi
+      printf 'FQDN %s is not covered by the certificate.\n' "$fqdn" > /dev/tty
+    done
+  fi
 }
 
 say "Mailflow guided installer"
 printf '%s\n' "As little as possible, as much as necessary."
-
 need git "git is required. Please install git and run this command again."
 need openssl "openssl is required. Please install openssl and run this command again."
 need docker "Docker is required. Install Docker Engine/Desktop first, then run this command again."
@@ -299,123 +243,59 @@ docker info >/dev/null 2>&1 || fail "Docker is installed but not reachable. Star
 
 INSTALL_INPUT="$(prompt_path "Install directory" "$INSTALL_DIR_DEFAULT")"
 INSTALL_DIR="$(resolve_path "$INSTALL_INPUT" "$HOME")"
-PUBLIC_URL="$(normalize_public_url "$(prompt "Public URL for this installation" "https://localhost")")"
-TLS_MODE="$(choose_tls)"
-TLS_SOURCE_DIR=""
-
 validate_install_dir "$INSTALL_DIR"
-
+TLS_MODE="$(choose_tls)"; TLS_SOURCE_DIR=""; TLS_PREVIEW_DIR=""
 case "$TLS_MODE" in
-  1) TLS_MODE="automatic" ;;
+  1)
+    TLS_MODE="automatic"
+    PUBLIC_URL="$(normalize_public_url "$(prompt "FQDN" "mailflow.local")")"
+    ;;
   2)
     TLS_MODE="custom"
     TLS_INPUT="$(prompt_path "Certificate folder" "$HOME")"
     TLS_SOURCE_DIR="$(resolve_path "$TLS_INPUT" "$HOME")"
     validate_certificate_folder "$TLS_SOURCE_DIR"
+    TLS_PREVIEW_DIR="$(mktemp -d)"
+    say "Analyzing certificate bundle"
+    prepare_custom_tls "$TLS_SOURCE_DIR" "" "$TLS_PREVIEW_DIR"
+    choose_url_from_certificate
     ;;
   *) fail "Invalid TLS choice. Use 1 or 2." ;;
 esac
 
-printf '\nValidated configuration:\n'
-printf '  Install directory:  %s\n' "$INSTALL_DIR"
-printf '  Public URL:         %s\n' "$PUBLIC_URL"
-if [ "$TLS_MODE" = "custom" ]; then
-  printf '  Certificate folder: %s\n' "$TLS_SOURCE_DIR"
-else
-  printf '  TLS:                automatic\n'
-fi
+printf '\nValidated configuration:\n  Install directory:  %s\n  Public URL:         %s\n' "$INSTALL_DIR" "$PUBLIC_URL"
+if [ "$TLS_MODE" = "custom" ]; then printf '  Certificate folder: %s\n' "$TLS_SOURCE_DIR"; else printf '  TLS:                automatic\n'; fi
 
 if [ -d "$INSTALL_DIR/.git" ]; then
-  say "Updating existing checkout in $INSTALL_DIR"
-  git -C "$INSTALL_DIR" fetch origin "$BRANCH"
-  git -C "$INSTALL_DIR" checkout "$BRANCH"
-  git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
-elif [ -e "$INSTALL_DIR" ]; then
-  fail "$INSTALL_DIR already exists but is not a Mailflow git checkout."
-else
-  say "Cloning Mailflow into $INSTALL_DIR"
-  git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$INSTALL_DIR"
-fi
+  say "Updating existing checkout in $INSTALL_DIR"; git -C "$INSTALL_DIR" fetch origin "$BRANCH"; git -C "$INSTALL_DIR" checkout "$BRANCH"; git -C "$INSTALL_DIR" pull --ff-only origin "$BRANCH"
+elif [ -e "$INSTALL_DIR" ]; then fail "$INSTALL_DIR already exists but is not a Mailflow git checkout."
+else say "Cloning Mailflow into $INSTALL_DIR"; git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$INSTALL_DIR"; fi
 
-cd "$INSTALL_DIR"
-ENV_FILE="$INSTALL_DIR/.env"
-
-if [ ! -f "$ENV_FILE" ]; then
-  cp .env.example "$ENV_FILE"
-  say "Creating secure local configuration"
-else
-  say "Checking existing local configuration"
-fi
-
+cd "$INSTALL_DIR"; ENV_FILE="$INSTALL_DIR/.env"
+if [ ! -f "$ENV_FILE" ]; then cp .env.example "$ENV_FILE"; say "Creating secure local configuration"; else say "Checking existing local configuration"; fi
 ensure_env_secret SECRET_KEY secret_fernet "$ENV_FILE"
 ensure_env_secret BETTER_AUTH_SECRET secret_hex "$ENV_FILE"
 ensure_env_secret WEB_SECRET_KEY secret_hex "$ENV_FILE"
 ensure_env_secret INTERNAL_API_SECRET secret_hex "$ENV_FILE"
 ensure_env_secret POSTGRES_PASSWORD secret_hex "$ENV_FILE"
-
 set_env MAILFLOW_PUBLIC_URL "$PUBLIC_URL" "$ENV_FILE"
-set_env AUTH_MODE "single" "$ENV_FILE"
-set_env WEB_AUTH "on" "$ENV_FILE"
-set_env API_INTERNAL_URL "http://api:8000" "$ENV_FILE"
-set_env API_DOCS_ENABLED "false" "$ENV_FILE"
-set_env WORKER_MAX_EMAILS_PER_CYCLE "10" "$ENV_FILE"
-
+set_env AUTH_MODE "single" "$ENV_FILE"; set_env WEB_AUTH "on" "$ENV_FILE"; set_env API_INTERNAL_URL "http://api:8000" "$ENV_FILE"; set_env API_DOCS_ENABLED "false" "$ENV_FILE"; set_env WORKER_MAX_EMAILS_PER_CYCLE "10" "$ENV_FILE"
 if [ "$TLS_MODE" = "custom" ]; then
-  assemble_custom_tls "$TLS_SOURCE_DIR" "$PUBLIC_URL" "$INSTALL_DIR/.mailflow/tls"
-  set_env TLS_CERT_FILE "$TLS_CERT_FILE" "$ENV_FILE"
-  set_env TLS_KEY_FILE "$TLS_KEY_FILE" "$ENV_FILE"
-else
-  set_env TLS_CERT_FILE "" "$ENV_FILE"
-  set_env TLS_KEY_FILE "" "$ENV_FILE"
-fi
-
-host="${PUBLIC_URL#*://}"
-host="${host%%/*}"
-host="${host%%:*}"
-set_env BETTER_AUTH_URL "$PUBLIC_URL" "$ENV_FILE"
-set_env NEXT_PUBLIC_APP_URL "$PUBLIC_URL" "$ENV_FILE"
-set_env PASSKEY_RP_ID "${host:-localhost}" "$ENV_FILE"
-set_env PASSKEY_ORIGIN "$PUBLIC_URL" "$ENV_FILE"
-set_env CORS_ORIGINS "$PUBLIC_URL" "$ENV_FILE"
-
+  say "Preparing TLS files"; prepare_custom_tls "$TLS_SOURCE_DIR" "$PUBLIC_URL" "$INSTALL_DIR/.mailflow/tls"; set_env TLS_CERT_FILE "$TLS_CERT_FILE" "$ENV_FILE"; set_env TLS_KEY_FILE "$TLS_KEY_FILE" "$ENV_FILE"; rm -rf "$TLS_PREVIEW_DIR"
+else set_env TLS_CERT_FILE "" "$ENV_FILE"; set_env TLS_KEY_FILE "" "$ENV_FILE"; fi
+host="${PUBLIC_URL#*://}"; host="${host%%/*}"; host="${host%%:*}"
+set_env BETTER_AUTH_URL "$PUBLIC_URL" "$ENV_FILE"; set_env NEXT_PUBLIC_APP_URL "$PUBLIC_URL" "$ENV_FILE"; set_env PASSKEY_RP_ID "${host:-localhost}" "$ENV_FILE"; set_env PASSKEY_ORIGIN "$PUBLIC_URL" "$ENV_FILE"; set_env CORS_ORIGINS "$PUBLIC_URL" "$ENV_FILE"
 validate_env "$ENV_FILE"
-
-COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")
-if [ "$TLS_MODE" = "custom" ]; then COMPOSE_ARGS+=(-f "$TLS_COMPOSE_FILE"); fi
-
-say "Starting database"
-docker compose "${COMPOSE_ARGS[@]}" config >/dev/null || fail "Docker Compose configuration is invalid."
-docker compose "${COMPOSE_ARGS[@]}" up -d postgres
-
-say "Preparing web authentication schema"
-docker compose "${COMPOSE_ARGS[@]}" --profile migrate run --rm web-migrate
-
-say "Building and starting Mailflow"
-docker compose "${COMPOSE_ARGS[@]}" up -d --build
-
-say "Waiting for the stack to become ready"
-ready=0
-for _ in $(seq 1 30); do
-  if docker compose "${COMPOSE_ARGS[@]}" exec -T api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)" >/dev/null 2>&1; then
-    ready=1
-    break
-  fi
-  sleep 2
-done
+COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE"); [ "$TLS_MODE" != "custom" ] || COMPOSE_ARGS+=(-f "$TLS_COMPOSE_FILE")
+say "Starting database"; docker compose "${COMPOSE_ARGS[@]}" config >/dev/null || fail "Docker Compose configuration is invalid."; docker compose "${COMPOSE_ARGS[@]}" up -d postgres
+say "Preparing web authentication schema"; docker compose "${COMPOSE_ARGS[@]}" --profile migrate run --rm web-migrate
+say "Building and starting Mailflow"; docker compose "${COMPOSE_ARGS[@]}" up -d --build
+say "Waiting for the stack to become ready"; ready=0
+for _ in $(seq 1 30); do if docker compose "${COMPOSE_ARGS[@]}" exec -T api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)" >/dev/null 2>&1; then ready=1; break; fi; sleep 2; done
 [ "$ready" -eq 1 ] || fail "Mailflow started, but the API health check did not become ready."
-
-if [[ "$PUBLIC_URL" == https://* ]]; then
-  if [ "$TLS_MODE" = "custom" ]; then
-    curl -fsS --connect-timeout 10 "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS verification failed for $PUBLIC_URL"
-  else
-    curl -kfsS --connect-timeout 10 "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS is not reachable at $PUBLIC_URL"
-  fi
+if [[ "$PUBLIC_URL" = https://* ]]; then
+  if [ "$TLS_MODE" = "custom" ]; then curl -fsS --connect-timeout 10 "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS verification failed for $PUBLIC_URL"; else curl -kfsS --connect-timeout 10 "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS is not reachable at $PUBLIC_URL"; fi
 fi
-
 printf '\nMailflow is ready.\n\nOpen: %s\n\n' "$PUBLIC_URL"
-if [ "$TLS_MODE" = "automatic" ]; then
-  printf '%s\n' "TLS: automatic certificate management enabled."
-else
-  printf '%s\n' "TLS: certificate bundle auto-detected, assembled, validated and HTTPS verified."
-fi
+if [ "$TLS_MODE" = "automatic" ]; then printf '%s\n' "TLS: automatic certificate management enabled."; else printf '%s\n' "TLS: certificate bundle auto-detected, assembled, validated and HTTPS verified."; fi
 printf '%s\n' "Next: create your first user in the browser and continue with the in-app onboarding."
