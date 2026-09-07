@@ -2,6 +2,7 @@
 
 import { enumLabel, useI18n } from "@/lib/i18n";
 import type { InboxMessage } from "@/lib/types";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { mailFolderLabel } from "./mail-folder-label";
 import { displayMailDate, messageKey } from "./mail-workspace-utils";
@@ -147,6 +148,14 @@ export function MessageListPane({ state }: { state: WorkspaceState }) {
         >
           {t("mail.refresh")}
         </button>
+        <Link
+          className={styles.refreshButton}
+          href="/app/settings/workspace"
+          title={t("settings.workspaceEditor.title")}
+          aria-label={t("settings.workspaceEditor.title")}
+        >
+          ⋮
+        </Link>
       </div>
       <div className={styles.messageList}>
         {state.loading && (
