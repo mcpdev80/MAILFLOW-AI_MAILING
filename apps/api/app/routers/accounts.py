@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,7 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import RequestIdentity, require_identity, require_recent_auth
-from app.crypto import encrypt_secret
+from app.crypto import decrypt_secret, encrypt_secret
 from app.database import get_session
 from app.mailbox_access import (
     OWNERSHIP_PRIVATE,
@@ -34,8 +35,26 @@ from app.schemas import (
     SharedMailboxAccessOut,
     SharedMailboxAccessReplace,
 )
+from app.services.mailbox_connection_test import (
+    MailboxConnectionError,
+    test_mailbox_connection,
+)
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
+
+_IMAP_PROVIDER_TYPES = {"imap", "generic_imap"}
+_CONNECTION_FIELDS = {
+    "imap_host",
+    "imap_port",
+    "use_ssl",
+    "username",
+    "password",
+    "smtp_host",
+    "smtp_port",
+    "smtp_security",
+    "smtp_username",
+    "smtp_password",
+}
 
 
 @router.get("", response_model=list[EmailAccountOut])
@@ -53,6 +72,15 @@ async def list_accounts(
         .offset(offset)
     )
     return list(rows.scalars())
+
+
+@router.post("/test-connection", response_model=dict[str, str])
+async def test_new_account_connection(
+    payload: EmailAccountCreate,
+    _identity: RequestIdentity = Depends(require_identity),
+) -> dict[str, str]:
+    await _test_create_connection(payload)
+    return {"imap": "ok", "smtp": "ok"}
 
 
 @router.post("", response_model=EmailAccountOut, status_code=status.HTTP_201_CREATED)
@@ -76,6 +104,8 @@ async def create_account(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="shared_users_require_shared_mailbox",
         )
+
+    await _test_create_connection(payload)
 
     account = EmailAccount(
         org_id=org.id,
@@ -181,6 +211,18 @@ async def get_account(
     return await get_accessible_account(account_id, identity, session)
 
 
+@router.post("/{account_id}/test-connection", response_model=dict[str, str])
+async def test_existing_account_connection(
+    account_id: UUID,
+    payload: EmailAccountUpdate,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str]:
+    account = await get_account_for_management(account_id, identity, session)
+    await _test_update_connection(account, payload, force=True)
+    return {"imap": "ok", "smtp": "ok"}
+
+
 @router.patch("/{account_id}", response_model=EmailAccountOut)
 async def update_account(
     account_id: UUID,
@@ -189,6 +231,8 @@ async def update_account(
     session: AsyncSession = Depends(get_session),
 ) -> EmailAccount:
     account = await get_account_for_management(account_id, identity, session)
+    await _test_update_connection(account, payload)
+
     data = payload.model_dump(exclude_unset=True)
     password = data.pop("password", None)
     smtp_password = data.pop("smtp_password", None)
@@ -314,3 +358,83 @@ async def delete_account(
     require_recent_auth(identity)
     await session.delete(account)
     await session.commit()
+
+
+async def _test_create_connection(payload: EmailAccountCreate) -> None:
+    if payload.provider_type not in _IMAP_PROVIDER_TYPES:
+        return
+    if not payload.smtp_host or not payload.smtp_port:
+        raise HTTPException(status_code=422, detail="smtp_required_for_generic_account")
+    smtp_username = payload.smtp_username or payload.username
+    smtp_password = payload.smtp_password or payload.password
+    await _run_connection_test(
+        imap_host=payload.imap_host,
+        imap_port=payload.imap_port,
+        use_ssl=payload.use_ssl,
+        username=payload.username,
+        password=payload.password,
+        smtp_host=payload.smtp_host,
+        smtp_port=payload.smtp_port,
+        smtp_security=payload.smtp_security,
+        smtp_username=smtp_username,
+        smtp_password=smtp_password,
+    )
+
+
+async def _test_update_connection(
+    account: EmailAccount, payload: EmailAccountUpdate, *, force: bool = False
+) -> None:
+    if account.provider_type not in _IMAP_PROVIDER_TYPES:
+        return
+    data = payload.model_dump(exclude_unset=True)
+    if not force and not (_CONNECTION_FIELDS & data.keys()):
+        return
+
+    imap_host = data.get("imap_host", account.imap_host)
+    imap_port = data.get("imap_port", account.imap_port)
+    use_ssl = data.get("use_ssl", account.use_ssl)
+    username = data.get("username", account.username)
+    password = data.get("password") or _password_from_secret(account.encrypted_credentials)
+    smtp_host = data.get("smtp_host", account.smtp_host)
+    smtp_port = data.get("smtp_port", account.smtp_port)
+    smtp_security = data.get("smtp_security", account.smtp_security)
+    smtp_username = data.get("smtp_username", account.smtp_username) or username
+
+    if not smtp_host or not smtp_port:
+        raise HTTPException(status_code=422, detail="smtp_required_for_generic_account")
+    if not password:
+        raise HTTPException(status_code=422, detail="imap_credentials_missing")
+
+    smtp_password = data.get("smtp_password")
+    if not smtp_password:
+        smtp_secret = account.encrypted_smtp_credentials or account.encrypted_credentials
+        smtp_password = _password_from_secret(smtp_secret)
+    if not smtp_password:
+        raise HTTPException(status_code=422, detail="smtp_credentials_missing")
+
+    await _run_connection_test(
+        imap_host=imap_host,
+        imap_port=imap_port,
+        use_ssl=use_ssl,
+        username=username,
+        password=password,
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        smtp_security=smtp_security,
+        smtp_username=smtp_username,
+        smtp_password=smtp_password,
+    )
+
+
+def _password_from_secret(encrypted: str | None) -> str | None:
+    if not encrypted:
+        return None
+    value = decrypt_secret(encrypted).get("password")
+    return value if isinstance(value, str) and value else None
+
+
+async def _run_connection_test(**values: object) -> None:
+    try:
+        await asyncio.to_thread(test_mailbox_connection, **values)
+    except MailboxConnectionError as exc:
+        raise HTTPException(status_code=422, detail=exc.code) from exc
