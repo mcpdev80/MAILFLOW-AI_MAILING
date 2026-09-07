@@ -1,0 +1,41 @@
+name: Issue 77 validation (temporary)
+
+on:
+  push:
+    branches:
+      - issue-77-instance-owner
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm biome check apps/web/src apps/web/e2e apps/web/package.json package.json
+      - run: pnpm --filter @mailflow/web typecheck
+      - run: pnpm --filter @mailflow/web build
+        env:
+          WEB_AUTH: "off"
+
+  playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm --prefix apps/web/e2e install --no-package-lock --ignore-scripts
+      - name: Install Chromium
+        working-directory: apps/web/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright
+        working-directory: apps/web/e2e
+        run: npm test
