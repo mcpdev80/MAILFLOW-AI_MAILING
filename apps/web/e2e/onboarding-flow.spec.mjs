@@ -82,6 +82,18 @@ async function useEnglish(page) {
   });
 }
 
+async function mockInstanceBootstrap(page) {
+  const calls = { claim: 0 };
+  await page.route("**/api/instance-bootstrap/status", (route) =>
+    json(route, { auth_enabled: true, instance_owner_exists: false }),
+  );
+  await page.route("**/api/instance-bootstrap/claim", (route) => {
+    calls.claim += 1;
+    return json(route, { role: "owner" });
+  });
+  return calls;
+}
+
 async function setSessionCookie(page, userId) {
   await page.context().addCookies([
     {
@@ -307,10 +319,11 @@ async function completePrivateMailboxOnboarding(page, email) {
   await expect(page).toHaveURL(/\/app\/dashboard$/);
 }
 
-test("owner signup creates the organization and routes to instance setup", async ({
+test("first owner signup claims the instance and routes to onboarding", async ({
   page,
 }) => {
   await useEnglish(page);
+  const bootstrapCalls = await mockInstanceBootstrap(page);
   const authCalls = await mockAuth(page, {
     userId: "owner-1",
     email: "owner@example.test",
@@ -318,7 +331,7 @@ test("owner signup creates the organization and routes to instance setup", async
     initiallySignedIn: false,
   });
 
-  await page.goto("/signup");
+  await page.goto("/signup?redirect=/onboarding");
   await page.locator("#name").fill("Owner");
   await page.locator("#organization").fill("Mailflow Test Org");
   await page.locator("#email").fill("owner@example.test");
@@ -326,9 +339,10 @@ test("owner signup creates the organization and routes to instance setup", async
   await page.locator("#confirm-password").fill("owner-password-123");
   await page.locator('form button[type="submit"]').click();
 
-  await expect(page).toHaveURL(/\/setup$/);
+  await expect(page).toHaveURL(/\/onboarding$/);
   expect(authCalls.signup).toBe(1);
   expect(authCalls.createOrganization).toBe(1);
+  expect(bootstrapCalls.claim).toBe(1);
 });
 
 test("member completes the canonical six-step private-mailbox onboarding", async ({

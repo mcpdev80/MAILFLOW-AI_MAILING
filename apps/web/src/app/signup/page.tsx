@@ -4,5 +4,7 @@ import { SignupUi } from "./signup-ui";
 import { useSignupPage } from "./use-signup-page";
 
 export default function SignupPage() {
-  return <SignupUi state={useSignupPage()} />;
+  const state = useSignupPage();
+  if (!state.ready) return null;
+  return <SignupUi state={state} />;
 }

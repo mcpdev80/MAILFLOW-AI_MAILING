@@ -37,6 +37,11 @@ create table if not exists "passkey" ("id" text not null primary key, "name" tex
 -- WebAuthn challenges/credential payloads are intentionally not persisted here.
 create table if not exists "auth_security_event" ("id" text not null primary key, "userId" text not null references "user" ("id") on delete cascade, "event" text not null, "createdAt" timestamptz default CURRENT_TIMESTAMP not null);
 
+-- MailFlow instance-wide administration is intentionally separate from Better
+-- Auth organization roles. Exactly one immutable bootstrap owner is allowed;
+-- additional instance admins are granted explicitly by that owner.
+create table if not exists "mailflow_instance_admin" ("userId" text not null primary key references "user" ("id") on delete cascade, "role" text not null check ("role" in ('owner', 'admin')), "createdAt" timestamptz default CURRENT_TIMESTAMP not null);
+
 create index if not exists "session_userId_idx" on "session" ("userId");
 
 create index if not exists "account_userId_idx" on "account" ("userId");
@@ -58,3 +63,5 @@ create index if not exists "passkey_userId_idx" on "passkey" ("userId");
 create index if not exists "passkey_credentialID_idx" on "passkey" ("credentialID");
 
 create index if not exists "auth_security_event_userId_idx" on "auth_security_event" ("userId");
+
+create unique index if not exists "mailflow_instance_admin_single_owner_uidx" on "mailflow_instance_admin" ("role") where "role" = 'owner';

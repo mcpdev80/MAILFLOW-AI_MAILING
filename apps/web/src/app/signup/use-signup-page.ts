@@ -3,7 +3,12 @@
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/lib/i18n";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+type InstanceBootstrapStatus = {
+  auth_enabled: boolean;
+  instance_owner_exists: boolean;
+};
 
 export function useSignupPage() {
   const router = useRouter();
@@ -16,14 +21,34 @@ export function useSignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const redirectAfterSignup = useMemo(() => {
     const value = searchParams.get("redirect");
     if (!value || !value.startsWith("/") || value.startsWith("//")) {
-      return "/setup";
+      return "/onboarding";
     }
     return value;
   }, [searchParams]);
+
+  useEffect(() => {
+    void fetch("/api/instance-bootstrap/status", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("instance_bootstrap_status_failed");
+        return (await response.json()) as InstanceBootstrapStatus;
+      })
+      .then((status) => {
+        if (status.auth_enabled && status.instance_owner_exists) {
+          router.replace("/login");
+          return;
+        }
+        setReady(true);
+      })
+      .catch(() => {
+        setError("Unable to verify whether initial setup is still available.");
+        setReady(true);
+      });
+  }, [router]);
 
   const submit = useCallback(async () => {
     setError(null);
@@ -36,12 +61,30 @@ export function useSignupPage() {
       return;
     }
     setBusy(true);
+
+    const statusResponse = await fetch("/api/instance-bootstrap/status", {
+      cache: "no-store",
+    });
+    if (!statusResponse.ok) {
+      setError("Unable to verify initial administrator state.");
+      setBusy(false);
+      return;
+    }
+    const bootstrapStatus =
+      (await statusResponse.json()) as InstanceBootstrapStatus;
+    if (bootstrapStatus.auth_enabled && bootstrapStatus.instance_owner_exists) {
+      setError("Initial administrator already exists. Please sign in instead.");
+      setBusy(false);
+      return;
+    }
+
     const signUp = await authClient.signUp.email({ email, password, name });
     if (signUp.error) {
       setError(signUp.error.message ?? t("auth.signup.accountFailed"));
       setBusy(false);
       return;
     }
+
     const orgName = organization.trim() || name.trim();
     const org = await authClient.organization.create({
       name: orgName,
@@ -52,6 +95,21 @@ export function useSignupPage() {
       setBusy(false);
       return;
     }
+
+    const claim = await fetch("/api/instance-bootstrap/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!claim.ok) {
+      setError(
+        claim.status === 409
+          ? "Initial administrator was already claimed by another setup session."
+          : "Unable to assign the initial instance owner.",
+      );
+      setBusy(false);
+      return;
+    }
+
     router.push(redirectAfterSignup);
   }, [
     confirmPassword,
@@ -77,6 +135,7 @@ export function useSignupPage() {
     setConfirmPassword,
     error,
     busy,
+    ready,
     submit,
   };
 }

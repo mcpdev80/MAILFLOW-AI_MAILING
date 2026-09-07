@@ -1,0 +1,1 @@
+Instance-wide administration endpoints. Instance admins are separate from organization owner/admin roles. Only the instance owner can grant or revoke instance admin privileges; the original owner cannot be overwritten through bootstrap.
