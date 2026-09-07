@@ -4,35 +4,120 @@ import {
   SettingsShell,
   settingsShellStyles as s,
 } from "@/components/settings-shell";
+import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import {
   type StructureDraft,
+  currentToDraft,
+  loadStructureCurrent,
   readStructureDraft,
   saveStructureDraft,
 } from "@/lib/structure-setup";
+import type { EmailAccount } from "@/lib/types";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function CategoryMappingPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [accountId, setAccountId] = useState("");
   const [draft, setDraft] = useState<StructureDraft | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("account") ?? "";
-    setAccountId(id);
-    setDraft(id ? readStructureDraft(id) : null);
-  }, []);
+    const fromQuery =
+      new URLSearchParams(window.location.search).get("account") ?? "";
+    void api
+      .listAccounts()
+      .then((rows) => {
+        setAccounts(rows);
+        const selected = rows.some((item) => item.id === fromQuery)
+          ? fromQuery
+          : (rows[0]?.id ?? "");
+        setAccountId(selected);
+      })
+      .catch((err) =>
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("structure.unableLoadMailboxes"),
+        ),
+      )
+      .finally(() => setLoading(false));
+  }, [t]);
 
-  function updateRoute(index: number, folderId: string) {
+  useEffect(() => {
+    if (!accountId) {
+      setDraft(null);
+      return;
+    }
+    const pending = readStructureDraft(accountId);
+    if (pending) {
+      setDraft(pending);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    setError(null);
+    void loadStructureCurrent(accountId)
+      .then((current) => {
+        if (active) setDraft(currentToDraft(accountId, current, locale));
+      })
+      .catch((err) => {
+        if (active)
+          setError(
+            err instanceof Error ? err.message : t("structure.discoveryFailed"),
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [accountId, locale, t]);
+
+  function updateRoute(
+    index: number,
+    patch: Partial<StructureDraft["routes"][number]>,
+  ) {
     setDraft((current) =>
       current
         ? {
             ...current,
             routes: current.routes.map((route, routeIndex) =>
-              routeIndex === index ? { ...route, folder_id: folderId } : route,
+              routeIndex === index ? { ...route, ...patch } : route,
             ),
+          }
+        : current,
+    );
+  }
+
+  function addRoute() {
+    setDraft((current) => {
+      if (!current || current.folders.length === 0) return current;
+      return {
+        ...current,
+        routes: [
+          ...current.routes,
+          {
+            category: "",
+            subcategory: null,
+            folder_id: current.folders[0].internal_id,
+          },
+        ],
+      };
+    });
+  }
+
+  function removeRoute(index: number) {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            routes: current.routes.filter((_, routeIndex) => routeIndex !== index),
           }
         : current,
     );
@@ -40,9 +125,37 @@ export default function CategoryMappingPage() {
 
   function next() {
     if (!draft) return;
-    saveStructureDraft(draft);
+    const normalized = {
+      ...draft,
+      routes: draft.routes
+        .filter((route) => route.category.trim() && route.folder_id)
+        .map((route) => ({
+          ...route,
+          category: route.category.trim(),
+          subcategory: route.subcategory?.trim() || null,
+        })),
+    };
+    saveStructureDraft(normalized);
     router.push(
-      `/app/settings/structure-review?account=${encodeURIComponent(draft.account_id)}`,
+      `/app/settings/structure-review?account=${encodeURIComponent(normalized.account_id)}`,
+    );
+  }
+
+  const folderName = useMemo(
+    () => new Map(draft?.folders.map((item) => [item.internal_id, item.mailbox_name]) ?? []),
+    [draft],
+  );
+  const targetCount = new Set(
+    draft?.routes.map((route) => folderName.get(route.folder_id)) ?? [],
+  ).size;
+
+  if (loading && !draft) {
+    return (
+      <SettingsShell>
+        <section className={s.panel}>
+          <div className="empty">{t("common.loading")}</div>
+        </section>
+      </SettingsShell>
     );
   }
 
@@ -50,6 +163,17 @@ export default function CategoryMappingPage() {
     return (
       <SettingsShell>
         <section className={s.panel}>
+          <label className="field" style={{ maxWidth: 360, marginBottom: 16 }}>
+            {t("structure.mailbox")}
+            <select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+              {accounts.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.username}
+                </option>
+              ))}
+            </select>
+          </label>
+          {error && <div className="alert error">{error}</div>}
           <div className="empty">{t("structure.noDraft")}</div>
           <button
             className="btn"
@@ -68,13 +192,6 @@ export default function CategoryMappingPage() {
     );
   }
 
-  const folderName = new Map(
-    draft.folders.map((item) => [item.internal_id, item.mailbox_name]),
-  );
-  const targetCount = new Set(
-    draft.routes.map((route) => folderName.get(route.folder_id)),
-  ).size;
-
   return (
     <SettingsShell>
       <section
@@ -84,7 +201,7 @@ export default function CategoryMappingPage() {
         <header
           style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "flex-end",
             justifyContent: "space-between",
             gap: 20,
             marginBottom: 20,
@@ -98,19 +215,39 @@ export default function CategoryMappingPage() {
               {t("structure.categoryMappingSubtitle")}
             </p>
           </div>
-          <span
-            style={{
-              borderRadius: 999,
-              background: "var(--mf-primary-soft)",
-              color: "var(--mf-primary)",
-              padding: "6px 12px",
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            {t("structure.step2")}
-          </span>
+          <label className="field" style={{ minWidth: 260 }}>
+            {t("structure.mailbox")}
+            <select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+              {accounts.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.username}
+                </option>
+              ))}
+            </select>
+          </label>
         </header>
+
+        {error && <div className="alert error">{error}</div>}
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 12,
+          }}
+        >
+          <span className="pill ok">{t("structure.savedConfiguration")}</span>
+          <button
+            className="btn secondary"
+            type="button"
+            disabled={draft.folders.length === 0}
+            onClick={addRoute}
+          >
+            {t("structure.addCategory")}
+          </button>
+        </div>
 
         {draft.routes.length === 0 ? (
           <div className="empty">{t("structure.noRoutes")}</div>
@@ -127,8 +264,8 @@ export default function CategoryMappingPage() {
               style={{
                 display: "grid",
                 gridTemplateColumns:
-                  "minmax(200px,1fr) minmax(220px,1fr) 150px",
-                gap: 16,
+                  "minmax(170px,1fr) minmax(170px,1fr) minmax(220px,1fr) 110px",
+                gap: 12,
                 background: "var(--mf-surface-muted)",
                 color: "var(--mf-text-muted)",
                 padding: "11px 16px",
@@ -137,37 +274,45 @@ export default function CategoryMappingPage() {
                 textTransform: "uppercase",
               }}
             >
-              <span>{t("structure.classification")}</span>
+              <span>{t("structure.category")}</span>
+              <span>{t("structure.subcategory")}</span>
               <span>{t("structure.targetFolder")}</span>
               <span>{t("structure.action")}</span>
             </div>
             {draft.routes.map((route, index) => (
               <div
-                key={`${route.category}:${route.subcategory ?? ""}`}
+                key={`${index}:${route.category}:${route.subcategory ?? ""}`}
                 style={{
                   display: "grid",
                   gridTemplateColumns:
-                    "minmax(200px,1fr) minmax(220px,1fr) 150px",
-                  gap: 16,
+                    "minmax(170px,1fr) minmax(170px,1fr) minmax(220px,1fr) 110px",
+                  gap: 12,
                   alignItems: "center",
                   padding: "13px 16px",
                   borderTop: "1px solid var(--mf-surface-muted)",
                 }}
               >
-                <div>
-                  <strong style={{ fontSize: 13 }}>{route.category}</strong>
-                  {route.subcategory && (
-                    <div
-                      className="muted"
-                      style={{ marginTop: 3, fontSize: 11 }}
-                    >
-                      {route.subcategory}
-                    </div>
-                  )}
-                </div>
+                <input
+                  value={route.category}
+                  placeholder={t("structure.category")}
+                  onChange={(event) =>
+                    updateRoute(index, { category: event.target.value })
+                  }
+                />
+                <input
+                  value={route.subcategory ?? ""}
+                  placeholder={t("structure.subcategory")}
+                  onChange={(event) =>
+                    updateRoute(index, {
+                      subcategory: event.target.value || null,
+                    })
+                  }
+                />
                 <select
                   value={route.folder_id}
-                  onChange={(event) => updateRoute(index, event.target.value)}
+                  onChange={(event) =>
+                    updateRoute(index, { folder_id: event.target.value })
+                  }
                 >
                   {draft.folders.map((folder) => (
                     <option key={folder.internal_id} value={folder.internal_id}>
@@ -175,15 +320,13 @@ export default function CategoryMappingPage() {
                     </option>
                   ))}
                 </select>
-                <span
-                  className={`pill ${draft.folders.find((folder) => folder.internal_id === route.folder_id)?.action === "reuse" ? "ok" : ""}`}
+                <button
+                  className="btn secondary"
+                  type="button"
+                  onClick={() => removeRoute(index)}
                 >
-                  {draft.folders.find(
-                    (folder) => folder.internal_id === route.folder_id,
-                  )?.action === "reuse"
-                    ? t("structure.reuseExisting")
-                    : t("structure.createNew")}
-                </span>
+                  {t("structure.remove")}
+                </button>
               </div>
             ))}
           </div>
@@ -199,8 +342,8 @@ export default function CategoryMappingPage() {
             fontSize: 12,
           }}
         >
-          {draft.routes.length} {t("structure.classificationRoutes")} ·{" "}
-          {targetCount} {t("structure.targetFolders")}
+          {draft.routes.length} {t("structure.classificationRoutes")} · {targetCount}{" "}
+          {t("structure.targetFolders")}
         </div>
 
         <div
