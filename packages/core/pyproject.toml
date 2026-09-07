@@ -9,6 +9,7 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "pydantic>=2.10",
     "litellm>=1.40",
+    "tenacity>=9.0",
     "pypdf>=6.0",
 ]
 
