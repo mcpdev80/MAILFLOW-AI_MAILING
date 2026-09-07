@@ -360,6 +360,7 @@ export interface Cycle {
 }
 
 export type UserLocale = "de" | "en" | "es";
+export type UserDateFormat = "DD.MM.YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
 export type Theme = "light" | "dark" | "system";
 export type Density = "comfortable" | "compact";
 export type WorkspaceLayout =
@@ -399,6 +400,8 @@ export interface WorkspaceCustomConfig {
 export interface UserPreferences {
   locale: UserLocale;
   locale_configured: boolean;
+  timezone: string;
+  date_format: UserDateFormat;
   theme: Theme;
   density: Density;
   workspace_layout: WorkspaceLayout;
@@ -408,6 +411,8 @@ export interface UserPreferences {
 
 export interface UserPreferencesUpdate {
   locale?: UserLocale;
+  timezone?: string;
+  date_format?: UserDateFormat;
   theme?: Theme;
   density?: Density;
   workspace_layout?: WorkspaceLayout;
