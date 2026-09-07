@@ -1,0 +1,30 @@
+name: Instance LLM validation (temporary)
+
+on:
+  push:
+    branches: [test-mvp]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --project apps/api --locked
+      - run: uv run --project apps/api ruff check apps/api/app/routers/instance_llm.py apps/api/app/routers/org_llm_catalog.py apps/api/app/repositories/account.py apps/api/app/models/llm_provider.py apps/api/alembic/versions/029_instance_llm_catalog.py apps/api/app/main.py apps/api/app/routers/__init__.py
+      - run: uv run --project apps/api alembic -c apps/api/alembic.ini heads
+      - run: python -m compileall -q apps/api/app apps/api/alembic/versions/029_instance_llm_catalog.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: >-
+          pnpm exec biome lint
+          apps/web/src/app/api/instance-llm/route.ts
+          apps/web/src/app/api/mf/[...path]/route.ts
+          apps/web/src/components/admin-shell.tsx
+          apps/web/src/app/admin/instance/models/page.tsx
+          apps/web/src/app/admin/instance/page.tsx
+          apps/web/src/app/admin/org/models/page.tsx
+      - run: pnpm --filter @mailflow/web typecheck
