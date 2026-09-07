@@ -38,6 +38,7 @@ from app.routers import (
     mail_router,
     metrics_router,
     oauth_router,
+    org_llm_catalog_router,
     rules_router,
     structure_router,
     user_preferences_router,
@@ -83,6 +84,7 @@ app.include_router(bulk_router)
 app.include_router(dashboard_router)
 app.include_router(lifecycle_router)
 app.include_router(llm_providers_router)
+app.include_router(org_llm_catalog_router)
 app.include_router(mail_router)
 app.include_router(mail_client_router)
 app.include_router(writing_router)
