@@ -1,6 +1,6 @@
 import { auth, authEnabled } from "@/lib/auth";
 import { getInstanceRole } from "@/lib/instance-admin";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
