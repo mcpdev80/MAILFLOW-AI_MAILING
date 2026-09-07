@@ -70,6 +70,14 @@ class InboxMessage(BaseModel):
     answered: bool
     keywords: list[str] = Field(default_factory=list)
     attachments: list[MailAttachment] = Field(default_factory=list)
+    category: str | None = None
+    subcategory: str | None = None
+    importance: str | None = None
+    urgency: str | None = None
+    action_required: str | None = None
+    review_required: bool = False
+    system_tags: list[str] = Field(default_factory=list)
+    user_tags: list[str] = Field(default_factory=list)
 
     @field_validator("subject", "from_email", mode="before")
     @classmethod
