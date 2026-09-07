@@ -55,6 +55,7 @@ class UserPreferencesView(BaseModel):
     workspace_layout: WorkspaceLayout = "classic"
     side_panel_alignment: SidePanelAlignment = "left"
     workspace_custom_config: WorkspaceCustomConfig | None = None
+    remote_content_senders: list[str] = Field(default_factory=list)
 
 
 class UserPreferencesUpdate(BaseModel):
@@ -66,6 +67,7 @@ class UserPreferencesUpdate(BaseModel):
     workspace_layout: WorkspaceLayout | None = None
     side_panel_alignment: SidePanelAlignment | None = None
     workspace_custom_config: WorkspaceCustomConfig | None = None
+    remote_content_senders: list[str] | None = Field(default=None, max_length=500)
 
     @field_validator("timezone")
     @classmethod
@@ -77,3 +79,17 @@ class UserPreferencesUpdate(BaseModel):
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise ValueError("timezone must be a valid IANA time zone") from exc
         return value
+
+    @field_validator("remote_content_senders")
+    @classmethod
+    def validate_remote_content_senders(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        result: list[str] = []
+        for item in value:
+            normalized = item.strip().lower()
+            if not normalized or "@" not in normalized or len(normalized) > 320:
+                continue
+            if normalized not in result:
+                result.append(normalized)
+        return result
