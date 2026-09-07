@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import styles from "./mail-workspace.module.css";
+import styles from "./sender-avatar.module.css";
 
 export function SenderAvatar({
   address,
@@ -16,14 +16,11 @@ export function SenderAvatar({
   const label = useMemo(() => initials(address), [address]);
   const src = `/api/mf/mail-client/sender-brand?address=${encodeURIComponent(address)}`;
   return (
-    <span
-      className={`${styles.brandAvatar} ${styles[`brandAvatar${capitalize(size)}`]}`}
-      aria-hidden="true"
-    >
-      <span className={styles.brandFallback}>{label}</span>
+    <span className={`${styles.avatar} ${styles[size]}`} aria-hidden="true">
+      <span className={styles.fallback}>{label}</span>
       {!failed && (
         <img
-          className={styles.brandImage}
+          className={styles.image}
           src={src}
           alt=""
           loading="lazy"
@@ -31,7 +28,7 @@ export function SenderAvatar({
           onError={() => setFailed(true)}
         />
       )}
-      {unread && <span className={styles.avatarUnreadDot} />}
+      {unread && <span className={styles.unread} />}
     </span>
   );
 }
@@ -49,8 +46,4 @@ function initials(value: string): string {
     ? `${parts[0][0]}${parts[1][0]}`
     : parts[0].slice(0, 2)
   ).toUpperCase();
-}
-
-function capitalize(value: string): string {
-  return `${value[0]?.toUpperCase() ?? ""}${value.slice(1)}`;
 }
