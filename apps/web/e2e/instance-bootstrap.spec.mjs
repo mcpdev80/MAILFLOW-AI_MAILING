@@ -28,15 +28,15 @@ test("setup remains available before the first instance owner exists", async ({
   ).toBeVisible();
 });
 
-test("setup redirects away after the first instance owner exists", async ({
+test("setup redirects through authentication after the first owner exists", async ({
   page,
 }) => {
   await page.route("**/api/instance-bootstrap/status", (route) =>
     bootstrapStatus(route, true),
   );
   await page.goto("/setup");
-  await page.waitForURL(/\/app(?:\/|$)/);
-  await expect(page).toHaveURL(/\/app(?:\/|$)/);
+  await page.waitForURL(/\/login\?redirect=%2Fapp$/);
+  await expect(page).toHaveURL(/\/login\?redirect=%2Fapp$/);
 });
 
 test("public signup is closed after the first instance owner exists", async ({
