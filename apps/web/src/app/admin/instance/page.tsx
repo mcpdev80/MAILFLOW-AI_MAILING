@@ -59,7 +59,9 @@ export default function InstanceAdminPage() {
         </article>
         <article className={styles.card}>
           <h2>{copy.orgs}</h2>
-          <div className={styles.metric}>{context?.organizations.length ?? 0}</div>
+          <div className={styles.metric}>
+            {context?.organizations.length ?? 0}
+          </div>
         </article>
         <article className={styles.card}>
           <h2>{copy.data}</h2>
