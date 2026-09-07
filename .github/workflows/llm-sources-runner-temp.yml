@@ -29,6 +29,7 @@ jobs:
           start = text.index(marker) + len(marker)
           end = text.index("\n          PY\n", start)
           code = dedent(text[start:end])
+          code = code.replace('marker = "\\n};\\n" if lang == "de" else "\\n} as const;\\n"', 'marker = "\\n};\\n" if lang in {"de", "es"} else "\\n} as const;\\n"')
           exec(compile(code, 'llm-redesign-patch', 'exec'))
           PY
       - name: Python compile
