@@ -65,17 +65,17 @@ def _test_imap(*, host: str, port: int, use_ssl: bool, username: str, password: 
         raise MailboxConnectionError("imap_tls_failed") from exc
     except imapclient.exceptions.LoginError as exc:
         raise MailboxConnectionError("imap_auth_failed") from exc
-    except (TimeoutError, socket.timeout) as exc:
+    except TimeoutError as exc:
         raise MailboxConnectionError("imap_connection_timeout") from exc
-    except OSError as exc:
+    except (imapclient.exceptions.IMAPClientError, OSError) as exc:
         raise MailboxConnectionError("imap_connection_failed") from exc
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - transport boundary returns a safe code
         raise MailboxConnectionError("imap_connection_failed") from exc
     finally:
         if client is not None:
             try:
                 client.logout()
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - best-effort cleanup only
                 pass
 
 
@@ -108,7 +108,7 @@ def _test_smtp(
         raise MailboxConnectionError("smtp_auth_failed") from exc
     except smtplib.SMTPNotSupportedError as exc:
         raise MailboxConnectionError("smtp_auth_not_supported") from exc
-    except (TimeoutError, socket.timeout) as exc:
+    except TimeoutError as exc:
         raise MailboxConnectionError("smtp_connection_timeout") from exc
     except (smtplib.SMTPException, OSError) as exc:
         raise MailboxConnectionError("smtp_connection_failed") from exc
