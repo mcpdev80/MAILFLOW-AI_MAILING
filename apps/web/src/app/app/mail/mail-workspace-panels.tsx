@@ -214,14 +214,14 @@ function MessageRow({
       </span>
       <span className={styles.rowMeta}>
         {message.category && (
-          <span className={styles.classificationPill}>
+          <span className={styles.tagPill}>
             {enumLabel(t, "category", message.category)}
           </span>
         )}
         {message.importance && message.importance !== "unknown" && (
-          <span className={styles.importancePill}>{message.importance}</span>
+          <span className={styles.tagMore}>{message.importance}</span>
         )}
-        {message.review_required && <span className={styles.reviewPill}>Review</span>}
+        {message.review_required && <span className={styles.tagPill}>Review</span>}
         {visibleTags.map((tag) => (
           <span key={tag} className={styles.tagPill}>{tag}</span>
         ))}
