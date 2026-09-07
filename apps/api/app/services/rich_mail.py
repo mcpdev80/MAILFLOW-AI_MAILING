@@ -176,9 +176,10 @@ async def rich_message_html(
     )
     return {
         "available": available,
-        "trusted": trusted,
+        "trusted": trusted and not blocked,
         "blocked": blocked,
         "blocked_reason": blocked_reason,
-        "sender_email": sender_email,
+        # A blocked message must never be able to create a remembered remote-content trust decision.
+        "sender_email": "" if blocked else sender_email,
         "html": html,
     }
