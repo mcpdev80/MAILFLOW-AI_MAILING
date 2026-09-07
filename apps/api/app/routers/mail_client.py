@@ -32,6 +32,7 @@ from app.services.mail_client import (
     read_message,
     read_thread,
 )
+from app.services.sender_brand import sender_brand_asset
 
 router = APIRouter(prefix="/mail-client", tags=["mail-client"])
 
@@ -75,6 +76,28 @@ async def unified_inbox(
         counters=counters,
         total_unread=sum(item.unread for item in counters),
         next_before_uid_by_account=cursors,
+    )
+
+
+@router.get("/sender-brand")
+async def sender_brand(
+    address: str = Query(..., min_length=3, max_length=500),
+    _identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Return a locally cached brand asset without exposing the user to remote hosts."""
+    asset = await sender_brand_asset(session, address)
+    if asset is None:
+        return Response(status_code=204, headers={"Cache-Control": "private, max-age=3600"})
+    payload, content_type, source_type = asset
+    return Response(
+        content=payload,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+            "X-MailFlow-Brand-Source": source_type,
+        },
     )
 
 
