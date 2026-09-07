@@ -35,6 +35,11 @@ function isPreAuthSetupRoute(method: string, targetPath: string): boolean {
   return false;
 }
 
+function requiresOrganizationAdmin(method: string, targetPath: string): boolean {
+  if (!targetPath.startsWith("/llm-providers")) return false;
+  return !["GET", "HEAD"].includes(method.toUpperCase());
+}
+
 function buildForwardHeaders(
   request: NextRequest,
   apiKey: string | null,
@@ -74,6 +79,18 @@ async function proxy(
     return NextResponse.json(
       { detail: resolution.error },
       { status: resolution.status },
+    );
+  }
+
+  if (
+    requiresOrganizationAdmin(request.method, targetPath) &&
+    resolution.actor &&
+    resolution.actor.role !== "owner" &&
+    resolution.actor.role !== "admin"
+  ) {
+    return NextResponse.json(
+      { detail: "organization_admin_required" },
+      { status: 403 },
     );
   }
 
