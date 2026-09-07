@@ -1,6 +1,6 @@
 "use client";
 
-import { useI18n } from "@/lib/i18n";
+import { enumLabel, useI18n } from "@/lib/i18n";
 import type { InboxMessage } from "@/lib/types";
 import { useMemo, useState } from "react";
 import { mailFolderLabel } from "./mail-folder-label";
@@ -178,8 +178,11 @@ function MessageRow({
     "{count}",
     String(message.attachments.length),
   );
-  const visibleTags = message.keywords.filter((tag) => tag.trim()).slice(0, 4);
-  const hiddenTagCount = Math.max(0, message.keywords.length - visibleTags.length);
+  const tags = Array.from(
+    new Set([...message.system_tags, ...message.user_tags, ...message.keywords]),
+  ).filter((tag) => tag.trim());
+  const visibleTags = tags.slice(0, 3);
+  const hiddenTagCount = Math.max(0, tags.length - visibleTags.length);
   return (
     <button
       type="button"
@@ -210,11 +213,22 @@ function MessageRow({
         {message.subject || t("mail.noSubject")}
       </span>
       <span className={styles.rowMeta}>
-        <span className={styles.accountPill}>{message.account_address}</span>
+        {message.category && (
+          <span className={styles.classificationPill}>
+            {enumLabel(t, "category", message.category)}
+          </span>
+        )}
+        {message.importance && message.importance !== "unknown" && (
+          <span className={styles.importancePill}>{message.importance}</span>
+        )}
+        {message.review_required && <span className={styles.reviewPill}>Review</span>}
         {visibleTags.map((tag) => (
           <span key={tag} className={styles.tagPill}>{tag}</span>
         ))}
         {hiddenTagCount > 0 && <span className={styles.tagMore}>+{hiddenTagCount}</span>}
+        {state.accountFilter === "all" && (
+          <span className={styles.accountPill}>{message.account_address}</span>
+        )}
         {message.attachments.length > 0 && <span>{attachments}</span>}
         {message.thread_id && <span>{t("mail.thread")}</span>}
       </span>
@@ -249,7 +263,7 @@ function filterMessages(messages: InboxMessage[], query: string) {
   const needle = query.trim().toLowerCase();
   if (!needle) return messages;
   return messages.filter((message) =>
-    `${message.from_email} ${message.subject} ${message.keywords.join(" ")}`
+    `${message.from_email} ${message.subject} ${message.category ?? ""} ${message.subcategory ?? ""} ${message.system_tags.join(" ")} ${message.user_tags.join(" ")} ${message.keywords.join(" ")}`
       .toLowerCase()
       .includes(needle),
   );
