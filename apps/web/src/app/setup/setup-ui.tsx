@@ -4,7 +4,7 @@ import { WizardShell, wizardStyles as s } from "@/components/wizard-shell";
 import { api } from "@/lib/api";
 import { type BootstrapStatus, getBootstrapStatus } from "@/lib/bootstrap-api";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type ProviderForm = {
   label: string;
@@ -14,6 +14,8 @@ type ProviderForm = {
   default_generation_model: string;
   api_key: string;
 };
+
+type TlsMode = "automatic" | "custom" | "external";
 
 const emptyProvider: ProviderForm = {
   label: "Mailflow AI",
@@ -30,6 +32,9 @@ export function InstanceSetup() {
   const [bootstrap, setBootstrap] = useState<BootstrapStatus | null>(null);
   const [theme, setTheme] = useState<"system" | "light" | "dark">("dark");
   const [language, setLanguage] = useState("en");
+  const [publicUrl, setPublicUrl] = useState("");
+  const [internalUrl, setInternalUrl] = useState("");
+  const [tlsMode, setTlsMode] = useState<TlsMode>("automatic");
   const [provider, setProvider] = useState(emptyProvider);
   const [providerReady, setProviderReady] = useState(false);
   const [healthReady, setHealthReady] = useState(false);
@@ -51,6 +56,17 @@ export function InstanceSetup() {
           configuredLanguage === "es"
         )
           setLanguage(configuredLanguage);
+
+        const configuredPublicUrl = boot.value.fields.public_url.value;
+        if (configuredPublicUrl) setPublicUrl(configuredPublicUrl);
+
+        const configuredTlsMode = boot.value.fields.tls.value;
+        if (
+          configuredTlsMode === "automatic" ||
+          configuredTlsMode === "custom" ||
+          configuredTlsMode === "external"
+        )
+          setTlsMode(configuredTlsMode);
       }
       if (health.status === "fulfilled")
         setHealthReady(
@@ -61,11 +77,8 @@ export function InstanceSetup() {
     });
   }, []);
 
-  const tlsMode = useMemo(
-    () => bootstrap?.fields.tls.value ?? "unknown",
-    [bootstrap],
-  );
-  const publicUrl = bootstrap?.fields.public_url.value ?? "Not configured";
+  const publicUrlManaged = bootstrap?.fields.public_url.managed ?? false;
+  const tlsManaged = bootstrap?.fields.tls.managed ?? false;
 
   async function saveProvider() {
     if (providerReady) {
@@ -155,12 +168,12 @@ export function InstanceSetup() {
   }
 
   if (step === 2) {
-    const tlsLabel =
-      tlsMode === "custom"
-        ? "Own certificate"
-        : tlsMode === "external"
-          ? "Managed externally (reverse proxy)"
-          : "Automatic (Let's Encrypt)";
+    const tlsOptions: Array<{ value: TlsMode; label: string }> = [
+      { value: "automatic", label: "Automatic (Let's Encrypt)" },
+      { value: "custom", label: "Own certificate" },
+      { value: "external", label: "Managed externally (reverse proxy)" },
+    ];
+
     return (
       <WizardShell
         kind="setup"
@@ -175,27 +188,38 @@ export function InstanceSetup() {
           <label className={s.field}>
             <span className={s.labelRow}>
               <span>External URL</span>
-              <span className={s.detected}>✓ Auto-detected</span>
+              {bootstrap?.fields.public_url.configured ? (
+                <span className={s.detected}>✓ Deployment configured</span>
+              ) : null}
             </span>
-            <input readOnly value={publicUrl} />
+            <input
+              value={publicUrl}
+              onChange={(e) => setPublicUrl(e.target.value)}
+              readOnly={publicUrlManaged}
+              placeholder="e.g. https://mail.example.com"
+            />
           </label>
           <label className={s.field}>
-            Internal URL{" "}
-            <small>
-              Optional · not configured by the current deployment contract
-            </small>
-            <input readOnly placeholder="e.g. http://mailflow.internal" />
+            Internal URL <small>Optional</small>
+            <input
+              value={internalUrl}
+              onChange={(e) => setInternalUrl(e.target.value)}
+              placeholder="e.g. http://mailflow.internal"
+            />
           </label>
           <div className={s.field}>
             TLS Configuration
             <div className={s.radioList}>
-              {[
-                "Automatic (Let's Encrypt)",
-                "Own certificate",
-                "Managed externally (reverse proxy)",
-              ].map((label) => (
-                <label className={s.radio} key={label}>
-                  <input type="radio" checked={tlsLabel === label} readOnly />
+              {tlsOptions.map(({ value, label }) => (
+                <label className={s.radio} key={value}>
+                  <input
+                    type="radio"
+                    name="tls-mode"
+                    value={value}
+                    checked={tlsMode === value}
+                    onChange={() => setTlsMode(value)}
+                    disabled={tlsManaged}
+                  />
                   {label}
                 </label>
               ))}
@@ -205,7 +229,11 @@ export function InstanceSetup() {
             <span className={s.statusBadge}>
               {publicUrl.startsWith("https://") ? "VALID HTTPS" : "CHECK HTTPS"}
             </span>
-            <span>Deployment-owned values are shown read-only.</span>
+            <span>
+              {publicUrlManaged || tlsManaged
+                ? "Deployment-managed values stay read-only."
+                : "Review or change these values before continuing."}
+            </span>
           </div>
         </div>
         <p style={{ margin: 0, color: "#71717a", fontSize: 12 }}>
