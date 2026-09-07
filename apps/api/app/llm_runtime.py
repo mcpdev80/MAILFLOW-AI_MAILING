@@ -36,22 +36,24 @@ def _model_role(value: str) -> ModelRole:
     return cast(ModelRole, value)
 
 
-def _litellm_model_id(provider: LLMProvider, model_id: str) -> str:
+def _litellm_model_id(provider: object, model_id: str) -> str:
     """Make instance-defined custom endpoints explicit to LiteLLM.
 
-    MailFlow's ``custom`` provider type represents an OpenAI-compatible endpoint
-    (for example AgentGateway, vLLM, SGLang or llama.cpp). LiteLLM cannot infer
-    the provider from arbitrary model names such as ``qwen3.5-4b``. Prefixing
-    the model with ``openai/`` selects LiteLLM's OpenAI-compatible transport;
-    the upstream request still carries the configured model name.
+    Role resolution may already return provider-qualified model IDs. Preserve
+    those unchanged. Otherwise MailFlow's ``custom`` provider type represents
+    an OpenAI-compatible endpoint (for example AgentGateway, vLLM, SGLang or
+    llama.cpp), so prefix arbitrary model names with ``openai/`` for LiteLLM.
     """
     value = model_id.strip()
-    if provider.type.strip().lower() == "custom" and not value.startswith("openai/"):
+    if "/" in value:
+        return value
+    provider_type = (_provider_string(provider, "type") or "").lower()
+    if provider_type == "custom":
         return f"openai/{value}"
     return value
 
 
-def _optional_litellm_model_id(provider: LLMProvider, value: object) -> str | None:
+def _optional_litellm_model_id(provider: object, value: object) -> str | None:
     model_id = _optional_string(value)
     if model_id is None:
         return None
