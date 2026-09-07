@@ -37,9 +37,12 @@ export function InstanceSetup() {
   const [internalUrl, setInternalUrl] = useState("");
   const [tlsMode, setTlsMode] = useState<TlsMode>("automatic");
   const [provider, setProvider] = useState(emptyProvider);
+  const [providerModels, setProviderModels] = useState<string[]>([]);
+  const [providerConnectionReady, setProviderConnectionReady] = useState(false);
   const [providerReady, setProviderReady] = useState(false);
   const [healthReady, setHealthReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [discoveryBusy, setDiscoveryBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,6 +93,47 @@ export function InstanceSetup() {
   const connectionConfigured = publicUrlConfigured && tlsConfigured;
   const publicUrlManaged = bootstrap?.fields.public_url.managed ?? false;
   const tlsManaged = bootstrap?.fields.tls.managed ?? false;
+
+  function resetProviderDiscovery(next: ProviderForm) {
+    setProvider(next);
+    setProviderModels([]);
+    setProviderConnectionReady(false);
+  }
+
+  async function discoverModels() {
+    if (!provider.base_url.trim()) return;
+    setDiscoveryBusy(true);
+    setError(null);
+    try {
+      const result = await api.discoverProviderModels({
+        type: provider.type,
+        base_url: provider.base_url.trim(),
+        api_key: provider.api_key || null,
+      });
+      setProviderModels(result.models);
+      setProviderConnectionReady(true);
+      setProvider((current) => ({
+        ...current,
+        base_url: current.base_url.trim(),
+        default_classification_model:
+          result.models.includes(current.default_classification_model)
+            ? current.default_classification_model
+            : result.models[0] || "",
+        default_generation_model:
+          result.models.includes(current.default_generation_model)
+            ? current.default_generation_model
+            : result.models[0] || "",
+      }));
+    } catch (err) {
+      setProviderModels([]);
+      setProviderConnectionReady(false);
+      setError(
+        err instanceof Error ? err.message : "Unable to load provider models",
+      );
+    } finally {
+      setDiscoveryBusy(false);
+    }
+  }
 
   async function saveProvider() {
     if (providerReady) {
@@ -275,7 +319,7 @@ export function InstanceSetup() {
         step={3}
         total={4}
         title="AI Provider"
-        subtitle="Connect the model endpoint Mailflow should use."
+        subtitle="Save the endpoint connection, load its models, then choose which models Mailflow should use."
         back={{ onClick: () => setStep(connectionConfigured ? 1 : 2) }}
         next={{
           label: providerReady ? "Continue" : "Save & Continue",
@@ -283,7 +327,9 @@ export function InstanceSetup() {
           disabled:
             busy ||
             (!providerReady &&
-              (!provider.base_url || !provider.default_classification_model)),
+              (!providerConnectionReady ||
+                !provider.default_classification_model ||
+                !provider.default_generation_model)),
         }}
       >
         <div className={s.section}>
@@ -304,7 +350,12 @@ export function InstanceSetup() {
                 <select
                   value={provider.type}
                   onChange={(e) =>
-                    setProvider({ ...provider, type: e.target.value })
+                    resetProviderDiscovery({
+                      ...provider,
+                      type: e.target.value,
+                      default_classification_model: "",
+                      default_generation_model: "",
+                    })
                   }
                 >
                   <option value="custom">OpenAI-compatible</option>
@@ -318,7 +369,12 @@ export function InstanceSetup() {
                 <input
                   value={provider.base_url}
                   onChange={(e) =>
-                    setProvider({ ...provider, base_url: e.target.value })
+                    resetProviderDiscovery({
+                      ...provider,
+                      base_url: e.target.value,
+                      default_classification_model: "",
+                      default_generation_model: "",
+                    })
                   }
                   placeholder="https://your-ai-endpoint/v1"
                 />
@@ -329,37 +385,74 @@ export function InstanceSetup() {
                   type="password"
                   value={provider.api_key}
                   onChange={(e) =>
-                    setProvider({ ...provider, api_key: e.target.value })
+                    resetProviderDiscovery({
+                      ...provider,
+                      api_key: e.target.value,
+                      default_classification_model: "",
+                      default_generation_model: "",
+                    })
                   }
                   placeholder="Optional for local providers"
                 />
               </label>
-              <label className={s.field}>
-                Classification model
-                <input
-                  value={provider.default_classification_model}
-                  onChange={(e) =>
-                    setProvider({
-                      ...provider,
-                      default_classification_model: e.target.value,
-                    })
-                  }
-                  placeholder="Model name"
-                />
-              </label>
-              <label className={s.field}>
-                Generation model
-                <input
-                  value={provider.default_generation_model}
-                  onChange={(e) =>
-                    setProvider({
-                      ...provider,
-                      default_generation_model: e.target.value,
-                    })
-                  }
-                  placeholder="Model name"
-                />
-              </label>
+
+              <button
+                type="button"
+                onClick={() => void discoverModels()}
+                disabled={discoveryBusy || !provider.base_url.trim()}
+              >
+                {discoveryBusy ? "Loading models..." : "Save connection & load models"}
+              </button>
+
+              {providerConnectionReady && providerModels.length > 0 ? (
+                <>
+                  <div className={s.success}>
+                    <span className={s.check}>✓</span>
+                    <div>
+                      <strong>Endpoint connected</strong>
+                      <span>{providerModels.length} model(s) discovered.</span>
+                    </div>
+                  </div>
+
+                  <label className={s.field}>
+                    Classification model
+                    <select
+                      value={provider.default_classification_model}
+                      onChange={(e) =>
+                        setProvider({
+                          ...provider,
+                          default_classification_model: e.target.value,
+                        })
+                      }
+                    >
+                      {providerModels.map((model) => (
+                        <option value={model} key={model}>
+                          {model}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className={s.field}>
+                    Generation model
+                    <select
+                      value={provider.default_generation_model}
+                      onChange={(e) =>
+                        setProvider({
+                          ...provider,
+                          default_generation_model: e.target.value,
+                        })
+                      }
+                    >
+                      {providerModels.map((model) => (
+                        <option value={model} key={model}>
+                          {model}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
             </>
           )}
           {error && <div className={s.error}>{error}</div>}
@@ -367,7 +460,7 @@ export function InstanceSetup() {
         <div className={s.info}>
           <span className={s.infoIcon}>i</span>
           <span>
-            API keys are stored encrypted and are not re-displayed after saving.
+            The API key is sent only to your Mailflow backend for model discovery and is stored encrypted when you finish saving the provider.
           </span>
         </div>
       </WizardShell>
