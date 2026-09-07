@@ -14,6 +14,7 @@ from app.routers.cycles import router as cycles_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.decision_memory import router as decision_memory_router
 from app.routers.inference_health import router as inference_health_router
+from app.routers.instance_llm import router as instance_llm_router
 from app.routers.internal import router as internal_router
 from app.routers.lifecycle import router as lifecycle_router
 from app.routers.llm_providers import router as llm_providers_router
@@ -40,6 +41,7 @@ __all__ = [
     "dashboard_router",
     "decision_memory_router",
     "inference_health_router",
+    "instance_llm_router",
     "internal_router",
     "lifecycle_router",
     "llm_providers_router",
