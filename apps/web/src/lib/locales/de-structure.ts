@@ -32,12 +32,17 @@ export const deStructure = {
   "structure.categoryMappingSubtitle":
     "Ordne Mailflow-Klassifikationskategorien der erkannten Ordnerstruktur zu.",
   "structure.noDraft":
-    "Es ist kein Erkennungsentwurf vorhanden. Beginne mit der Ordnererkennung.",
+    "Es ist noch keine gespeicherte Struktur vorhanden. Beginne mit der Ordnererkennung.",
   "structure.openDiscovery": "Ordnererkennung öffnen",
   "structure.noRoutes":
-    "Der Erkennungsvorschlag enthält keine Kategorierouten. Du kannst fortfahren und nur die Ordner-/Tag-Änderungen prüfen.",
+    "Es sind noch keine Kategorierouten konfiguriert. Du kannst eine neue Zuordnung hinzufügen.",
   "structure.classification": "Klassifikation",
+  "structure.category": "Kategorie",
+  "structure.subcategory": "Unterkategorie",
   "structure.targetFolder": "Zielordner",
+  "structure.addCategory": "Kategorie hinzufügen",
+  "structure.remove": "Entfernen",
+  "structure.savedConfiguration": "Gespeicherte Konfiguration",
   "structure.classificationRoutes": "Klassifikationsroute(n)",
   "structure.targetFolders": "Zielordner",
   "structure.back": "Zurück",
