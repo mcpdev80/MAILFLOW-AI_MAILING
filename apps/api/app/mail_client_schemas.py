@@ -135,7 +135,7 @@ class MailActionRequest(BaseModel):
     tags: list[str] = Field(default_factory=list, max_length=50)
 
     @model_validator(mode="after")
-    def validate_arguments(self) -> "MailActionRequest":
+    def validate_arguments(self) -> MailActionRequest:
         if (
             self.action in {"move", "restore"}
             and not (self.destination_folder or "").strip()
