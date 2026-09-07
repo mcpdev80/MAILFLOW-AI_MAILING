@@ -22,6 +22,7 @@ const ALLOWED_PREFIXES = new Set([
   "oauth",
   "billing",
   "health",
+  "user",
 ]);
 
 function isPreAuthSetupRoute(method: string, targetPath: string): boolean {
