@@ -1,6 +1,6 @@
 "use client";
 
-import { useI18n, type Locale } from "@/lib/i18n";
+import { type Locale, useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -28,7 +28,8 @@ const mailboxToolDefs = [
 const copy = {
   de: {
     title: "Einstellungen",
-    subtitle: "Profil, Arbeitsbereich, Sicherheit, Integrationen und Postfachverhalten verwalten",
+    subtitle:
+      "Profil, Arbeitsbereich, Sicherheit, Integrationen und Postfachverhalten verwalten",
     nav: "Einstellungen",
     profile: "Profil & Konto",
     appearance: "Darstellung & Arbeitsbereich",
@@ -47,7 +48,8 @@ const copy = {
   },
   en: {
     title: "Settings",
-    subtitle: "Manage your profile, workspace, security, integrations and mailbox behavior",
+    subtitle:
+      "Manage your profile, workspace, security, integrations and mailbox behavior",
     nav: "Settings",
     profile: "Profile & Account",
     appearance: "Appearance & Workspace",
@@ -66,7 +68,8 @@ const copy = {
   },
   es: {
     title: "Ajustes",
-    subtitle: "Gestiona tu perfil, espacio de trabajo, seguridad, integraciones y comportamiento del buzón",
+    subtitle:
+      "Gestiona tu perfil, espacio de trabajo, seguridad, integraciones y comportamiento del buzón",
     nav: "Ajustes",
     profile: "Perfil y cuenta",
     appearance: "Apariencia y espacio de trabajo",
@@ -98,11 +101,21 @@ export function SettingsShell({ children }: { children: ReactNode }) {
       <div className={styles.split}>
         <nav className={styles.nav} aria-label={text.nav}>
           {itemDefs.map(([href, key]) => (
-            <SettingsLink key={href} href={href} label={text[key]} pathname={pathname} />
+            <SettingsLink
+              key={href}
+              href={href}
+              label={text[key]}
+              pathname={pathname}
+            />
           ))}
           <span className={styles.navGroupLabel}>{text.intelligence}</span>
           {mailboxToolDefs.map(([href, key]) => (
-            <SettingsLink key={href} href={href} label={text[key]} pathname={pathname} />
+            <SettingsLink
+              key={href}
+              href={href}
+              label={text[key]}
+              pathname={pathname}
+            />
           ))}
         </nav>
         {children}

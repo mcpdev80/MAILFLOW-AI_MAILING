@@ -6,12 +6,7 @@ import {
 } from "@/components/settings-shell";
 import { api } from "@/lib/api";
 import { authClient, useSession } from "@/lib/auth-client";
-import {
-  LOCALE_NAMES,
-  LOCALES,
-  useI18n,
-  type Locale,
-} from "@/lib/i18n";
+import { LOCALES, LOCALE_NAMES, type Locale, useI18n } from "@/lib/i18n";
 import type { UserDateFormat } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -42,13 +37,16 @@ const copy = {
     subtitle: "Persönliche Daten und Kontoeinstellungen verwalten.",
     displayName: "Anzeigename",
     email: "E-Mail-Adresse",
-    emailHint: "Die Login-E-Mail wird über das Authentifizierungskonto verwaltet.",
+    emailHint:
+      "Die Login-E-Mail wird über das Authentifizierungskonto verwaltet.",
     language: "Sprache",
-    languageHint: "Die Oberfläche wird sofort in der gewählten Sprache angezeigt.",
+    languageHint:
+      "Die Oberfläche wird sofort in der gewählten Sprache angezeigt.",
     timezone: "Zeitzone",
     timezoneHint: "Wird für Datums- und Zeitangaben in MailFlow verwendet.",
     dateFormat: "Datumsformat",
-    dateFormatHint: "Legt fest, wie Datumswerte in der Oberfläche dargestellt werden.",
+    dateFormatHint:
+      "Legt fest, wie Datumswerte in der Oberfläche dargestellt werden.",
     save: "Änderungen speichern",
     saving: "Speichern…",
     reset: "Zurücksetzen",
@@ -56,7 +54,8 @@ const copy = {
     saveError: "Profil oder Einstellungen konnten nicht gespeichert werden.",
     danger: "Gefahrenbereich",
     deleteTitle: "Konto & Daten löschen",
-    deleteText: "Das vollständige sichere Löschen eines Benutzerkontos ist noch nicht verfügbar. Die Funktion bleibt deaktiviert, bis Better Auth, Mitgliedschaften, private Postfach-Zuordnungen und aufbewahrte Daten gemeinsam sicher entfernt werden können.",
+    deleteText:
+      "Das vollständige sichere Löschen eines Benutzerkontos ist noch nicht verfügbar. Die Funktion bleibt deaktiviert, bis Better Auth, Mitgliedschaften, private Postfach-Zuordnungen und aufbewahrte Daten gemeinsam sicher entfernt werden können.",
     delete: "Konto löschen",
   },
   en: {
@@ -66,7 +65,8 @@ const copy = {
     email: "Email Address",
     emailHint: "Your login email is managed by the authentication account.",
     language: "Language",
-    languageHint: "The interface switches to the selected language immediately.",
+    languageHint:
+      "The interface switches to the selected language immediately.",
     timezone: "Time Zone",
     timezoneHint: "Used for date and time values throughout MailFlow.",
     dateFormat: "Date Format",
@@ -78,7 +78,8 @@ const copy = {
     saveError: "Unable to save profile or preferences.",
     danger: "Danger Zone",
     deleteTitle: "Delete Account & Data",
-    deleteText: "Complete safe user-account deletion is not available yet. This action stays disabled until Better Auth, memberships, private mailbox ownership and retained data can be removed together safely.",
+    deleteText:
+      "Complete safe user-account deletion is not available yet. This action stays disabled until Better Auth, memberships, private mailbox ownership and retained data can be removed together safely.",
     delete: "Delete Account",
   },
   es: {
@@ -86,7 +87,8 @@ const copy = {
     subtitle: "Actualiza tus datos personales y la información de tu cuenta.",
     displayName: "Nombre para mostrar",
     email: "Dirección de correo",
-    emailHint: "El correo de acceso se gestiona mediante la cuenta de autenticación.",
+    emailHint:
+      "El correo de acceso se gestiona mediante la cuenta de autenticación.",
     language: "Idioma",
     languageHint: "La interfaz cambia inmediatamente al idioma seleccionado.",
     timezone: "Zona horaria",
@@ -100,7 +102,8 @@ const copy = {
     saveError: "No se pudieron guardar el perfil o las preferencias.",
     danger: "Zona de peligro",
     deleteTitle: "Eliminar cuenta y datos",
-    deleteText: "La eliminación segura y completa de una cuenta de usuario aún no está disponible. La acción seguirá desactivada hasta que Better Auth, las membresías, la propiedad de buzones privados y los datos retenidos puedan eliminarse juntos de forma segura.",
+    deleteText:
+      "La eliminación segura y completa de una cuenta de usuario aún no está disponible. La acción seguirá desactivada hasta que Better Auth, las membresías, la propiedad de buzones privados y los datos retenidos puedan eliminarse juntos de forma segura.",
     delete: "Eliminar cuenta",
   },
 } satisfies Record<Locale, Record<string, string>>;
@@ -128,7 +131,12 @@ function supportedTimezones(current: string): string[] {
   } catch {
     values = [];
   }
-  const merged = new Set<string>(["UTC", current, ...values, ...fallbackTimezones]);
+  const merged = new Set<string>([
+    "UTC",
+    current,
+    ...values,
+    ...fallbackTimezones,
+  ]);
   return [...merged].filter(Boolean).sort((a, b) => a.localeCompare(b));
 }
 

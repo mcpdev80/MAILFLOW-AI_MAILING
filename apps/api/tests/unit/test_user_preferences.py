@@ -96,7 +96,9 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
 
 
 @pytest.mark.asyncio
-async def test_partial_workspace_update_preserves_locale_profile_preferences(session) -> None:
+async def test_partial_workspace_update_preserves_locale_profile_preferences(
+    session,
+) -> None:
     org = await _organization(session, "Partial Preferences")
     identity = RequestIdentity(org=org, user_id="user-a")
     await update_user_preferences(
