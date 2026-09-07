@@ -1,10 +1,15 @@
 .page {
-  min-height: calc(100vh - 57px - (2 * var(--mf-page-gap)));
+  height: calc(100vh - 57px - (2 * var(--mf-page-gap)));
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--mf-bg);
   color: var(--mf-text);
 }
 
 .error {
+  flex: 0 0 auto;
   margin: 0 0 12px;
   padding: 10px 12px;
   border: 1px solid var(--mf-danger);
@@ -15,57 +20,93 @@
 }
 
 .workspace {
-  display: grid;
-  grid-template-columns: 230px 360px minmax(0, 1fr);
-  gap: 16px;
-  min-height: calc(100vh - 57px - 48px);
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: var(--mf-bg);
 }
 
-.workspace[data-layout="vertical"] {
-  grid-template-columns: 180px 320px minmax(0, 1fr);
-  gap: 12px;
-}
-
 .workspace[data-layout="compact"] {
-  grid-template-columns: 210px 330px minmax(0, 1fr);
-  gap: 10px;
   margin: -12px;
-  min-height: calc(100vh - 57px - 24px);
-}
-
-.workspace[data-layout="wide"] {
-  grid-template-columns: 240px 400px minmax(0, 1fr);
-  gap: 20px;
 }
 
 .workspace[data-layout="focus"] {
-  grid-template-columns: minmax(0, 1fr);
-}
-.workspace[data-layout="focus"] .sidePane,
-.workspace[data-layout="focus"] .contentPane {
-  display: none;
-}
-.workspace[data-layout="focus"] .listPane {
-  min-height: calc(100vh - 57px - 48px);
+  display: block;
 }
 
-.workspace[data-side="right"] .sidePane { order: 3; }
-.workspace[data-side="right"] .listPane { order: 1; }
-.workspace[data-side="right"] .contentPane { order: 2; }
+.workspace[data-layout="focus"] > .listPane {
+  width: 100%;
+  height: 100%;
+}
+
+.standardSide,
+.standardList,
+.standardContent {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.standardSide,
+.standardList {
+  flex: 0 0 auto;
+}
+
+.standardContent {
+  flex: 1 1 auto;
+  min-width: 320px;
+}
+
+.standardSide > .sidePane,
+.standardList > .listPane,
+.standardContent > .contentPane {
+  width: 100%;
+  height: 100%;
+}
+
+.resizeHandle {
+  position: relative;
+  z-index: 4;
+  flex: 0 0 12px;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.resizeHandle span {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--mf-border);
+  transition: width 120ms ease, background 120ms ease;
+}
+
+.resizeHandle:hover span,
+.resizeHandle:active span {
+  width: 3px;
+  background: var(--mf-primary);
+}
 
 .customWorkspace {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   align-content: stretch;
   gap: 12px;
-  min-height: calc(100vh - 57px - 48px);
+  min-height: 0;
+  overflow: hidden;
   background: var(--mf-bg);
 }
 
 .customPanel {
   min-width: 180px;
-  min-height: 240px;
+  min-height: 0;
   border: 1px solid var(--mf-border);
   border-radius: 8px;
   background: var(--mf-surface);
@@ -84,6 +125,7 @@
 .listPane,
 .contentPane {
   min-width: 0;
+  min-height: 0;
   border: 1px solid var(--mf-border);
   border-radius: 8px;
   background: var(--mf-surface);
@@ -93,7 +135,9 @@
 .sidePane,
 .accountsPane,
 .foldersPane {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .sidePane {
@@ -192,12 +236,16 @@
 }
 
 .listHeader {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 52px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--mf-border);
+  background: var(--mf-surface);
 }
 
 .workspace[data-layout="compact"] .listHeader {
@@ -238,10 +286,14 @@
 .messageList {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .messageRow {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -269,14 +321,37 @@
   background: var(--mf-surface-selected);
 }
 
+.unread {
+  background: color-mix(in srgb, var(--mf-primary) 4%, transparent);
+}
+
 .unread .sender,
-.unread .subject { font-weight: 700; }
+.unread .subject {
+  color: var(--mf-text);
+  font-weight: 700;
+}
 
 .rowTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.senderLine {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.unreadDot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--mf-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mf-primary) 18%, transparent);
 }
 
 .sender {
@@ -311,17 +386,39 @@
 
 .rowMeta {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 5px;
   flex-wrap: wrap;
   color: var(--mf-text-muted);
   font-size: 10px;
 }
 
-.pill {
+.pill,
+.accountPill,
+.tagPill,
+.tagMore {
   border: 0;
-  border-radius: 4px;
-  padding: 2px 6px;
+  border-radius: 999px;
+  padding: 2px 7px;
+  line-height: 1.35;
+}
+
+.pill,
+.accountPill {
   background: var(--mf-surface-muted);
+}
+
+.tagPill {
+  border: 1px solid color-mix(in srgb, var(--mf-primary) 28%, var(--mf-border));
+  background: color-mix(in srgb, var(--mf-primary) 10%, var(--mf-surface));
+  color: var(--mf-primary);
+  font-weight: 600;
+}
+
+.tagMore {
+  background: var(--mf-surface-muted);
+  color: var(--mf-text-secondary);
+  font-weight: 600;
 }
 
 .contentPane {
@@ -330,6 +427,9 @@
 }
 
 .toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -337,6 +437,7 @@
   min-height: 52px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--mf-border);
+  background: var(--mf-surface);
 }
 
 .toolbarBottom { order: 3; border-top: 1px solid var(--mf-border); border-bottom: 0; }
@@ -357,7 +458,10 @@
 .detailScroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 20px;
 }
 
@@ -499,12 +603,16 @@
 }
 
 @media (max-width: 1100px) {
-  .workspace:not([data-layout="focus"]),
-  .workspace[data-layout="classic"],
-  .workspace[data-layout="vertical"],
-  .workspace[data-layout="compact"],
-  .workspace[data-layout="wide"] {
-    grid-template-columns: 190px 290px minmax(0, 1fr);
-    gap: 10px;
+  .standardSide {
+    width: 180px !important;
+  }
+
+  .standardList {
+    width: 290px !important;
+  }
+
+  .resizeHandle {
+    flex-basis: 8px;
+    width: 8px;
   }
 }
