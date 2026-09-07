@@ -3,6 +3,7 @@
 import { mailAttachmentUrl } from "@/lib/api";
 import { enumLabel, useI18n } from "@/lib/i18n";
 import type { MessageDetail } from "@/lib/types";
+import { MailIcon } from "./mail-icons";
 import { mailFolderLabel } from "./mail-folder-label";
 import { formatAttachmentBytes, messageKey } from "./mail-workspace-utils";
 import styles from "./mail-workspace.module.css";
@@ -26,22 +27,21 @@ export function ContentPane({
       <div className={styles.detailScroll}>
         {!state.selected && !state.messageLoading && (
           <div className={styles.emptyState}>
-            <div>
+            <div className={styles.emptyStateCard}>
+              <span className={styles.emptyStateIcon}><MailIcon name="mail" size={24} /></span>
               <strong>{t("mail.selectMessage")}</strong>
               <p>{t("mail.selectMessageHint")}</p>
             </div>
           </div>
         )}
-        {state.messageLoading && (
-          <div className={styles.state}>{t("mail.opening")}</div>
-        )}
+        {state.messageLoading && <div className={styles.state}>{t("mail.opening")}</div>}
         {!state.messageLoading && state.selected && (
-          <>
+          <div className={styles.messageCanvas}>
             {messages.map((message) => (
               <MessageArticle key={messageKey(message)} message={message} />
             ))}
             <InsightCard state={state} />
-          </>
+          </div>
         )}
       </div>
       {actionBarBottom && <ActionToolbar state={state} bottom />}
@@ -49,69 +49,60 @@ export function ContentPane({
   );
 }
 
-function ActionToolbar({
-  state,
-  bottom = false,
-}: { state: WorkspaceState; bottom?: boolean }) {
+function ActionToolbar({ state, bottom = false }: { state: WorkspaceState; bottom?: boolean }) {
   const { t } = useI18n();
   const selected = state.selected;
   const capabilities = state.metadata?.capabilities;
   if (!selected) return null;
   return (
     <div className={`${styles.toolbar} ${bottom ? styles.toolbarBottom : ""}`}>
-      <button
-        type="button"
-        className={`${styles.toolbarButton} ${styles.primaryAction}`}
-        onClick={() => void state.openReply("reply")}
-      >
-        {t("mail.reply")}
-      </button>
-      <button
-        type="button"
-        className={styles.toolbarButton}
-        onClick={() => void state.openReply("reply_all")}
-      >
-        {t("mail.replyAll")}
-      </button>
-      <button
-        type="button"
-        className={styles.toolbarButton}
-        onClick={() => void state.openReply("forward")}
-      >
-        {t("mail.forward")}
-      </button>
-      {capabilities?.archive && (
-        <button
-          type="button"
-          className={styles.toolbarButton}
-          onClick={() =>
-            void state.runActionFor(selected, { action: "archive" })
-          }
-        >
-          {t("mail.action.archive")}
-        </button>
-      )}
+      <div className={styles.toolbarPrimary}>
+        <ToolbarIcon label={t("mail.reply")} primary onClick={() => void state.openReply("reply")} icon="reply" />
+        <ToolbarIcon label={t("mail.replyAll")} onClick={() => void state.openReply("reply_all")} icon="replyAll" />
+        <ToolbarIcon label={t("mail.forward")} onClick={() => void state.openReply("forward")} icon="forward" />
+      </div>
+      <span className={styles.toolbarDivider} />
+      <div className={styles.toolbarPrimary}>
+        {capabilities?.archive && (
+          <ToolbarIcon label={t("mail.action.archive")} onClick={() => void state.runActionFor(selected, { action: "archive" })} icon="archive" />
+        )}
+        {capabilities?.tags && (
+          <ToolbarIcon label={t("mail.group.organize")} onClick={() => addTag(state, t("mail.tagPrompt"))} icon="tag" />
+        )}
+        {capabilities?.trash && (
+          <ToolbarIcon label={t("common.delete")} danger onClick={() => void state.runActionFor(selected, { action: "trash" })} icon="trash" />
+        )}
+      </div>
       {capabilities?.move && <MoveControls state={state} />}
-      {capabilities?.tags && (
-        <button
-          type="button"
-          className={styles.toolbarButton}
-          onClick={() => addTag(state, t("mail.tagPrompt"))}
-        >
-          {t("mail.group.organize")}
-        </button>
-      )}
-      {capabilities?.trash && (
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${styles.dangerAction}`}
-          onClick={() => void state.runActionFor(selected, { action: "trash" })}
-        >
-          {t("common.delete")}
-        </button>
-      )}
+      <div className={styles.toolbarSpacer} />
       <MoreButton state={state} />
     </div>
+  );
+}
+
+function ToolbarIcon({
+  label,
+  icon,
+  onClick,
+  primary = false,
+  danger = false,
+}: {
+  label: string;
+  icon: "reply" | "replyAll" | "forward" | "archive" | "tag" | "trash";
+  onClick: () => void;
+  primary?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={`${styles.toolbarIconButton} ${primary ? styles.primaryAction : ""} ${danger ? styles.dangerAction : ""}`}
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+    >
+      <MailIcon name={icon} size={18} />
+    </button>
   );
 }
 
@@ -125,6 +116,7 @@ function MoveControls({ state }: { state: WorkspaceState }) {
         className={styles.moveSelect}
         value={state.moveFolder}
         onChange={(event) => state.setMoveFolder(event.currentTarget.value)}
+        aria-label={t("mail.moveTo")}
       >
         <option value="">{t("mail.moveTo")}</option>
         {state.selectableFolders
@@ -137,8 +129,10 @@ function MoveControls({ state }: { state: WorkspaceState }) {
       </select>
       <button
         type="button"
-        className={styles.toolbarButton}
+        className={styles.moveButton}
         disabled={!state.moveFolder || state.actionLoading}
+        title={t("mail.move")}
+        aria-label={t("mail.move")}
         onClick={() =>
           void state.runActionFor(selected, {
             action: "move",
@@ -146,7 +140,7 @@ function MoveControls({ state }: { state: WorkspaceState }) {
           })
         }
       >
-        {t("mail.move")}
+        <MailIcon name="chevron" size={15} />
       </button>
     </div>
   );
@@ -159,8 +153,9 @@ function MoreButton({ state }: { state: WorkspaceState }) {
   return (
     <button
       type="button"
-      className={styles.toolbarButton}
+      className={styles.toolbarIconButton}
       aria-label={t("mail.moreActions")}
+      title={t("mail.moreActions")}
       onClick={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
         void state.openContextMenuAt(selected, {
@@ -169,7 +164,7 @@ function MoreButton({ state }: { state: WorkspaceState }) {
         });
       }}
     >
-      …
+      <MailIcon name="more" size={19} />
     </button>
   );
 }
@@ -185,76 +180,65 @@ function addTag(state: WorkspaceState, prompt: string) {
 
 function MessageArticle({ message }: { message: MessageDetail }) {
   const { t, locale } = useI18n();
-  const tags = Array.from(
-    new Set([...message.system_tags, ...message.user_tags, ...message.keywords]),
-  ).filter((tag) => tag.trim());
+  const tags = Array.from(new Set([...message.system_tags, ...message.user_tags, ...message.keywords])).filter((tag) => tag.trim());
   return (
     <article className={styles.threadMessage}>
       <header className={styles.messageHeader}>
+        <span className={styles.detailAvatar}>{initials(message.from_email)}</span>
         <div className={styles.senderBlock}>
-          <strong>{message.from_email}</strong>
+          <div className={styles.senderTitleLine}>
+            <strong>{displaySender(message.from_email)}</strong>
+            {message.flagged && <MailIcon name="star" size={14} className={styles.starIcon} />}
+          </div>
+          <span className={styles.senderAddress}>{message.from_email}</span>
           <span>
             {t("mail.to")}: {message.to_emails.join(", ") || message.account_address}
-            {message.cc_emails.length
-              ? ` · ${t("mail.cc")}: ${message.cc_emails.join(", ")}`
-              : ""}
+            {message.cc_emails.length ? ` · ${t("mail.cc")}: ${message.cc_emails.join(", ")}` : ""}
           </span>
         </div>
-        <span className={styles.messageTime}>
-          {message.date ? new Date(message.date).toLocaleString(locale) : ""}
-        </span>
+        <span className={styles.messageTime}>{message.date ? new Date(message.date).toLocaleString(locale) : ""}</span>
       </header>
-      <h2 className={styles.messageTitle}>
-        {message.subject || t("mail.noSubject")}
-      </h2>
+      <h2 className={styles.messageTitle}>{message.subject || t("mail.noSubject")}</h2>
       {(message.category || tags.length > 0 || message.review_required) && (
-        <div className={styles.rowMeta} style={{ marginBottom: 14 }}>
+        <div className={styles.detailBadges}>
           {message.category && (
-            <span className={styles.tagPill}>
-              {enumLabel(t, "category", message.category)}
-            </span>
+            <span className={styles.classificationPill}>{enumLabel(t, "category", message.category)}</span>
           )}
           {message.importance && message.importance !== "unknown" && (
-            <span className={styles.tagMore}>{message.importance}</span>
+            <span className={styles.importancePill}>{message.importance}</span>
           )}
-          {message.review_required && <span className={styles.tagPill}>Review</span>}
+          {message.review_required && (
+            <span className={styles.reviewPill}>{locale === "de" ? "Prüfung" : locale === "es" ? "Revisión" : "Review"}</span>
+          )}
           {tags.map((tag) => (
-            <span key={tag} className={styles.tagPill}>{tag}</span>
+            <span key={tag} className={styles.tagPill}><MailIcon name="tag" size={10} />{tag}</span>
           ))}
         </div>
       )}
-      {message.safe_html ? (
-        <div
-          className={styles.mailBody}
-          style={{
-            whiteSpace: "normal",
-            overflowWrap: "anywhere",
-            maxWidth: "100%",
-            overflowX: "auto",
-          }}
-          /* biome-ignore lint/security/noDangerouslySetInnerHtml: The API removes active, remote and styling content before returning this fragment. */
-          dangerouslySetInnerHTML={{ __html: message.safe_html }}
-        />
-      ) : (
-        <div className={styles.mailBody}>
-          {message.body_text || t("mail.emptyMessage")}
-        </div>
-      )}
+      <div className={styles.messageBodyCard}>
+        {message.safe_html ? (
+          <div
+            className={styles.mailBody}
+            /* biome-ignore lint/security/noDangerouslySetInnerHtml: The API removes active, remote and styling content before returning this fragment. */
+            dangerouslySetInnerHTML={{ __html: message.safe_html }}
+          />
+        ) : (
+          <div className={styles.mailBody}>{message.body_text || t("mail.emptyMessage")}</div>
+        )}
+      </div>
       {message.attachments.length > 0 && (
         <div className={styles.attachments}>
           {message.attachments.map((attachment) => (
             <a
               key={attachment.part_id}
               className={styles.attachment}
-              href={mailAttachmentUrl(
-                message.account_id,
-                message.folder,
-                message.uid,
-                attachment.part_id,
-              )}
+              href={mailAttachmentUrl(message.account_id, message.folder, message.uid, attachment.part_id)}
             >
-              <strong>{attachment.filename}</strong>
-              <small>{formatAttachmentBytes(attachment.size)}</small>
+              <span className={styles.attachmentIcon}><MailIcon name="paperclip" size={16} /></span>
+              <span className={styles.attachmentText}>
+                <strong>{attachment.filename}</strong>
+                <small>{formatAttachmentBytes(attachment.size)}</small>
+              </span>
             </a>
           ))}
         </div>
@@ -269,20 +253,24 @@ function InsightCard({ state }: { state: WorkspaceState }) {
   if (!insights) return null;
   return (
     <section className={styles.insightCard}>
-      <strong>{t("mail.aiSummary")}</strong>
+      <div className={styles.insightTitle}><span className={styles.aiDot} />{t("mail.aiSummary")}</div>
       <p>{insights.overview}</p>
-      {insights.deadline && (
-        <p>
-          <strong>{t("mail.deadline")}:</strong> {insights.deadline}
-        </p>
-      )}
+      {insights.deadline && <p><strong>{t("mail.deadline")}:</strong> {insights.deadline}</p>}
       {insights.todos.length > 0 && (
-        <ul className={styles.insightList}>
-          {insights.todos.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
+        <ul className={styles.insightList}>{insights.todos.map((item) => <li key={item}>{item}</li>)}</ul>
       )}
     </section>
   );
+}
+
+function displaySender(value: string): string {
+  const match = value.match(/^\s*([^<]+?)\s*<[^>]+>\s*$/);
+  return match?.[1]?.trim() || value;
+}
+
+function initials(value: string): string {
+  const display = displaySender(value).replace(/["']/g, "").trim();
+  if (!display) return "?";
+  const parts = display.split(/[\s@._-]+/).filter(Boolean);
+  return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : parts[0].slice(0, 2)).toUpperCase();
 }
