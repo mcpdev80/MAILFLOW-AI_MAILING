@@ -1,50 +1,80 @@
 "use client";
 
-import { useAccessContext } from "@/lib/access-context";
 import { useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import styles from "../admin-pages.module.css";
+import { InstanceSystemPanel } from "./instance-system-panel";
 
 const COPY = {
   de: {
     title: "Instanzverwaltung",
     description:
-      "Verwalte MailFlow als Plattform. Dieser Bereich enthält bewusst keine Postfächer oder E-Mail-Inhalte.",
-    role: "Instanzrolle",
-    orgs: "Eigene Organisationsrollen",
-    data: "Datenschutzgrenze",
-    dataText:
-      "Die Instanzrolle gewährt keinen automatischen Zugriff auf E-Mails, Anhänge oder Entwürfe.",
-    manage: "Organisationen verwalten",
+      "Zentrale Verwaltung von MailFlow als Plattform. Mailboxen und E-Mail-Inhalte bleiben bewusst außerhalb dieses Bereichs.",
+    quick: "Administration",
+    organizations: "Organisationen",
+    organizationsText: "Mandanten, Organisations-Admins und Mitgliedschaften verwalten.",
+    system: "System",
+    systemText: "CPU, RAM, Dienste, Datenbank und Laufzeit überwachen.",
+    updates: "Updates",
+    updatesText: "Version, Update-Status und Rollback-Sicherheit verwalten.",
+    backups: "Backups",
+    backupsText: "Sicherungen, Restore-Punkte und Backup-Status verwalten.",
+    certificates: "Zertifikate",
+    certificatesText: "TLS-Zertifikat, Gültigkeit und Ablauf überwachen.",
   },
   en: {
     title: "Instance administration",
     description:
-      "Manage MailFlow as a platform. This area intentionally contains no mailboxes or email content.",
-    role: "Instance role",
-    orgs: "Own organization roles",
-    data: "Data boundary",
-    dataText:
-      "The instance role does not automatically grant access to emails, attachments or drafts.",
-    manage: "Manage organizations",
+      "Central administration of MailFlow as a platform. Mailboxes and email content intentionally remain outside this area.",
+    quick: "Administration",
+    organizations: "Organizations",
+    organizationsText: "Manage tenants, organization admins and memberships.",
+    system: "System",
+    systemText: "Monitor CPU, memory, services, database and runtime.",
+    updates: "Updates",
+    updatesText: "Manage version, update status and rollback safety.",
+    backups: "Backups",
+    backupsText: "Manage backups, restore points and backup status.",
+    certificates: "Certificates",
+    certificatesText: "Monitor TLS certificate validity and expiry.",
   },
   es: {
     title: "Administración de instancia",
     description:
-      "Administra MailFlow como plataforma. Esta área no contiene buzones ni contenido de correo.",
-    role: "Rol de instancia",
-    orgs: "Roles propios de organización",
-    data: "Límite de datos",
-    dataText:
-      "El rol de instancia no concede acceso automático a correos, adjuntos ni borradores.",
-    manage: "Gestionar organizaciones",
+      "Administración central de MailFlow como plataforma. Los buzones y correos permanecen fuera de esta área.",
+    quick: "Administración",
+    organizations: "Organizaciones",
+    organizationsText: "Gestiona organizaciones, administradores y miembros.",
+    system: "Sistema",
+    systemText: "Supervisa CPU, memoria, servicios, base de datos y ejecución.",
+    updates: "Actualizaciones",
+    updatesText: "Gestiona versión, actualizaciones y seguridad de rollback.",
+    backups: "Copias de seguridad",
+    backupsText: "Gestiona copias, puntos de restauración y estado.",
+    certificates: "Certificados",
+    certificatesText: "Supervisa validez y caducidad del certificado TLS.",
   },
 } as const;
 
 export default function InstanceAdminPage() {
   const { locale } = useI18n();
   const copy = COPY[locale];
-  const { context } = useAccessContext();
+
+  const links = [
+    {
+      href: "/admin/instance/organizations",
+      title: copy.organizations,
+      text: copy.organizationsText,
+    },
+    { href: "/admin/instance/system", title: copy.system, text: copy.systemText },
+    { href: "/admin/instance/updates", title: copy.updates, text: copy.updatesText },
+    { href: "/admin/instance/backups", title: copy.backups, text: copy.backupsText },
+    {
+      href: "/admin/instance/certificates",
+      title: copy.certificates,
+      text: copy.certificatesText,
+    },
+  ];
 
   return (
     <div className={styles.page}>
@@ -52,27 +82,23 @@ export default function InstanceAdminPage() {
         <h1>{copy.title}</h1>
         <p>{copy.description}</p>
       </header>
-      <section className={styles.grid}>
-        <article className={styles.card}>
-          <h2>{copy.role}</h2>
-          <div className={styles.metric}>{context?.instance_role ?? "–"}</div>
-        </article>
-        <article className={styles.card}>
-          <h2>{copy.orgs}</h2>
-          <div className={styles.metric}>
-            {context?.organizations.length ?? 0}
-          </div>
-        </article>
-        <article className={styles.card}>
-          <h2>{copy.data}</h2>
-          <p>{copy.dataText}</p>
-        </article>
+
+      <InstanceSystemPanel compact />
+
+      <section>
+        <div className={styles.sectionHeader}>
+          <h2>{copy.quick}</h2>
+        </div>
+        <div className={styles.adminGrid}>
+          {links.map((item) => (
+            <Link key={item.href} href={item.href} className={styles.adminCard}>
+              <strong>{item.title}</strong>
+              <span>{item.text}</span>
+              <span className={styles.adminArrow}>→</span>
+            </Link>
+          ))}
+        </div>
       </section>
-      <div>
-        <Link className="btn" href="/admin/instance/organizations">
-          {copy.manage}
-        </Link>
-      </div>
     </div>
   );
 }
