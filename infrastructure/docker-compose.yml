@@ -179,6 +179,9 @@ services:
       PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}
       WEB_SECRET_KEY: ${WEB_SECRET_KEY:-}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      MAILFLOW_PUBLIC_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      MAILFLOW_TLS_MODE: ${MAILFLOW_TLS_MODE:-}
+      MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-compose}
     depends_on:
       api:
         condition: service_healthy
