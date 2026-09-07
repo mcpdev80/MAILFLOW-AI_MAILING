@@ -74,9 +74,17 @@
   color: var(--mf-danger);
 }
 
+/*
+ * Reduced view is a reader view, not an attempt to preserve the original mail
+ * layout. Marketing emails commonly use deeply nested tables and spacer rows.
+ * Once remote images/styles are removed those tables create huge empty areas.
+ * Flatten them into compact flow content until the user explicitly enables the
+ * original HTML view.
+ */
 .safeMailBody {
+  max-width: 760px;
   white-space: normal !important;
-  line-height: 1.48 !important;
+  line-height: 1.46 !important;
   word-break: normal;
 }
 
@@ -85,27 +93,63 @@
 .safeMailBody blockquote,
 .safeMailBody ul,
 .safeMailBody ol,
-.safeMailBody pre,
-.safeMailBody table {
+.safeMailBody pre {
   margin-top: 0;
 }
 
 .safeMailBody p,
 .safeMailBody div {
-  margin-bottom: .58em;
+  margin-bottom: .5em;
 }
 
-.safeMailBody p:last-child,
-.safeMailBody div:last-child,
-.safeMailBody blockquote:last-child,
-.safeMailBody ul:last-child,
-.safeMailBody ol:last-child,
-.safeMailBody table:last-child {
-  margin-bottom: 0;
+.safeMailBody p:empty,
+.safeMailBody div:empty,
+.safeMailBody span:empty,
+.safeMailBody td:empty,
+.safeMailBody th:empty,
+.safeMailBody tr:empty {
+  display: none !important;
+}
+
+.safeMailBody table,
+.safeMailBody thead,
+.safeMailBody tbody,
+.safeMailBody tfoot {
+  display: block !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+
+.safeMailBody tr {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: .2em .9em;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 0 .35em !important;
+  padding: 0 !important;
+}
+
+.safeMailBody td,
+.safeMailBody th {
+  display: block !important;
+  flex: 0 1 auto;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  vertical-align: top;
 }
 
 .safeMailBody blockquote {
-  margin-bottom: .75em;
+  margin-bottom: .65em;
   margin-left: 0;
   padding-left: 12px;
   border-left: 3px solid var(--mf-border);
@@ -113,29 +157,20 @@
 
 .safeMailBody ul,
 .safeMailBody ol {
-  margin-bottom: .7em;
+  margin-bottom: .6em;
   padding-left: 1.5em;
 }
 
-.safeMailBody table {
-  width: auto;
-  max-width: 100%;
-  margin-bottom: .75em;
-  table-layout: auto;
-}
-
-.safeMailBody td,
-.safeMailBody th {
-  height: auto !important;
-  padding: 2px 4px;
-  vertical-align: top;
-}
-
 .safeMailBody br + br {
-  line-height: .85;
+  display: none;
+}
+
+.safeMailBody :is(p, div, td, th) > br:only-child {
+  display: none;
 }
 
 .plainMailBody {
+  max-width: 760px;
   white-space: pre-wrap !important;
   line-height: 1.55 !important;
 }
