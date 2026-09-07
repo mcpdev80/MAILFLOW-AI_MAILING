@@ -340,13 +340,14 @@ function MemberOption({
 }
 
 function Behavior({ controller }: { controller: OnboardingController }) {
+  const form = controller.accountForm;
   return (
     <WizardShell
       kind="onboarding"
       step={4}
       total={6}
       title="Mailflow behavior"
-      subtitle="Recommended defaults are pre-selected. You can adjust these anytime in Settings."
+      subtitle="Choose how Mailflow should handle mailbox actions. Core classification and safety protections stay enabled."
       back={{ onClick: () => controller.setStep("privacy") }}
       next={{
         label: controller.busy ? "Saving…" : "Continue",
@@ -358,22 +359,54 @@ function Behavior({ controller }: { controller: OnboardingController }) {
         <BehaviorRow
           title="Classification"
           copy="Categorize incoming email automatically"
-          control={<span className={styles.toggle} aria-label="Enabled" />}
+          control={<span className={styles.policy}>Always enabled</span>}
         />
         <BehaviorRow
           title="Tags"
           copy="Apply system urgency & action tags"
-          control={<span className={styles.toggle} aria-label="Enabled" />}
+          control={<span className={styles.policy}>Always enabled</span>}
         />
         <BehaviorRow
           title="Move to folders"
-          copy="Organize into mapped folders automatically"
-          control={<span className={styles.policy}>Automatic when safe</span>}
+          copy="Choose whether safe folder moves run automatically or require review"
+          control={
+            <select
+              className={styles.policy}
+              aria-label="Move to folders policy"
+              value={form.move_policy}
+              onChange={(event) =>
+                controller.setAccountForm({
+                  ...form,
+                  move_policy: event.target.value as typeof form.move_policy,
+                })
+              }
+            >
+              <option value="off">Off</option>
+              <option value="review">Review first</option>
+              <option value="automatic">Automatic when safe</option>
+            </select>
+          }
         />
         <BehaviorRow
           title="Archive"
-          copy="Archive processed email automatically"
-          control={<span className={styles.policy}>Review first</span>}
+          copy="Choose whether processed email may be archived automatically"
+          control={
+            <select
+              className={styles.policy}
+              aria-label="Archive policy"
+              value={form.archive_policy}
+              onChange={(event) =>
+                controller.setAccountForm({
+                  ...form,
+                  archive_policy: event.target.value as typeof form.archive_policy,
+                })
+              }
+            >
+              <option value="off">Off</option>
+              <option value="review">Review first</option>
+              <option value="automatic">Automatic when safe</option>
+            </select>
+          }
         />
         <BehaviorRow
           title="Delete"
