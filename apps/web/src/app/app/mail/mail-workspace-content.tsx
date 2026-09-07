@@ -3,6 +3,8 @@
 import { mailAttachmentUrl } from "@/lib/api";
 import { enumLabel, useI18n } from "@/lib/i18n";
 import type { MessageDetail } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { loadRichHtml, rememberRemoteSender, trustedRemoteSenders } from "./mail-data-api";
 import { mailFolderLabel } from "./mail-folder-label";
 import { MailIcon } from "./mail-icons";
 import { formatAttachmentBytes, messageKey } from "./mail-workspace-utils";
@@ -78,11 +80,14 @@ function MoveControls({ state }: { state: WorkspaceState }) {
   const { t, locale } = useI18n();
   const selected = state.selected;
   if (!selected) return null;
+  const folders = state.accountFilter === "all"
+    ? state.metadata?.folders.filter((folder) => folder.selectable) ?? []
+    : state.selectableFolders;
   return (
     <div className={styles.moveGroup}>
       <select className={styles.moveSelect} value={state.moveFolder} onChange={(event) => state.setMoveFolder(event.currentTarget.value)} aria-label={t("mail.moveTo")}>
         <option value="">{t("mail.moveTo")}</option>
-        {state.selectableFolders.filter((folder) => folder.name !== selected.folder).map((folder) => (
+        {folders.filter((folder) => folder.name !== selected.folder).map((folder) => (
           <option key={folder.name} value={folder.name}>{mailFolderLabel(folder, locale)}</option>
         ))}
       </select>
@@ -115,6 +120,58 @@ function addTag(state: WorkspaceState, prompt: string) {
 function MessageArticle({ message }: { message: MessageDetail }) {
   const { t, locale } = useI18n();
   const tags = Array.from(new Set([...message.system_tags, ...message.user_tags, ...message.keywords])).filter((tag) => tag.trim());
+  const [richHtml, setRichHtml] = useState<string | null>(null);
+  const [richLoading, setRichLoading] = useState(false);
+  const [richError, setRichError] = useState<string | null>(null);
+  const [trusted, setTrusted] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setRichHtml(null);
+    setRichError(null);
+    setTrusted(false);
+    if (!message.safe_html) return () => { active = false; };
+    const sender = senderEmail(message.from_email);
+    void trustedRemoteSenders()
+      .then((senders) => {
+        if (!active || !sender || !senders.includes(sender)) return;
+        setTrusted(true);
+        setRichLoading(true);
+        return loadRichHtml(message.account_id, message.folder, message.uid, false)
+          .then((result) => {
+            if (active && result.html) setRichHtml(result.html);
+          })
+          .finally(() => {
+            if (active) setRichLoading(false);
+          });
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [message.account_id, message.folder, message.uid, message.from_email, message.safe_html]);
+
+  async function showRich(remember: boolean) {
+    setRichLoading(true);
+    setRichError(null);
+    try {
+      const result = await loadRichHtml(message.account_id, message.folder, message.uid, true);
+      if (remember && result.sender_email) {
+        await rememberRemoteSender(result.sender_email);
+        setTrusted(true);
+      }
+      if (result.html) setRichHtml(result.html);
+    } catch {
+      setRichError(locale === "de" ? "HTML-Ansicht konnte nicht geladen werden." : locale === "es" ? "No se pudo cargar la vista HTML." : "HTML view could not be loaded.");
+    } finally {
+      setRichLoading(false);
+    }
+  }
+
+  const copy = locale === "de"
+    ? { notice: "HTML-Ansicht verfügbar. Externe Bilder und Styles werden erst nach deiner Bestätigung geladen.", once: "Einmal HTML anzeigen", always: "Für diesen Absender immer erlauben", trusted: "HTML für diesen Absender erlaubt" }
+    : locale === "es"
+      ? { notice: "Vista HTML disponible. Las imágenes y estilos externos se cargarán solo después de tu confirmación.", once: "Mostrar HTML una vez", always: "Permitir siempre para este remitente", trusted: "HTML permitido para este remitente" }
+      : { notice: "HTML view available. External images and styles load only after you confirm.", once: "Show HTML once", always: "Always allow for this sender", trusted: "HTML allowed for this sender" };
+
   return (
     <article className={styles.threadMessage}>
       <header className={styles.messageHeader}>
@@ -141,8 +198,30 @@ function MessageArticle({ message }: { message: MessageDetail }) {
           {tags.map((tag) => <span key={tag} className={styles.tagPill}><MailIcon name="tag" size={10} />{tag}</span>)}
         </div>
       )}
+      {message.safe_html && !richHtml && (
+        <div className={styles.remoteContentNotice}>
+          <div>
+            <strong>{trusted ? copy.trusted : copy.notice}</strong>
+            {richError && <span className={styles.remoteContentError}>{richError}</span>}
+          </div>
+          {!trusted && (
+            <div className={styles.remoteContentActions}>
+              <button type="button" disabled={richLoading} onClick={() => void showRich(false)}>{copy.once}</button>
+              <button type="button" disabled={richLoading} onClick={() => void showRich(true)}>{copy.always}</button>
+            </div>
+          )}
+        </div>
+      )}
       <div className={styles.messageBodyCard}>
-        {message.safe_html ? (
+        {richHtml ? (
+          <iframe
+            className={styles.richMailFrame}
+            title={message.subject || "HTML mail"}
+            sandbox="allow-popups allow-popups-to-escape-sandbox"
+            referrerPolicy="no-referrer"
+            srcDoc={richHtml}
+          />
+        ) : message.safe_html ? (
           <div className={styles.mailBody} /* biome-ignore lint/security/noDangerouslySetInnerHtml: API sanitizes this fragment. */ dangerouslySetInnerHTML={{ __html: message.safe_html }} />
         ) : (
           <div className={styles.mailBody}>{message.body_text || t("mail.emptyMessage")}</div>
@@ -179,4 +258,9 @@ function InsightCard({ state }: { state: WorkspaceState }) {
 function displaySender(value: string): string {
   const match = value.match(/^\s*([^<]+?)\s*<[^>]+>\s*$/);
   return match?.[1]?.trim() || value;
+}
+
+function senderEmail(value: string): string {
+  const match = value.match(/<([^>]+)>/);
+  return (match?.[1] || value).trim().toLowerCase();
 }
