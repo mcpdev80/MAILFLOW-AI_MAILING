@@ -102,8 +102,16 @@ class UnifiedInbox(BaseModel):
 class MessageDetail(InboxMessage):
     body_text: str
     safe_html: str | None = None
+    rich_html: str | None = None
+    has_html: bool = False
+    remote_content_trusted: bool = False
     in_reply_to: str | None = None
     references: list[str] = Field(default_factory=list)
+
+
+class RemoteContentPreference(BaseModel):
+    sender_email: str = Field(min_length=3, max_length=320)
+    allowed: bool
 
 
 class ThreadInsights(BaseModel):
@@ -143,7 +151,7 @@ class MailActionRequest(BaseModel):
     tags: list[str] = Field(default_factory=list, max_length=50)
 
     @model_validator(mode="after")
-    def validate_arguments(self) -> MailActionRequest:
+    def validate_arguments(self) -> "MailActionRequest":
         if (
             self.action in {"move", "restore"}
             and not (self.destination_folder or "").strip()
