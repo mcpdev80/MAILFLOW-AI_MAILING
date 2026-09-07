@@ -217,6 +217,7 @@ class AccountRepository:
                 "gemini": "gemini",
                 "openrouter": "openrouter",
                 "ollama": "ollama",
+                "custom": "openai",
             }.get(provider.type.lower())
             return f"{prefix}/{model_id}" if prefix else model_id
 
@@ -236,6 +237,7 @@ class AccountRepository:
         generation_model = model_for("generation", generation_provider) or fast_model
         return SimpleNamespace(
             is_active=True,
+            type=fast_provider.type,
             base_url=fast_provider.base_url,
             encrypted_api_key=fast_provider.encrypted_api_key,
             default_classification_model=fast_model,
