@@ -30,6 +30,7 @@ from app.routers import (
     dashboard_router,
     decision_memory_router,
     inference_health_router,
+    instance_llm_router,
     internal_router,
     lifecycle_router,
     llm_providers_router,
@@ -94,6 +95,7 @@ app.include_router(inference_health_router)
 app.include_router(workload_router)
 app.include_router(oauth_router)
 app.include_router(billing_router)
+app.include_router(instance_llm_router)
 app.include_router(internal_router)
 app.include_router(metrics_router)
 
