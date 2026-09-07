@@ -1,8 +1,15 @@
 import { AppearanceProvider } from "@/lib/appearance-preferences";
 import { I18nProvider } from "@/lib/i18n";
 import type { Metadata } from "next";
+import { Manrope } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-manrope",
+});
 
 export const metadata: Metadata = {
   title: "MailFlow",
@@ -14,7 +21,7 @@ export default function RootLayout({
 }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body className={manrope.variable}>
         <AppearanceProvider>
           <I18nProvider>
             <Suspense fallback={null}>{children}</Suspense>
