@@ -16,15 +16,21 @@ test.beforeEach(async ({ page }) => {
   await installMockApi(page);
 });
 
-test("setup remains available before the first instance owner exists", async ({ page }) => {
+test("setup remains available before the first instance owner exists", async ({
+  page,
+}) => {
   await page.route("**/api/instance-bootstrap/status", (route) =>
     bootstrapStatus(route, false),
   );
   await page.goto("/setup");
-  await expect(page.getByRole("heading", { name: "Welcome to Mailflow" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Welcome to Mailflow" }),
+  ).toBeVisible();
 });
 
-test("setup redirects away after the first instance owner exists", async ({ page }) => {
+test("setup redirects away after the first instance owner exists", async ({
+  page,
+}) => {
   await page.route("**/api/instance-bootstrap/status", (route) =>
     bootstrapStatus(route, true),
   );
@@ -33,7 +39,9 @@ test("setup redirects away after the first instance owner exists", async ({ page
   await expect(page).toHaveURL(/\/app(?:\/|$)/);
 });
 
-test("public signup is closed after the first instance owner exists", async ({ page }) => {
+test("public signup is closed after the first instance owner exists", async ({
+  page,
+}) => {
   await page.route("**/api/instance-bootstrap/status", (route) =>
     bootstrapStatus(route, true),
   );
