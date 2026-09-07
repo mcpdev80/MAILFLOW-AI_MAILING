@@ -67,25 +67,18 @@ jobs:
 
           installer = Path("scripts/install.sh")
           text = installer.read_text()
-          old = '''    1)
-              printf '\\n==> %s\\n' "$(msg updating)"
-              checkout_ref "$DEFAULT_INSTALL" "$BRANCH"
-              MAILFLOW_INSTALL_REF="$BRANCH" MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
-              ;;
-          '''
-          new = '''    1)
-              printf '\\n==> %s\\n' "$(msg updating)"
-              MAILFLOW_ROOT="$DEFAULT_INSTALL" MAILFLOW_INSTALL_REF="$BRANCH" exec bash <(curl -fsSL "$RAW_BASE/mailflow-cli.sh") update
-              ;;
-          '''
-          if old not in text:
-              raise SystemExit("install.sh update anchor not found")
-          installer.write_text(text.replace(old, new, 1))
+          checkout_line = '      checkout_ref "$DEFAULT_INSTALL" "$BRANCH"\n'
+          resume_line = '      MAILFLOW_INSTALL_REF="$BRANCH" MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"\n'
+          replacement = '      MAILFLOW_ROOT="$DEFAULT_INSTALL" MAILFLOW_INSTALL_REF="$BRANCH" exec bash <(curl -fsSL "$RAW_BASE/mailflow-cli.sh") update\n'
+          if checkout_line not in text or resume_line not in text:
+              raise SystemExit("install.sh update lines not found")
+          text = text.replace(checkout_line, "", 1).replace(resume_line, replacement, 1)
+          installer.write_text(text)
 
           readme = Path("README.md")
           text = readme.read_text()
           if "## Managed lifecycle commands" not in text:
-              text += '''\n\n## Managed lifecycle commands\n\nAfter installation, manage the self-hosted instance from the checkout with one command:\n\n```bash\n./mailflow status\n./mailflow doctor\n./mailflow update\n./mailflow backup\n./mailflow restore ~/.mailflow/backups/<backup>\n```\n\n`./mailflow update` creates a protected database/configuration/attachment backup before changing code, performs the normal migrations, validates API, worker, web and TLS, and automatically restores the previous commit and backup if the update fails. Backups are kept below `.mailflow/backups/` inside the installation directory and are never committed.\n'''
+              text += '''\n\n## Managed lifecycle commands\n\nAfter installation, manage the self-hosted instance from the checkout with one command:\n\n```bash\n./mailflow status\n./mailflow doctor\n./mailflow update\n./mailflow backup\n./mailflow restore .mailflow/backups/<backup>\n```\n\n`./mailflow update` creates a protected database/configuration/attachment backup before changing code, performs the normal migrations, validates API, worker, web and TLS, and automatically restores the previous commit and backup if the update fails. Backups are kept below `.mailflow/backups/` inside the installation directory and are never committed.\n'''
               readme.write_text(text)
           PY
       - name: Shell syntax
