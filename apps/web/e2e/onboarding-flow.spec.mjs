@@ -158,7 +158,7 @@ async function mockAuth(
         user: { id: userId, name: "Member", email },
       });
     }
-    if (path.endsWith("/organization/create")) {
+    if (path.includes("/organization/create")) {
       calls.createOrganization += 1;
       return json(route, {
         id: "auth-org-1",

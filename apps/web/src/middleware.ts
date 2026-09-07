@@ -22,9 +22,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/app/:path*",
-    "/onboarding",
-    "/accept-invitation/:path*",
-  ],
+  matcher: ["/app/:path*", "/onboarding", "/accept-invitation/:path*"],
 };

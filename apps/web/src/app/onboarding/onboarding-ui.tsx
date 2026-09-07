@@ -398,7 +398,8 @@ function Behavior({ controller }: { controller: OnboardingController }) {
               onChange={(event) =>
                 controller.setAccountForm({
                   ...form,
-                  archive_policy: event.target.value as typeof form.archive_policy,
+                  archive_policy: event.target
+                    .value as typeof form.archive_policy,
                 })
               }
             >

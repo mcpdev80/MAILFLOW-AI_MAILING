@@ -29,10 +29,7 @@ function isPreAuthSetupRoute(method: string, targetPath: string): boolean {
   if (method === "GET" && targetPath === "/health") return true;
   if (method === "GET" && targetPath === "/llm-providers") return true;
   if (method === "POST" && targetPath === "/llm-providers") return true;
-  if (
-    method === "POST" &&
-    targetPath === "/llm-providers/discover-models"
-  )
+  if (method === "POST" && targetPath === "/llm-providers/discover-models")
     return true;
   return false;
 }

@@ -125,7 +125,9 @@ export async function resolveApiKey(
     };
   }
 
-  const authTime = Math.floor(new Date(session.session.createdAt).getTime() / 1000);
+  const authTime = Math.floor(
+    new Date(session.session.createdAt).getTime() / 1000,
+  );
   if (!Number.isFinite(authTime)) {
     return { ok: false, status: 401, error: "invalid_session_timestamp" };
   }

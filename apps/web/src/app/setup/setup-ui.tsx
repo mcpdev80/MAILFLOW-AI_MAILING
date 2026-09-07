@@ -115,14 +115,16 @@ export function InstanceSetup() {
       setProvider((current) => ({
         ...current,
         base_url: current.base_url.trim(),
-        default_classification_model:
-          result.models.includes(current.default_classification_model)
-            ? current.default_classification_model
-            : result.models[0] || "",
-        default_generation_model:
-          result.models.includes(current.default_generation_model)
-            ? current.default_generation_model
-            : result.models[0] || "",
+        default_classification_model: result.models.includes(
+          current.default_classification_model,
+        )
+          ? current.default_classification_model
+          : result.models[0] || "",
+        default_generation_model: result.models.includes(
+          current.default_generation_model,
+        )
+          ? current.default_generation_model
+          : result.models[0] || "",
       }));
     } catch (err) {
       setProviderModels([]);
@@ -401,7 +403,9 @@ export function InstanceSetup() {
                 onClick={() => void discoverModels()}
                 disabled={discoveryBusy || !provider.base_url.trim()}
               >
-                {discoveryBusy ? "Loading models..." : "Save connection & load models"}
+                {discoveryBusy
+                  ? "Loading models..."
+                  : "Save connection & load models"}
               </button>
 
               {providerConnectionReady && providerModels.length > 0 ? (
@@ -460,7 +464,9 @@ export function InstanceSetup() {
         <div className={s.info}>
           <span className={s.infoIcon}>i</span>
           <span>
-            The API key is sent only to your Mailflow backend for model discovery and is stored encrypted when you finish saving the provider.
+            The API key is sent only to your Mailflow backend for model
+            discovery and is stored encrypted when you finish saving the
+            provider.
           </span>
         </div>
       </WizardShell>
