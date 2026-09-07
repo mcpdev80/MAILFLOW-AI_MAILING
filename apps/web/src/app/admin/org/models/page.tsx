@@ -132,6 +132,10 @@ export default function OrganizationModelsPage() {
     [models],
   );
 
+  function setRoleModel(role: Role, value: string) {
+    setRoles((current) => ({ ...current, [role]: value }));
+  }
+
   async function save() {
     if (!roles.fast || !roles.deep || !roles.generation) return;
     setBusy(true);
@@ -197,10 +201,7 @@ export default function OrganizationModelsPage() {
                 <select
                   value={roles[role]}
                   onChange={(event) =>
-                    setRoles((current) => ({
-                      ...current,
-                      [role]: event.currentTarget.value,
-                    }))
+                    setRoleModel(role, event.currentTarget.value)
                   }
                 >
                   <option value="">–</option>
