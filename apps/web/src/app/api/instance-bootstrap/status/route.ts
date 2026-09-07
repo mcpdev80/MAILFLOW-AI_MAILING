@@ -4,7 +4,10 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   if (!authEnabled || !auth) {
-    return NextResponse.json({ auth_enabled: false, instance_owner_exists: false });
+    return NextResponse.json({
+      auth_enabled: false,
+      instance_owner_exists: false,
+    });
   }
   return NextResponse.json({
     auth_enabled: true,
