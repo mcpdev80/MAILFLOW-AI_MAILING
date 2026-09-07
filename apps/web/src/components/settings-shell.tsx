@@ -19,7 +19,7 @@ const mailboxToolDefs = [
   ["/app/settings/folders", "folders"],
   ["/app/settings/folder-discovery", "discovery"],
   ["/app/settings/category-mapping", "mapping"],
-  ["/app/settings/review-apply", "review"],
+  ["/app/settings/structure-review", "review"],
 ] as const;
 
 const copy = {
