@@ -13,6 +13,7 @@ from email.utils import parseaddr
 
 import dns.resolver
 from bs4 import BeautifulSoup
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.sender_brand import SenderBrandCache
@@ -116,7 +117,10 @@ def _read_url(url: str, *, limit: int, expected_domain: str | None = None) -> tu
         with response:
             content_type = (response.headers.get_content_type() or "application/octet-stream").lower()
             length = response.headers.get("Content-Length")
-            if length and int(length) > limit:
+            try:
+                if length and int(length) > limit:
+                    return None
+            except ValueError:
                 return None
             payload = response.read(limit + 1)
             if len(payload) > limit:
@@ -154,7 +158,7 @@ def _validated_image(result: tuple[bytes, str, str] | None) -> tuple[bytes, str,
 def _bimi_logo(domain: str) -> tuple[bytes, str, str, str] | None:
     try:
         answers = dns.resolver.resolve(f"default._bimi.{domain}", "TXT", lifetime=3)
-    except Exception:  # DNS failures are expected and become a normal fallback.
+    except Exception:
         return None
     for answer in answers:
         record = b"".join(answer.strings).decode("utf-8", errors="ignore")
@@ -207,22 +211,14 @@ def _discover(domain: str) -> tuple[bytes, str, str, str] | None:
     return _bimi_logo(domain) or _website_logo(domain)
 
 
-async def sender_brand_asset(
+async def _store_result(
     session: AsyncSession,
-    address: str,
+    domain: str,
+    discovered: tuple[bytes, str, str, str] | None,
+    now: datetime,
 ) -> tuple[bytes, str, str] | None:
-    domain = sender_domain(address)
-    if domain is None:
-        return None
-    now = datetime.now(tz=UTC)
-    cached = await session.get(SenderBrandCache, domain)
-    if cached is not None and cached.expires_at > now:
-        if cached.status == "found" and cached.image_data and cached.content_type:
-            return bytes(cached.image_data), cached.content_type, cached.source_type or "cache"
-        return None
-
-    discovered = await asyncio.to_thread(_discover, domain)
     expires_at = now + (_POSITIVE_TTL if discovered else _NEGATIVE_TTL)
+    cached = await session.get(SenderBrandCache, domain)
     if cached is None:
         cached = SenderBrandCache(domain=domain, expires_at=expires_at)
         session.add(cached)
@@ -245,3 +241,26 @@ async def sender_brand_asset(
     cached.image_data = payload
     await session.commit()
     return payload, content_type, source_type
+
+
+async def sender_brand_asset(
+    session: AsyncSession,
+    address: str,
+) -> tuple[bytes, str, str] | None:
+    domain = sender_domain(address)
+    if domain is None:
+        return None
+    now = datetime.now(tz=UTC)
+    cached = await session.get(SenderBrandCache, domain)
+    if cached is not None and cached.expires_at > now:
+        if cached.status == "found" and cached.image_data and cached.content_type:
+            return bytes(cached.image_data), cached.content_type, cached.source_type or "cache"
+        return None
+
+    discovered = await asyncio.to_thread(_discover, domain)
+    try:
+        return await _store_result(session, domain, discovered, now)
+    except IntegrityError:
+        # Two browser image requests for the same domain may race on a cold cache.
+        await session.rollback()
+        return await _store_result(session, domain, discovered, now)
