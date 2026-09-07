@@ -77,12 +77,31 @@ function AreaSwitcher() {
   const { context } = useAccessContext();
   const [switching, setSwitching] = useState(false);
   const labels = {
-    de: { label: "Bereich", instance: "Instanzverwaltung", org: "Organisation", mail: "Mail" },
-    en: { label: "Area", instance: "Instance administration", org: "Organization", mail: "Mail" },
-    es: { label: "Área", instance: "Administración de instancia", org: "Organización", mail: "Correo" },
+    de: {
+      label: "Bereich",
+      instance: "Instanzverwaltung",
+      org: "Organisation",
+      mail: "Mail",
+    },
+    en: {
+      label: "Area",
+      instance: "Instance administration",
+      org: "Organization",
+      mail: "Mail",
+    },
+    es: {
+      label: "Área",
+      instance: "Administración de instancia",
+      org: "Organización",
+      mail: "Correo",
+    },
   }[locale];
 
-  if (!context || (!context.instance_role && context.organizations.every((org) => org.role === "member"))) {
+  if (
+    !context ||
+    (!context.instance_role &&
+      context.organizations.every((org) => org.role === "member"))
+  ) {
     return null;
   }
 
@@ -99,8 +118,11 @@ function AreaSwitcher() {
       }
       const [target, organizationId] = next.split(":", 2);
       if (!organizationId) return;
-      const result = await authClient.organization.setActive({ organizationId });
-      if (result.error) throw new Error(result.error.message ?? "set_active_failed");
+      const result = await authClient.organization.setActive({
+        organizationId,
+      });
+      if (result.error)
+        throw new Error(result.error.message ?? "set_active_failed");
       router.push(target === "org" ? "/admin/org" : "/app/dashboard");
       router.refresh();
     } finally {
@@ -118,7 +140,9 @@ function AreaSwitcher() {
         onChange={(event) => void switchArea(event.currentTarget.value)}
       >
         {!activeId && <option value="">{labels.mail}</option>}
-        {context.instance_role && <option value="instance">{labels.instance}</option>}
+        {context.instance_role && (
+          <option value="instance">{labels.instance}</option>
+        )}
         {context.organizations
           .filter((org) => org.role === "owner" || org.role === "admin")
           .map((org) => (
