@@ -1,5 +1,6 @@
 "use client";
 
+import { getAccessContext } from "@/lib/access-context";
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
@@ -13,12 +14,14 @@ export function useLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const finish = useCallback(() => router.push(redirectTarget()), [router]);
+  const finish = useCallback(async () => {
+    router.push(await redirectTarget());
+  }, [router]);
 
   useEffect(() => {
     let cancelled = false;
     void conditionalPasskey().then((authenticated) => {
-      if (!cancelled && authenticated) finish();
+      if (!cancelled && authenticated) void finish();
     });
     return () => {
       cancelled = true;
@@ -34,7 +37,7 @@ export function useLoginPage() {
       setBusy(false);
       return;
     }
-    finish();
+    await finish();
   }, [finish, t]);
 
   const signInWithPassword = useCallback(async () => {
@@ -46,7 +49,7 @@ export function useLoginPage() {
       setBusy(false);
       return;
     }
-    finish();
+    await finish();
   }, [email, finish, password, t]);
 
   return {
@@ -71,10 +74,17 @@ async function conditionalPasskey(): Promise<boolean> {
   return !result.error;
 }
 
-function redirectTarget(): string {
+async function redirectTarget(): Promise<string> {
   if (typeof window === "undefined") return "/app/dashboard";
   const requested = new URLSearchParams(window.location.search).get("redirect");
-  return requested?.startsWith("/") && !requested.startsWith("//")
-    ? requested
-    : "/app/dashboard";
+  if (requested?.startsWith("/") && !requested.startsWith("//")) return requested;
+
+  try {
+    const context = await getAccessContext();
+    if (context.recommended_area === "instance") return "/admin/instance";
+    if (context.recommended_area === "organization") return "/admin/org";
+  } catch {
+    // Fall back to the personal mail area when context resolution is unavailable.
+  }
+  return "/app/dashboard";
 }
