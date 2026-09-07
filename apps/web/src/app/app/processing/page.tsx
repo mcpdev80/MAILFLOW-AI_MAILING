@@ -5,10 +5,19 @@ import { api } from "@/lib/api";
 import { type BackfillJob, backfillApi } from "@/lib/backfill-api";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 import type { EmailAccount } from "@/lib/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type JobWithMailbox = BackfillJob & { mailbox: string };
+type JobWithMailbox = BackfillJob & {
+  mailbox: string;
+  ratePerMinute: number | null;
+};
 type Filter = "all" | "active" | "completed" | "failed";
+
+type RateSample = {
+  processed: number;
+  at: number;
+  ratePerMinute: number | null;
+};
 
 export default function ProcessingPage() {
   const { t } = useI18n();
@@ -19,50 +28,86 @@ export default function ProcessingPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const rateSamples = useRef<Map<string, RateSample>>(new Map());
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const accountList = await api.listAccounts();
-      setAccounts(accountList);
-      const [backfills, cycles] = await Promise.all([
-        Promise.all(
-          accountList.map(async (account) =>
-            (await backfillApi.list(account.id)).map((job) => ({
-              ...job,
-              mailbox: account.username,
-            })),
+  const active = jobs.filter((job) => job.state === "running").length;
+  const delayed = jobs.filter((job) => job.state === "paused").length;
+  const failures = jobs.filter((job) => job.state === "failed").length;
+
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const accountList = await api.listAccounts();
+        setAccounts(accountList);
+        const [backfills, cycles] = await Promise.all([
+          Promise.all(
+            accountList.map(async (account) =>
+              (await backfillApi.list(account.id)).map((job) => ({
+                ...job,
+                mailbox: account.username,
+              })),
+            ),
           ),
-        ),
-        Promise.all(accountList.map((account) => api.listCycles(account.id))),
-      ]);
-      setJobs(
-        backfills
+          Promise.all(accountList.map((account) => api.listCycles(account.id))),
+        ]);
+
+        const sampledAt = Date.now();
+        const flatBackfills: JobWithMailbox[] = backfills
           .flat()
-          .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)),
-      );
-      const today = new Date();
-      setProcessedToday(
-        cycles
+          .map((job) => {
+            const previous = rateSamples.current.get(job.id);
+            let ratePerMinute = previous?.ratePerMinute ?? null;
+            if (
+              previous &&
+              job.processed > previous.processed &&
+              sampledAt > previous.at
+            ) {
+              ratePerMinute =
+                (job.processed - previous.processed) /
+                ((sampledAt - previous.at) / 60_000);
+            }
+            rateSamples.current.set(job.id, {
+              processed: job.processed,
+              at: sampledAt,
+              ratePerMinute,
+            });
+            return { ...job, ratePerMinute };
+          })
+          .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+
+        setJobs(flatBackfills);
+        const today = new Date();
+        const cycleProcessedToday = cycles
           .flat()
           .filter((cycle) => sameLocalDay(new Date(cycle.created_at), today))
-          .reduce((sum, cycle) => sum + cycle.emails_processed, 0),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("processing.unableLoad"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+          .reduce((sum, cycle) => sum + cycle.emails_processed, 0);
+        const backfillProcessedToday = flatBackfills
+          .filter((job) => sameLocalDay(new Date(job.updated_at), today))
+          .reduce((sum, job) => sum + job.processed, 0);
+        setProcessedToday(cycleProcessedToday + backfillProcessedToday);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("processing.unableLoad"));
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const active = jobs.filter((job) => job.state === "running").length;
-  const delayed = jobs.filter((job) => job.state === "paused").length;
-  const failures = jobs.filter((job) => job.state === "failed").length;
+  useEffect(() => {
+    if (active === 0) return;
+    const timer = window.setInterval(() => {
+      void load(true);
+    }, 5_000);
+    return () => window.clearInterval(timer);
+  }, [active, load]);
+
   const filtered = useMemo(
     () =>
       jobs.filter((job) => {
@@ -256,6 +301,7 @@ function Kpi({
     </div>
   );
 }
+
 function FilterChip({
   value,
   label,
@@ -277,6 +323,7 @@ function FilterChip({
     </button>
   );
 }
+
 function JobRow({
   job,
   t,
@@ -297,6 +344,11 @@ function JobRow({
           : job.state === "running"
             ? page.info
             : page.neutral;
+  const etaMinutes =
+    job.ratePerMinute && job.ratePerMinute > 0
+      ? job.remaining / job.ratePerMinute
+      : null;
+
   return (
     <tr>
       <td>
@@ -309,8 +361,11 @@ function JobRow({
       </td>
       <td>{job.mailbox}</td>
       <td>
-        <div style={{ display: "grid", gap: 6, minWidth: 150 }}>
-          <strong>{percent}%</strong>
+        <div style={{ display: "grid", gap: 6, minWidth: 220 }}>
+          <strong>
+            {percent}% · {job.processed.toLocaleString()} /{" "}
+            {job.total_discovered.toLocaleString()}
+          </strong>
           <div className={page.progressTrack}>
             <div
               className={page.progressBar}
@@ -321,6 +376,27 @@ function JobRow({
               }}
             />
           </div>
+          <div style={{ color: "var(--mf-text-muted)", fontSize: 11 }}>
+            {t("processing.successful")}: {job.successful.toLocaleString()} ·{" "}
+            {t("processing.reviewRequired")}: {job.review_required.toLocaleString()} ·{" "}
+            {t("processing.failed")}: {job.failed.toLocaleString()}
+          </div>
+          {job.ratePerMinute !== null && job.ratePerMinute > 0 && (
+            <div style={{ color: "var(--mf-text-muted)", fontSize: 11 }}>
+              {t("processing.rate")}: {job.ratePerMinute.toFixed(1)}/min
+              {etaMinutes !== null && (
+                <>
+                  {" · "}
+                  {t("processing.eta")}: {formatDurationMinutes(etaMinutes)}
+                </>
+              )}
+            </div>
+          )}
+          {job.last_error && (
+            <div style={{ color: "var(--mf-danger)", fontSize: 11 }}>
+              {job.last_error}
+            </div>
+          )}
         </div>
       </td>
       <td>
@@ -333,6 +409,7 @@ function JobRow({
     </tr>
   );
 }
+
 function statusLabel(
   state: string,
   t: (key: TranslationKey) => string,
@@ -344,12 +421,22 @@ function statusLabel(
   if (state === "cancelled") return t("processing.cancelled");
   return state;
 }
+
 function formatTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
 }
+
+function formatDurationMinutes(value: number): string {
+  const minutes = Math.max(0, Math.round(value));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
 function sameLocalDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
