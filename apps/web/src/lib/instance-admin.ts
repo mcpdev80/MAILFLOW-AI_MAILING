@@ -7,10 +7,14 @@ export type InstanceRole = "owner" | "admin";
 export async function ensureInstanceAdminTable(): Promise<void> {
   await pool.query(`
     create table if not exists "mailflow_instance_admin" (
-      "userId" text primary key,
+      "userId" text primary key references "user" ("id") on delete cascade,
       "role" text not null check ("role" in ('owner', 'admin')),
       "createdAt" timestamptz not null default now()
     )
+  `);
+  await pool.query(`
+    create unique index if not exists "mailflow_instance_admin_single_owner_uidx"
+    on "mailflow_instance_admin" ("role") where "role" = 'owner'
   `);
 }
 
@@ -44,10 +48,14 @@ export async function claimInitialInstanceOwner(userId: string): Promise<boolean
       await client.query("rollback");
       return false;
     }
-    await client.query(
-      'insert into "mailflow_instance_admin" ("userId", "role") values ($1, \'owner\') on conflict ("userId") do nothing',
+    const inserted = await client.query(
+      'insert into "mailflow_instance_admin" ("userId", "role") values ($1, \'owner\') on conflict ("userId") do nothing returning "userId"',
       [userId],
     );
+    if ((inserted.rowCount ?? 0) !== 1) {
+      await client.query("rollback");
+      return false;
+    }
     await client.query("commit");
     return true;
   } catch (error) {
@@ -56,4 +64,24 @@ export async function claimInitialInstanceOwner(userId: string): Promise<boolean
   } finally {
     client.release();
   }
+}
+
+export async function grantInstanceAdmin(userId: string): Promise<void> {
+  await ensureInstanceAdminTable();
+  const existing = await getInstanceRole(userId);
+  if (existing === "owner") return;
+  await pool.query(
+    `insert into "mailflow_instance_admin" ("userId", "role") values ($1, 'admin')
+     on conflict ("userId") do update set "role" = 'admin'`,
+    [userId],
+  );
+}
+
+export async function revokeInstanceAdmin(userId: string): Promise<boolean> {
+  await ensureInstanceAdminTable();
+  const result = await pool.query(
+    'delete from "mailflow_instance_admin" where "userId" = $1 and "role" = \'admin\'',
+    [userId],
+  );
+  return (result.rowCount ?? 0) > 0;
 }
