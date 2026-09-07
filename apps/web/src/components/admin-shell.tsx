@@ -14,6 +14,7 @@ type Copy = {
   overview: string;
   organizations: string;
   members: string;
+  models: string;
   context: string;
   instance: string;
   orgAdmin: string;
@@ -27,6 +28,7 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     overview: "Übersicht",
     organizations: "Organisationen",
     members: "Mitglieder",
+    models: "KI & Modelle",
     context: "Bereich wechseln",
     instance: "Instanzverwaltung",
     orgAdmin: "Organisationsverwaltung",
@@ -38,6 +40,7 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     overview: "Overview",
     organizations: "Organizations",
     members: "Members",
+    models: "AI & Models",
     context: "Switch area",
     instance: "Instance administration",
     orgAdmin: "Organization administration",
@@ -49,6 +52,7 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     overview: "Resumen",
     organizations: "Organizaciones",
     members: "Miembros",
+    models: "IA y modelos",
     context: "Cambiar área",
     instance: "Administración de instancia",
     orgAdmin: "Administración de organización",
@@ -120,6 +124,7 @@ export function AdminShell({
       : [
           { href: "/admin/org", label: copy.overview, glyph: "▦" },
           { href: "/admin/org/members", label: copy.members, glyph: "○" },
+          { href: "/admin/org/models", label: copy.models, glyph: "◇" },
         ];
 
   async function switchArea(value: string) {
