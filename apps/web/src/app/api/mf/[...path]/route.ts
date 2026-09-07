@@ -16,6 +16,7 @@ const ALLOWED_PREFIXES = new Set([
   "accounts",
   "attention",
   "bootstrap",
+  "llm-catalog",
   "llm-providers",
   "mail",
   "mail-client",
@@ -39,8 +40,19 @@ function requiresOrganizationAdmin(
   method: string,
   targetPath: string,
 ): boolean {
+  if (targetPath === "/llm-catalog/assignments" && method.toUpperCase() === "PUT") {
+    return true;
+  }
   if (!targetPath.startsWith("/llm-providers")) return false;
   return !["GET", "HEAD"].includes(method.toUpperCase());
+}
+
+function legacyProviderRouteBlocked(
+  targetPath: string,
+  actor: Parameters<typeof actorHeaders>[2],
+): boolean {
+  if (!actor || !targetPath.startsWith("/llm-providers")) return false;
+  return true;
 }
 
 function buildForwardHeaders(
@@ -82,6 +94,13 @@ async function proxy(
     return NextResponse.json(
       { detail: resolution.error },
       { status: resolution.status },
+    );
+  }
+
+  if (legacyProviderRouteBlocked(targetPath, resolution.actor)) {
+    return NextResponse.json(
+      { detail: "llm_provider_management_is_instance_scoped" },
+      { status: 403 },
     );
   }
 
