@@ -83,3 +83,18 @@ For detailed provenance and copyright scope, see [`NOTICE.md`](NOTICE.md), [`COP
 If you copy, fork, modify, redistribute, or operate a modified covered version of this project, review the full AGPL-3.0 terms in [`LICENSE`](LICENSE). Among other things, do not remove applicable copyright, license, warranty, provenance, or modification notices that the license requires to remain intact.
 
 The project name and upstream branding are not claimed here as exclusive trademarks of this fork.
+
+
+## Managed lifecycle commands
+
+After installation, manage the self-hosted instance from the checkout with one command:
+
+```bash
+./mailflow status
+./mailflow doctor
+./mailflow update
+./mailflow backup
+./mailflow restore .mailflow/backups/<backup>
+```
+
+`./mailflow update` creates a protected database/configuration/attachment backup before changing code, performs the normal migrations, validates API, worker, web and TLS, and automatically restores the previous commit and backup if the update fails. Backups are kept below `.mailflow/backups/` inside the installation directory and are never committed.

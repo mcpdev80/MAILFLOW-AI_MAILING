@@ -132,8 +132,7 @@ if is_mailflow_install "$DEFAULT_INSTALL"; then
   case "$choice" in
     1)
       printf '\n==> %s\n' "$(msg updating)"
-      checkout_ref "$DEFAULT_INSTALL" "$BRANCH"
-      MAILFLOW_INSTALL_REF="$BRANCH" MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
+      MAILFLOW_ROOT="$DEFAULT_INSTALL" MAILFLOW_INSTALL_REF="$BRANCH" exec bash <(curl -fsSL "$RAW_BASE/mailflow-cli.sh") update
       ;;
     2)
       printf '\n%s\n' "$(msg new_hint)"

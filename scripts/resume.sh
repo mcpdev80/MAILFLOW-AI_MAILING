@@ -112,6 +112,7 @@ if [ "${MAILFLOW_SKIP_SELF_UPDATE:-0}" != "1" ]; then
   git pull --ff-only origin "$BRANCH"
 fi
 
+chmod +x "$INSTALL_DIR/mailflow" "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 ENV_FILE="$INSTALL_DIR/.env"
 TLS_MODE="$(get_env MAILFLOW_TLS_MODE "$ENV_FILE")"
 PUBLIC_URL="$(get_env MAILFLOW_PUBLIC_URL "$ENV_FILE")"
