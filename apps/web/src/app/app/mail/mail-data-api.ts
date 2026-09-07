@@ -4,6 +4,8 @@ import type { UnifiedInbox } from "@/lib/types";
 export type RichHtmlResult = {
   available: boolean;
   trusted: boolean;
+  blocked: boolean;
+  blocked_reason: "spam" | "phishing" | null;
   sender_email: string;
   html: string | null;
 };
