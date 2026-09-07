@@ -10,6 +10,7 @@ import { displayMailDate, messageKey } from "./mail-workspace-utils";
 import { SenderAvatar } from "./sender-avatar";
 import styles from "./mail-workspace.module.css";
 import type { useMailWorkspace } from "./use-mail-workspace";
+import { standardFolderRank } from "./use-mailbox-navigation";
 
 type WorkspaceState = ReturnType<typeof useMailWorkspace>;
 
@@ -57,10 +58,7 @@ export function FoldersPanel({ state }: { state: WorkspaceState }) {
   return (
     <div className={styles.sidePane}>
       <div className={styles.sectionLabel}>{t("mail.folders")}</div>
-      {!state.selectedAccountId && <div className={styles.state}>{t("mail.allMailboxes")}</div>}
-      {state.selectableFolders.map((folder) => (
-        <FolderButton key={folder.name} state={state} folder={folder} />
-      ))}
+      <FolderList state={state} />
     </div>
   );
 }
@@ -84,9 +82,7 @@ export function ClassicSidePane({ state }: { state: WorkspaceState }) {
         </select>
       </div>
       <div className={styles.sectionLabel}>{t("mail.folders")}</div>
-      {state.selectableFolders.map((folder) => (
-        <FolderButton key={folder.name} state={state} folder={folder} />
-      ))}
+      <FolderList state={state} />
       <div className={styles.sideFooter}>
         <Link href="/app/settings/folders" className={styles.sideFooterLink}>
           <MailIcon name="settings" size={16} />
@@ -94,6 +90,28 @@ export function ClassicSidePane({ state }: { state: WorkspaceState }) {
         </Link>
       </div>
     </aside>
+  );
+}
+
+function FolderList({ state }: { state: WorkspaceState }) {
+  const { locale } = useI18n();
+  const standard = state.selectableFolders.filter((folder) => standardFolderRank(folder) != null);
+  const custom = state.selectableFolders.filter((folder) => standardFolderRank(folder) == null);
+  const otherLabel = locale === "de" ? "Weitere Ordner" : locale === "es" ? "Otras carpetas" : "Other folders";
+  return (
+    <>
+      {standard.map((folder) => (
+        <FolderButton key={folder.name} state={state} folder={folder} />
+      ))}
+      {custom.length > 0 && (
+        <div className={styles.folderDivider}>
+          <span>{otherLabel}</span>
+        </div>
+      )}
+      {custom.map((folder) => (
+        <FolderButton key={folder.name} state={state} folder={folder} />
+      ))}
+    </>
   );
 }
 
@@ -121,8 +139,6 @@ function FolderButton({ state, folder }: { state: WorkspaceState; folder: Worksp
       </span>
       {typeof unread === "number" && unread > 0 ? (
         <span className={styles.countBadge}>{unread}</span>
-      ) : folder.role ? (
-        <span className={styles.folderRole}>{folder.role}</span>
       ) : null}
     </button>
   );
@@ -132,7 +148,7 @@ function folderIcon(role: string | null, name: string): MailIconName {
   const value = `${role ?? ""} ${name}`.toLowerCase();
   if (value.includes("inbox") || value.includes("posteingang")) return "inbox";
   if (value.includes("archive") || value.includes("archiv")) return "archive";
-  if (value.includes("trash") || value.includes("papierkorb")) return "trash";
+  if (value.includes("trash") || value.includes("papierkorb") || value.includes("deleted")) return "trash";
   if (value.includes("star") || value.includes("wichtig") || value.includes("favorite")) return "star";
   return "folder";
 }
