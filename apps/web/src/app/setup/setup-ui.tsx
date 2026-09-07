@@ -473,11 +473,11 @@ export function InstanceSetup() {
       step={4}
       total={4}
       title="Instance Verification"
-      subtitle="Verify the instance before user onboarding."
+      subtitle="The instance is ready. Create the first administrator account before starting user onboarding."
       back={{ onClick: () => setStep(3) }}
       next={{
-        label: "Open Mailflow",
-        onClick: () => router.push("/onboarding"),
+        label: "Create first administrator",
+        onClick: () => router.push("/signup?redirect=%2Fonboarding"),
         disabled: !healthReady || !providerReady,
       }}
     >
@@ -493,7 +493,7 @@ export function InstanceSetup() {
         <span className={s.check}>✓</span>
         <div>
           <strong>Configuration verified</strong>
-          <span>Mailflow is ready for user onboarding.</span>
+          <span>Create the first administrator account to continue.</span>
         </div>
       </div>
     </WizardShell>
