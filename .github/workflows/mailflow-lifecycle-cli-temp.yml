@@ -1,0 +1,115 @@
+name: MailFlow lifecycle CLI validation (temporary)
+
+on:
+  push:
+    branches:
+      - test-mvp
+    paths:
+      - .github/workflows/mailflow-lifecycle-cli-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test-mvp
+          fetch-depth: 0
+      - name: Patch installer lifecycle integration
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          install_core = Path("scripts/install-core.sh")
+          text = install_core.read_text()
+          old = 'cd "$INSTALL_DIR"\nENV_FILE="$INSTALL_DIR/.env"\n'
+          new = 'cd "$INSTALL_DIR"\nchmod +x "$INSTALL_DIR/mailflow" "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true\nENV_FILE="$INSTALL_DIR/.env"\n'
+          if old not in text:
+              raise SystemExit("install-core chmod anchor not found")
+          text = text.replace(old, new, 1)
+          old = '''if [[ "$PUBLIC_URL" = https://* ]]; then
+            if [ "$TLS_MODE" = "custom" ]; then
+              curl -fsS --connect-timeout 10 --resolve "$host:$HTTPS_PORT:127.0.0.1" "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS verification failed for $PUBLIC_URL"
+            else
+              curl -kfsS --connect-timeout 10 --resolve "$host:$HTTPS_PORT:127.0.0.1" "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS is not reachable at $PUBLIC_URL"
+            fi
+          fi
+          '''
+          new = '''if [[ "$PUBLIC_URL" = https://* ]]; then
+            https_ready=0
+            for _ in $(seq 1 30); do
+              if [ "$TLS_MODE" = "custom" ]; then
+                curl -fsS --connect-timeout 10 --resolve "$host:$HTTPS_PORT:127.0.0.1" "$PUBLIC_URL" >/dev/null 2>&1 && https_ready=1
+              else
+                curl -kfsS --connect-timeout 10 --resolve "$host:$HTTPS_PORT:127.0.0.1" "$PUBLIC_URL" >/dev/null 2>&1 && https_ready=1
+              fi
+              [ "$https_ready" -eq 0 ] || break
+              sleep 2
+            done
+            [ "$https_ready" -eq 1 ] || fail "Mailflow is running, but HTTPS verification did not become ready for $PUBLIC_URL"
+          fi
+          '''
+          if old not in text:
+              raise SystemExit("install-core HTTPS anchor not found")
+          install_core.write_text(text.replace(old, new, 1))
+
+          resume = Path("scripts/resume.sh")
+          text = resume.read_text()
+          old = 'fi\n\nENV_FILE="$INSTALL_DIR/.env"\n'
+          new = 'fi\n\nchmod +x "$INSTALL_DIR/mailflow" "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true\nENV_FILE="$INSTALL_DIR/.env"\n'
+          if old not in text:
+              raise SystemExit("resume chmod anchor not found")
+          resume.write_text(text.replace(old, new, 1))
+
+          installer = Path("scripts/install.sh")
+          text = installer.read_text()
+          old = '''    1)
+              printf '\\n==> %s\\n' "$(msg updating)"
+              checkout_ref "$DEFAULT_INSTALL" "$BRANCH"
+              MAILFLOW_INSTALL_REF="$BRANCH" MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
+              ;;
+          '''
+          new = '''    1)
+              printf '\\n==> %s\\n' "$(msg updating)"
+              MAILFLOW_ROOT="$DEFAULT_INSTALL" MAILFLOW_INSTALL_REF="$BRANCH" exec bash <(curl -fsSL "$RAW_BASE/mailflow-cli.sh") update
+              ;;
+          '''
+          if old not in text:
+              raise SystemExit("install.sh update anchor not found")
+          installer.write_text(text.replace(old, new, 1))
+
+          readme = Path("README.md")
+          text = readme.read_text()
+          if "## Managed lifecycle commands" not in text:
+              text += '''\n\n## Managed lifecycle commands\n\nAfter installation, manage the self-hosted instance from the checkout with one command:\n\n```bash\n./mailflow status\n./mailflow doctor\n./mailflow update\n./mailflow backup\n./mailflow restore ~/.mailflow/backups/<backup>\n```\n\n`./mailflow update` creates a protected database/configuration/attachment backup before changing code, performs the normal migrations, validates API, worker, web and TLS, and automatically restores the previous commit and backup if the update fails. Backups are kept below `.mailflow/backups/` inside the installation directory and are never committed.\n'''
+              readme.write_text(text)
+          PY
+      - name: Shell syntax
+        run: bash -n mailflow scripts/mailflow-cli.sh scripts/install.sh scripts/install-core.sh scripts/resume.sh scripts/teardown.sh
+      - name: CLI help smoke test
+        run: bash ./mailflow --help
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          python-version: "3.13"
+      - run: uv sync --all-packages
+      - run: uv run ruff check apps/api/app/restore_validation.py apps/api/tests/unit/test_restore_validation.py
+      - run: uv run ruff format --check apps/api/app/restore_validation.py apps/api/tests/unit/test_restore_validation.py
+      - name: Restore validation tests
+        working-directory: apps/api
+        run: SECRET_KEY="$(openssl rand -base64 32)" uv run pytest tests/unit/test_restore_validation.py
+      - name: Commit validated integration
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/install.sh scripts/install-core.sh scripts/resume.sh README.md
+          git commit -m "feat(cli): integrate managed update and recovery flow"
+          git push origin HEAD:test-mvp
