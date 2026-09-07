@@ -69,13 +69,13 @@ def _test_imap(*, host: str, port: int, use_ssl: bool, username: str, password: 
         raise MailboxConnectionError("imap_connection_timeout") from exc
     except (imapclient.exceptions.IMAPClientError, OSError) as exc:
         raise MailboxConnectionError("imap_connection_failed") from exc
-    except Exception as exc:  # noqa: BLE001 - transport boundary returns a safe code
+    except Exception as exc:
         raise MailboxConnectionError("imap_connection_failed") from exc
     finally:
         if client is not None:
             try:
                 client.logout()
-            except Exception:  # noqa: BLE001,S110 - best-effort cleanup only
+            except Exception:  # noqa: S110 - best-effort cleanup only
                 pass
 
 
