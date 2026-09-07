@@ -70,6 +70,7 @@ export interface ReviewCorrection {
   system_tags?: string[] | null;
   user_tags?: string[] | null;
   routing_decision?: "approve" | "reject" | null;
+  confirm?: boolean;
   dismiss?: boolean;
   remember?: boolean;
 }
@@ -142,12 +143,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+function withExplicitConfirmation(payload: ReviewCorrection): ReviewCorrection {
+  if (payload.dismiss || payload.routing_decision || payload.confirm != null) {
+    return payload;
+  }
+  const confirmsClassification = [
+    payload.category,
+    payload.subcategory,
+    payload.importance,
+    payload.urgency,
+    payload.action_required,
+    payload.destination_folder,
+    payload.system_tags,
+    payload.user_tags,
+  ].some((value) => value !== undefined);
+  return confirmsClassification ? { ...payload, confirm: true } : payload;
+}
+
 export const attentionApi = {
   review: () => request<ReviewInbox>("/attention/review"),
   correctReview: (id: string, payload: ReviewCorrection) =>
     request<ReviewItem | undefined>(`/attention/review/${id}`, {
       method: "PATCH",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(withExplicitConfirmation(payload)),
     }),
   retryBackfillFailure: (accountId: string, jobId: string, failureId: string) =>
     request<unknown>(
