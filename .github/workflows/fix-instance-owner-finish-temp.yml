@@ -1,0 +1,63 @@
+name: Instance owner finish flow fix (temporary)
+
+on:
+  push:
+    branches:
+      - test-mvp
+    paths:
+      - .github/workflows/fix-instance-owner-finish-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test-mvp
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pnpm install --frozen-lockfile
+      - name: Apply flow and locale fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/src/app/setup/setup-ui.tsx')
+          text = path.read_text()
+
+          old = '''      setOwnerCreated(true);\n      setOwnerPassword("");\n      setOwnerPasswordConfirm("");\n      setStep(5);'''
+          new = '''      const ownerLocale =\n        language === "de" || language === "es" ? language : "en";\n      window.localStorage.setItem("mailflow.locale", ownerLocale);\n      document.documentElement.lang = ownerLocale;\n      try {\n        await api.updateUserPreferences({ locale: ownerLocale });\n      } catch {\n        // Keep the installer/setup language locally even if preferences are not yet writable.\n      }\n\n      setOwnerCreated(true);\n      setOwnerPassword("");\n      setOwnerPasswordConfirm("");\n      setStep(5);'''
+          if old not in text:
+              raise SystemExit('owner completion block not found')
+          text = text.replace(old, new, 1)
+
+          text = text.replace(
+              'subtitle="Your Instance Owner is created. Optionally register a passkey, then continue with mailbox onboarding."',
+              'subtitle="Your Instance Owner is created. Optionally register a passkey, then open instance administration. A mailbox is optional."',
+              1,
+          )
+          text = text.replace(
+              'label: "Continue to onboarding",\n        onClick: () => router.push("/onboarding"),',
+              'label: "Open instance administration",\n        onClick: () => router.push("/app/settings/members"),',
+              1,
+          )
+          text = text.replace(
+              'Passkey registration is optional and can also be configured later.',
+              'Passkey registration and mailbox onboarding are optional. You can administer the instance without connecting a mailbox.',
+              1,
+          )
+
+          path.write_text(text)
+          PY
+          pnpm biome check --write apps/web/src/app/setup/setup-ui.tsx
+          pnpm typecheck
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/app/setup/setup-ui.tsx
+          git commit -m "fix(setup): keep instance owner out of mailbox onboarding"
+          git push origin HEAD:test-mvp
