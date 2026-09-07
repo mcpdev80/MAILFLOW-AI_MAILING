@@ -30,6 +30,7 @@ export function InstanceSetup() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [bootstrap, setBootstrap] = useState<BootstrapStatus | null>(null);
+  const [bootstrapLoaded, setBootstrapLoaded] = useState(false);
   const [theme, setTheme] = useState<"system" | "light" | "dark">("dark");
   const [language, setLanguage] = useState("en");
   const [publicUrl, setPublicUrl] = useState("");
@@ -54,8 +55,9 @@ export function InstanceSetup() {
           configuredLanguage === "de" ||
           configuredLanguage === "en" ||
           configuredLanguage === "es"
-        )
+        ) {
           setLanguage(configuredLanguage);
+        }
 
         const configuredPublicUrl = boot.value.fields.public_url.value;
         if (configuredPublicUrl) setPublicUrl(configuredPublicUrl);
@@ -65,18 +67,27 @@ export function InstanceSetup() {
           configuredTlsMode === "automatic" ||
           configuredTlsMode === "custom" ||
           configuredTlsMode === "external"
-        )
+        ) {
           setTlsMode(configuredTlsMode);
+        }
       }
-      if (health.status === "fulfilled")
+      setBootstrapLoaded(true);
+
+      if (health.status === "fulfilled") {
         setHealthReady(
           health.value.status === "ok" && health.value.db === "up",
         );
-      if (providers.status === "fulfilled" && providers.value.length > 0)
+      }
+      if (providers.status === "fulfilled" && providers.value.length > 0) {
         setProviderReady(true);
+      }
     });
   }, []);
 
+  const languageConfigured = bootstrap?.fields.language.configured ?? false;
+  const publicUrlConfigured = bootstrap?.fields.public_url.configured ?? false;
+  const tlsConfigured = bootstrap?.fields.tls.configured ?? false;
+  const connectionConfigured = publicUrlConfigured && tlsConfigured;
   const publicUrlManaged = bootstrap?.fields.public_url.managed ?? false;
   const tlsManaged = bootstrap?.fields.tls.managed ?? false;
 
@@ -103,28 +114,39 @@ export function InstanceSetup() {
     }
   }
 
+  if (!bootstrapLoaded) return null;
+
   if (step === 1) {
     return (
       <WizardShell
         kind="setup"
         step={1}
         total={4}
-        title="Language & Appearance"
-        subtitle="Set initial defaults for your Mailflow instance. Users can override these individually."
-        next={{ label: "Continue", onClick: () => setStep(2) }}
+        title={languageConfigured ? "Appearance" : "Language & Appearance"}
+        subtitle={
+          languageConfigured
+            ? "The installer already configured the instance language. Choose the default appearance."
+            : "Set initial defaults for your Mailflow instance. Users can override these individually."
+        }
+        next={{
+          label: "Continue",
+          onClick: () => setStep(connectionConfigured ? 3 : 2),
+        }}
       >
         <div className={s.section}>
-          <label className={s.field}>
-            Default Language
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
-              <option value="es">Español</option>
-            </select>
-          </label>
+          {!languageConfigured ? (
+            <label className={s.field}>
+              Default Language
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="es">Español</option>
+              </select>
+            </label>
+          ) : null}
           <div className={s.field}>
             Default Theme
             <div className={s.themeGrid}>
@@ -159,8 +181,9 @@ export function InstanceSetup() {
         <div className={s.info}>
           <span className={s.infoIcon}>i</span>
           <span>
-            These are instance defaults. Each user can choose their own
-            preferences.
+            {languageConfigured
+              ? `Language from installer: ${language.toUpperCase()}. Users can override it individually.`
+              : "These are instance defaults. Each user can choose their own preferences."}
           </span>
         </div>
       </WizardShell>
@@ -180,25 +203,25 @@ export function InstanceSetup() {
         step={2}
         total={4}
         title="URL & HTTPS"
-        subtitle="Configure how Mailflow is accessed."
+        subtitle="Only values not provided by the installer need to be configured here."
         back={{ onClick: () => setStep(1) }}
         next={{ label: "Continue", onClick: () => setStep(3) }}
       >
         <div className={s.section}>
-          <label className={s.field}>
-            <span className={s.labelRow}>
-              <span>External URL</span>
-              {bootstrap?.fields.public_url.configured ? (
-                <span className={s.detected}>✓ Deployment configured</span>
-              ) : null}
-            </span>
-            <input
-              value={publicUrl}
-              onChange={(e) => setPublicUrl(e.target.value)}
-              readOnly={publicUrlManaged}
-              placeholder="e.g. https://mail.example.com"
-            />
-          </label>
+          {!publicUrlConfigured ? (
+            <label className={s.field}>
+              <span className={s.labelRow}>
+                <span>External URL</span>
+              </span>
+              <input
+                value={publicUrl}
+                onChange={(e) => setPublicUrl(e.target.value)}
+                readOnly={publicUrlManaged}
+                placeholder="e.g. https://mail.example.com"
+              />
+            </label>
+          ) : null}
+
           <label className={s.field}>
             Internal URL <small>Optional</small>
             <input
@@ -207,32 +230,34 @@ export function InstanceSetup() {
               placeholder="e.g. http://mailflow.internal"
             />
           </label>
-          <div className={s.field}>
-            TLS Configuration
-            <div className={s.radioList}>
-              {tlsOptions.map(({ value, label }) => (
-                <label className={s.radio} key={value}>
-                  <input
-                    type="radio"
-                    name="tls-mode"
-                    value={value}
-                    checked={tlsMode === value}
-                    onChange={() => setTlsMode(value)}
-                    disabled={tlsManaged}
-                  />
-                  {label}
-                </label>
-              ))}
+
+          {!tlsConfigured ? (
+            <div className={s.field}>
+              TLS Configuration
+              <div className={s.radioList}>
+                {tlsOptions.map(({ value, label }) => (
+                  <label className={s.radio} key={value}>
+                    <input
+                      type="radio"
+                      name="tls-mode"
+                      value={value}
+                      checked={tlsMode === value}
+                      onChange={() => setTlsMode(value)}
+                      disabled={tlsManaged}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
+
           <div className={s.statusRow}>
             <span className={s.statusBadge}>
               {publicUrl.startsWith("https://") ? "VALID HTTPS" : "CHECK HTTPS"}
             </span>
             <span>
-              {publicUrlManaged || tlsManaged
-                ? "Deployment-managed values stay read-only."
-                : "Review or change these values before continuing."}
+              Installer-provided URL and TLS values are reused automatically.
             </span>
           </div>
         </div>
@@ -251,7 +276,7 @@ export function InstanceSetup() {
         total={4}
         title="AI Provider"
         subtitle="Connect the model endpoint Mailflow should use."
-        back={{ onClick: () => setStep(2) }}
+        back={{ onClick: () => setStep(connectionConfigured ? 1 : 2) }}
         next={{
           label: providerReady ? "Continue" : "Save & Continue",
           onClick: () => void saveProvider(),
