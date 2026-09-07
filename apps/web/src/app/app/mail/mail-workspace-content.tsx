@@ -223,9 +223,9 @@ function MessageArticle({ message }: { message: MessageDetail }) {
             srcDoc={richHtml}
           />
         ) : message.safe_html ? (
-          <div className={styles.mailBody} /* biome-ignore lint/security/noDangerouslySetInnerHtml: API sanitizes this fragment. */ dangerouslySetInnerHTML={{ __html: message.safe_html }} />
+          <div className={`${styles.mailBody} ${extra.safeMailBody}`} /* biome-ignore lint/security/noDangerouslySetInnerHtml: API sanitizes this fragment. */ dangerouslySetInnerHTML={{ __html: message.safe_html }} />
         ) : (
-          <div className={styles.mailBody}>{message.body_text || t("mail.emptyMessage")}</div>
+          <div className={`${styles.mailBody} ${extra.plainMailBody}`}>{message.body_text || t("mail.emptyMessage")}</div>
         )}
       </div>
       {message.attachments.length > 0 && (
