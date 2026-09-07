@@ -1,14 +1,14 @@
 import { AppearanceProvider } from "@/lib/appearance-preferences";
 import { I18nProvider } from "@/lib/i18n";
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import { Geist } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 
-const manrope = Manrope({
+const geist = Geist({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-manrope",
+  variable: "--font-geist",
 });
 
 export const metadata: Metadata = {
@@ -21,7 +21,7 @@ export default function RootLayout({
 }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={manrope.variable}>
+      <body className={geist.variable}>
         <AppearanceProvider>
           <I18nProvider>
             <Suspense fallback={null}>{children}</Suspense>
