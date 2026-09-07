@@ -13,6 +13,10 @@ type Copy = {
   plane: string;
   overview: string;
   organizations: string;
+  system: string;
+  updates: string;
+  backups: string;
+  certificates: string;
   members: string;
   models: string;
   context: string;
@@ -27,6 +31,10 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     plane: "Verwaltungsbereich",
     overview: "Übersicht",
     organizations: "Organisationen",
+    system: "System",
+    updates: "Updates",
+    backups: "Backups",
+    certificates: "Zertifikate",
     members: "Mitglieder",
     models: "KI & Modelle",
     context: "Bereich wechseln",
@@ -39,6 +47,10 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     plane: "Administration area",
     overview: "Overview",
     organizations: "Organizations",
+    system: "System",
+    updates: "Updates",
+    backups: "Backups",
+    certificates: "Certificates",
     members: "Members",
     models: "AI & Models",
     context: "Switch area",
@@ -51,6 +63,10 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     plane: "Área de administración",
     overview: "Resumen",
     organizations: "Organizaciones",
+    system: "Sistema",
+    updates: "Actualizaciones",
+    backups: "Copias",
+    certificates: "Certificados",
     members: "Miembros",
     models: "IA y modelos",
     context: "Cambiar área",
@@ -124,6 +140,14 @@ export function AdminShell({
             label: copy.organizations,
             glyph: "□",
           },
+          { href: "/admin/instance/system", label: copy.system, glyph: "◉" },
+          { href: "/admin/instance/updates", label: copy.updates, glyph: "↻" },
+          { href: "/admin/instance/backups", label: copy.backups, glyph: "▣" },
+          {
+            href: "/admin/instance/certificates",
+            label: copy.certificates,
+            glyph: "◇",
+          },
         ]
       : [
           { href: "/admin/org", label: copy.overview, glyph: "▦" },
@@ -141,9 +165,7 @@ export function AdminShell({
       }
       const [target, organizationId] = value.split(":", 2);
       if (!organizationId) return;
-      const result = await authClient.organization.setActive({
-        organizationId,
-      });
+      const result = await authClient.organization.setActive({ organizationId });
       if (result.error)
         throw new Error(result.error.message ?? "set_active_failed");
       router.push(target === "org" ? "/admin/org" : "/app/dashboard");
