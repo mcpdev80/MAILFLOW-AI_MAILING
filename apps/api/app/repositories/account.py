@@ -155,8 +155,11 @@ class AccountRepository:
             (
                 await self._session.execute(
                     text(
-                        "SELECT role, provider_id, model_id FROM llm_role_assignments "
-                        "WHERE org_id = :org_id"
+                        "SELECT a.role, a.provider_id, a.model_id "
+                        "FROM llm_role_assignments a "
+                        "JOIN llm_models m ON m.provider_id = a.provider_id AND m.model_id = a.model_id "
+                        "JOIN llm_org_model_access access ON access.model_id = m.id AND access.org_id = a.org_id "
+                        "WHERE a.org_id = :org_id AND m.is_enabled = true"
                     ),
                     {"org_id": org_id},
                 )
@@ -170,7 +173,6 @@ class AccountRepository:
             (
                 await self._session.execute(
                     select(LLMProvider).where(
-                        LLMProvider.org_id == org_id,
                         LLMProvider.id.in_(provider_ids),
                         LLMProvider.is_active.is_(True),
                     )
