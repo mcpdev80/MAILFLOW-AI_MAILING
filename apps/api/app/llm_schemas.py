@@ -50,6 +50,16 @@ class LLMProviderUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class LLMModelDiscoveryRequest(BaseModel):
+    type: str = Field(min_length=1, max_length=50)
+    base_url: str = Field(min_length=1, max_length=500)
+    api_key: str | None = Field(default=None, repr=False)
+
+
+class LLMModelDiscoveryOut(BaseModel):
+    models: list[str]
+
+
 class LLMProviderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
