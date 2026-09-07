@@ -70,7 +70,8 @@ export function useSignupPage() {
       setBusy(false);
       return;
     }
-    const bootstrapStatus = (await statusResponse.json()) as InstanceBootstrapStatus;
+    const bootstrapStatus =
+      (await statusResponse.json()) as InstanceBootstrapStatus;
     if (bootstrapStatus.auth_enabled && bootstrapStatus.instance_owner_exists) {
       setError("Initial administrator already exists. Please sign in instead.");
       setBusy(false);
