@@ -1,6 +1,6 @@
 import { auth, authEnabled } from "@/lib/auth";
 import { claimInitialInstanceOwner } from "@/lib/instance-admin";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   if (!authEnabled || !auth) {
@@ -14,7 +14,10 @@ export async function POST(request: NextRequest) {
 
   const claimed = await claimInitialInstanceOwner(session.user.id);
   if (!claimed) {
-    return NextResponse.json({ detail: "instance_owner_already_exists" }, { status: 409 });
+    return NextResponse.json(
+      { detail: "instance_owner_already_exists" },
+      { status: 409 },
+    );
   }
 
   return NextResponse.json({ role: "owner" });
