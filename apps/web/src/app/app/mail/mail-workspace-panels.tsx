@@ -3,6 +3,7 @@
 import { useI18n } from "@/lib/i18n";
 import type { InboxMessage } from "@/lib/types";
 import { useMemo, useState } from "react";
+import { mailFolderLabel } from "./mail-folder-label";
 import { displayMailDate, messageKey } from "./mail-workspace-utils";
 import styles from "./mail-workspace.module.css";
 import type { useMailWorkspace } from "./use-mail-workspace";
@@ -89,6 +90,7 @@ function FolderButton({
   state: WorkspaceState;
   folder: WorkspaceState["selectableFolders"][number];
 }) {
+  const { locale } = useI18n();
   return (
     <button
       type="button"
@@ -102,7 +104,7 @@ function FolderButton({
         void state.dropMessagesIntoFolder(folder.name);
       }}
     >
-      <span>{folder.name}</span>
+      <span>{mailFolderLabel(folder, locale)}</span>
       {folder.role && <span className={styles.count}>{folder.role}</span>}
     </button>
   );
