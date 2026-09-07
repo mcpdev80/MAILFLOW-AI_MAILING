@@ -2,11 +2,12 @@
 
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/lib/i18n";
-import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
 
 export function useSignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
   const [name, setName] = useState("");
   const [organization, setOrganization] = useState("");
@@ -15,6 +16,14 @@ export function useSignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const redirectAfterSignup = useMemo(() => {
+    const value = searchParams.get("redirect");
+    if (!value || !value.startsWith("/") || value.startsWith("//")) {
+      return "/setup";
+    }
+    return value;
+  }, [searchParams]);
 
   const submit = useCallback(async () => {
     setError(null);
@@ -43,8 +52,17 @@ export function useSignupPage() {
       setBusy(false);
       return;
     }
-    router.push("/setup");
-  }, [confirmPassword, email, name, organization, password, router, t]);
+    router.push(redirectAfterSignup);
+  }, [
+    confirmPassword,
+    email,
+    name,
+    organization,
+    password,
+    redirectAfterSignup,
+    router,
+    t,
+  ]);
 
   return {
     name,
