@@ -15,7 +15,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.crypto import encrypt_secret
+from app.crypto import decrypt_secret, encrypt_secret
 from app.database import get_session
 from app.llm_schemas import LLMModelDiscoveryRequest
 from app.models.llm_provider import LLMProvider
@@ -77,8 +77,6 @@ async def _sync_models(
     if discover:
         api_key = None
         if provider.encrypted_api_key:
-            from app.crypto import decrypt_secret
-
             api_key = str(decrypt_secret(provider.encrypted_api_key)["api_key"])
         payload = LLMModelDiscoveryRequest(
             type=provider.type, base_url=provider.base_url, api_key=api_key
@@ -229,11 +227,17 @@ async def discover_instance_models(
     try:
         models = await _sync_models(provider, session)
     except HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"model_discovery_http_{exc.code}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"model_discovery_http_{exc.code}"
+        ) from exc
     except (URLError, TimeoutError) as exc:
-        raise HTTPException(status_code=502, detail="model_discovery_connection_failed") from exc
+        raise HTTPException(
+            status_code=502, detail="model_discovery_connection_failed"
+        ) from exc
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise HTTPException(status_code=502, detail="model_discovery_invalid_response") from exc
+        raise HTTPException(
+            status_code=502, detail="model_discovery_invalid_response"
+        ) from exc
     if not models:
         raise HTTPException(status_code=404, detail="no_models_discovered")
     return {"models": models}
@@ -247,14 +251,18 @@ async def patch_catalog_model(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, bool]:
     result = await session.execute(
-        text("UPDATE llm_models SET is_enabled = :enabled, updated_at = now() WHERE id = :id RETURNING id"),
+        text(
+            "UPDATE llm_models SET is_enabled = :enabled, updated_at = now() "
+            "WHERE id = :id RETURNING id"
+        ),
         {"enabled": payload.is_enabled, "id": model_pk},
     )
     if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="llm_model_not_found")
     if not payload.is_enabled:
         await session.execute(
-            text("DELETE FROM llm_org_model_access WHERE model_id = :id"), {"id": model_pk}
+            text("DELETE FROM llm_org_model_access WHERE model_id = :id"),
+            {"id": model_pk},
         )
     await session.commit()
     return {"is_enabled": payload.is_enabled}
@@ -269,7 +277,8 @@ async def replace_model_grants(
 ) -> dict[str, int]:
     enabled = (
         await session.execute(
-            text("SELECT is_enabled FROM llm_models WHERE id = :id"), {"id": model_pk}
+            text("SELECT is_enabled FROM llm_models WHERE id = :id"),
+            {"id": model_pk},
         )
     ).scalar_one_or_none()
     if enabled is None:
@@ -277,12 +286,14 @@ async def replace_model_grants(
     if not enabled and payload.organization_ids:
         raise HTTPException(status_code=422, detail="llm_model_disabled")
     await session.execute(
-        text("DELETE FROM llm_org_model_access WHERE model_id = :id"), {"id": model_pk}
+        text("DELETE FROM llm_org_model_access WHERE model_id = :id"),
+        {"id": model_pk},
     )
     for org_id in set(payload.organization_ids):
         await session.execute(
             text(
-                "INSERT INTO llm_org_model_access (org_id, model_id) VALUES (:org_id, :model_id)"
+                "INSERT INTO llm_org_model_access (org_id, model_id) "
+                "VALUES (:org_id, :model_id)"
             ),
             {"org_id": org_id, "model_id": model_pk},
         )
