@@ -18,7 +18,8 @@ type Copy = {
   backups: string;
   certificates: string;
   members: string;
-  models: string;
+  instanceModels: string;
+  orgModels: string;
   context: string;
   instance: string;
   orgAdmin: string;
@@ -36,7 +37,8 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     backups: "Backups",
     certificates: "Zertifikate",
     members: "Mitglieder",
-    models: "KI & Modelle",
+    instanceModels: "KI & Modelle",
+    orgModels: "Modellauswahl",
     context: "Bereich wechseln",
     instance: "Instanzverwaltung",
     orgAdmin: "Organisationsverwaltung",
@@ -52,7 +54,8 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     backups: "Backups",
     certificates: "Certificates",
     members: "Members",
-    models: "AI & Models",
+    instanceModels: "AI & Models",
+    orgModels: "Model selection",
     context: "Switch area",
     instance: "Instance administration",
     orgAdmin: "Organization administration",
@@ -68,7 +71,8 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     backups: "Copias",
     certificates: "Certificados",
     members: "Miembros",
-    models: "IA y modelos",
+    instanceModels: "IA y modelos",
+    orgModels: "Selección de modelos",
     context: "Cambiar área",
     instance: "Administración de instancia",
     orgAdmin: "Administración de organización",
@@ -140,6 +144,11 @@ export function AdminShell({
             label: copy.organizations,
             glyph: "□",
           },
+          {
+            href: "/admin/instance/models",
+            label: copy.instanceModels,
+            glyph: "◇",
+          },
           { href: "/admin/instance/system", label: copy.system, glyph: "◉" },
           { href: "/admin/instance/updates", label: copy.updates, glyph: "↻" },
           { href: "/admin/instance/backups", label: copy.backups, glyph: "▣" },
@@ -152,7 +161,7 @@ export function AdminShell({
       : [
           { href: "/admin/org", label: copy.overview, glyph: "▦" },
           { href: "/admin/org/members", label: copy.members, glyph: "○" },
-          { href: "/admin/org/models", label: copy.models, glyph: "◇" },
+          { href: "/admin/org/models", label: copy.orgModels, glyph: "◇" },
         ];
 
   async function switchArea(value: string) {
