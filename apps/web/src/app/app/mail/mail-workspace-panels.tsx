@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { mailFolderLabel } from "./mail-folder-label";
 import { MailIcon, type MailIconName } from "./mail-icons";
 import { displayMailDate, messageKey } from "./mail-workspace-utils";
+import { SenderAvatar } from "./sender-avatar";
 import styles from "./mail-workspace.module.css";
 import type { useMailWorkspace } from "./use-mail-workspace";
 
@@ -36,7 +37,7 @@ export function AccountsPanel({ state }: { state: WorkspaceState }) {
           onClick={() => state.changeAccount(account.id)}
         >
           <span className={styles.accountIdentity}>
-            <span className={styles.smallAvatar}>{initials(account.username)}</span>
+            <SenderAvatar address={account.username} size="small" />
             <span className={styles.accountMeta}>
               <strong>{account.username}</strong>
               <small>{account.ownership_mode}</small>
@@ -209,10 +210,7 @@ function MessageRow({ state, message }: { state: WorkspaceState; message: InboxM
       }}
       onContextMenu={(event) => openRowMenu(event, state, message)}
     >
-      <span className={styles.messageAvatar} aria-hidden="true">
-        {initials(message.from_email)}
-        {!message.seen && <span className={styles.avatarUnreadDot} />}
-      </span>
+      <SenderAvatar address={message.from_email} unread={!message.seen} />
       <span className={styles.rowContent}>
         <span className={styles.rowTop}>
           <span className={styles.sender}>{displaySender(message.from_email)}</span>
@@ -251,13 +249,6 @@ function MessageRow({ state, message }: { state: WorkspaceState; message: InboxM
 function displaySender(value: string): string {
   const match = value.match(/^\s*([^<]+?)\s*<[^>]+>\s*$/);
   return match?.[1]?.trim() || value;
-}
-
-function initials(value: string): string {
-  const display = displaySender(value).replace(/["']/g, "").trim();
-  if (!display) return "?";
-  const parts = display.split(/[\s@._-]+/).filter(Boolean);
-  return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : parts[0].slice(0, 2)).toUpperCase();
 }
 
 function startMessageDrag(event: React.DragEvent, state: WorkspaceState, message: InboxMessage) {
