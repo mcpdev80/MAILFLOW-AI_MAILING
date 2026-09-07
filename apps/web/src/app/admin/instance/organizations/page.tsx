@@ -11,6 +11,12 @@ type Organization = {
   created_at: string;
   member_count: number;
   admin_count: number;
+  pending_admin_count: number;
+};
+
+type CreateResult = {
+  initial_admin?: string | null;
+  initial_admin_state?: "member" | "invited" | null;
 };
 
 const COPY = {
@@ -21,13 +27,20 @@ const COPY = {
     name: "Name",
     slug: "Slug",
     admin: "Initialer Organisations-Admin (optional)",
-    adminHint: "E-Mail eines bereits vorhandenen Benutzers",
+    adminHint: "E-Mail-Adresse; neue Benutzer werden eingeladen",
     create: "Organisation anlegen",
     creating: "Wird angelegt …",
     members: "Mitglieder",
     admins: "Admins",
+    pending: "Ausstehend",
     created: "Erstellt",
     empty: "Noch keine Organisationen vorhanden.",
+    createdOk: "Organisation wurde angelegt.",
+    invited: "Der Organisations-Admin ist noch nicht registriert und wurde als Einladung vorgemerkt.",
+    assigned: "Der vorhandene Benutzer wurde als Organisations-Owner zugewiesen.",
+    invalidSlug: "Der Slug muss aus Kleinbuchstaben, Zahlen und Bindestrichen bestehen.",
+    slugExists: "Dieser Slug wird bereits verwendet.",
+    createFailed: "Organisation konnte nicht angelegt werden.",
   },
   en: {
     title: "Organizations",
@@ -36,13 +49,20 @@ const COPY = {
     name: "Name",
     slug: "Slug",
     admin: "Initial organization admin (optional)",
-    adminHint: "Email of an existing user",
+    adminHint: "Email address; new users are invited",
     create: "Create organization",
     creating: "Creating …",
     members: "Members",
     admins: "Admins",
+    pending: "Pending",
     created: "Created",
     empty: "No organizations yet.",
+    createdOk: "Organization created.",
+    invited: "The organization admin is not registered yet and has been recorded as a pending invitation.",
+    assigned: "The existing user was assigned as organization owner.",
+    invalidSlug: "The slug may contain lowercase letters, numbers and hyphens.",
+    slugExists: "This slug is already in use.",
+    createFailed: "Organization could not be created.",
   },
   es: {
     title: "Organizaciones",
@@ -51,13 +71,20 @@ const COPY = {
     name: "Nombre",
     slug: "Slug",
     admin: "Administrador inicial (opcional)",
-    adminHint: "Correo de un usuario existente",
+    adminHint: "Correo; los usuarios nuevos quedan invitados",
     create: "Crear organización",
     creating: "Creando …",
     members: "Miembros",
     admins: "Admins",
+    pending: "Pendiente",
     created: "Creada",
     empty: "Aún no hay organizaciones.",
+    createdOk: "Organización creada.",
+    invited: "El administrador aún no está registrado y quedó como invitación pendiente.",
+    assigned: "El usuario existente fue asignado como propietario de la organización.",
+    invalidSlug: "El slug solo puede contener minúsculas, números y guiones.",
+    slugExists: "Este slug ya está en uso.",
+    createFailed: "No se pudo crear la organización.",
   },
 } as const;
 
@@ -65,7 +92,7 @@ function slugify(value: string): string {
   return value
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/\p{M}+/gu, "")
+    .replace(/\p{M}/gu, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
@@ -80,6 +107,7 @@ export default function InstanceOrganizationsPage() {
   const [adminEmail, setAdminEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/instance-organizations", {
@@ -104,6 +132,7 @@ export default function InstanceOrganizationsPage() {
   async function createOrganization() {
     setBusy(true);
     setError(null);
+    setSuccess(null);
     try {
       const response = await fetch("/api/instance-organizations", {
         method: "POST",
@@ -114,22 +143,27 @@ export default function InstanceOrganizationsPage() {
           admin_email: adminEmail || undefined,
         }),
       });
+      const payload = (await response.json().catch(() => null)) as
+        | (CreateResult & { detail?: string })
+        | null;
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          detail?: string;
-        } | null;
-        throw new Error(
-          payload?.detail ?? `organization_create_failed:${response.status}`,
-        );
+        if (payload?.detail === "invalid_slug") throw new Error(copy.invalidSlug);
+        if (payload?.detail === "slug_exists") throw new Error(copy.slugExists);
+        throw new Error(copy.createFailed);
       }
       setName("");
       setSlug("");
       setAdminEmail("");
+      setSuccess(
+        payload?.initial_admin_state === "invited"
+          ? `${copy.createdOk} ${copy.invited}`
+          : payload?.initial_admin_state === "member"
+            ? `${copy.createdOk} ${copy.assigned}`
+            : copy.createdOk,
+      );
       await load();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "organization_create_failed",
-      );
+      setError(err instanceof Error ? err.message : copy.createFailed);
     } finally {
       setBusy(false);
     }
@@ -181,6 +215,7 @@ export default function InstanceOrganizationsPage() {
       </div>
 
       {error && <p className={styles.error}>{error}</p>}
+      {success && <p className={styles.success}>{success}</p>}
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -190,6 +225,7 @@ export default function InstanceOrganizationsPage() {
               <th>{copy.slug}</th>
               <th>{copy.members}</th>
               <th>{copy.admins}</th>
+              <th>{copy.pending}</th>
               <th>{copy.created}</th>
             </tr>
           </thead>
@@ -200,6 +236,7 @@ export default function InstanceOrganizationsPage() {
                 <td>{organization.slug}</td>
                 <td>{organization.member_count}</td>
                 <td>{organization.admin_count}</td>
+                <td>{organization.pending_admin_count}</td>
                 <td>
                   {new Date(organization.created_at).toLocaleDateString(locale)}
                 </td>
@@ -207,7 +244,7 @@ export default function InstanceOrganizationsPage() {
             ))}
             {organizations.length === 0 && (
               <tr>
-                <td colSpan={5}>{copy.empty}</td>
+                <td colSpan={6}>{copy.empty}</td>
               </tr>
             )}
           </tbody>
