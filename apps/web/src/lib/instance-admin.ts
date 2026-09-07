@@ -18,7 +18,9 @@ export async function ensureInstanceAdminTable(): Promise<void> {
   `);
 }
 
-export async function getInstanceRole(userId: string): Promise<InstanceRole | null> {
+export async function getInstanceRole(
+  userId: string,
+): Promise<InstanceRole | null> {
   await ensureInstanceAdminTable();
   const result = await pool.query<{ role: InstanceRole }>(
     'select role from "mailflow_instance_admin" where "userId" = $1 limit 1',
@@ -35,12 +37,16 @@ export async function hasInstanceOwner(): Promise<boolean> {
   return result.rows[0]?.exists ?? false;
 }
 
-export async function claimInitialInstanceOwner(userId: string): Promise<boolean> {
+export async function claimInitialInstanceOwner(
+  userId: string,
+): Promise<boolean> {
   await ensureInstanceAdminTable();
   const client = await pool.connect();
   try {
     await client.query("begin");
-    await client.query("lock table \"mailflow_instance_admin\" in exclusive mode");
+    await client.query(
+      'lock table "mailflow_instance_admin" in exclusive mode',
+    );
     const existing = await client.query(
       'select 1 from "mailflow_instance_admin" where "role" = \'owner\' limit 1',
     );
