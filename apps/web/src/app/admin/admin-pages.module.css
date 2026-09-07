@@ -12,7 +12,7 @@
   margin: 0;
   font-size: 25px;
   font-weight: 600;
-  letter-spacing: -.02em;
+  letter-spacing: -0.02em;
 }
 
 .heading p {
@@ -54,19 +54,145 @@
 .metric {
   font-size: 28px;
   font-weight: 600;
-  letter-spacing: -.03em;
+  letter-spacing: -0.03em;
 }
 
-.toolbar {
+.toolbar,
+.sectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.systemSection {
+  display: grid;
+  gap: 14px;
+}
+
+.healthGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.healthCard {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  border: 1px solid var(--mf-border);
+  border-radius: var(--mf-radius-lg);
+  background: var(--mf-surface);
+  padding: 15px;
+  box-shadow: var(--mf-shadow-card);
+}
+
+.healthCard > span:first-child,
+.mutedText {
+  color: var(--mf-text-muted);
+  font-size: 11px;
+}
+
+.healthCard strong {
+  overflow: hidden;
+  color: var(--mf-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusBadge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--mf-border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.statusOk {
+  color: var(--mf-success);
+}
+
+.statusBad {
+  color: var(--mf-danger);
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.resourceGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.adminGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.adminCard {
+  position: relative;
+  display: grid;
+  min-height: 120px;
+  gap: 8px;
+  border: 1px solid var(--mf-border);
+  border-radius: var(--mf-radius-lg);
+  background: var(--mf-surface);
+  color: var(--mf-text-primary);
+  padding: 17px 44px 17px 17px;
+  text-decoration: none;
+  box-shadow: var(--mf-shadow-card);
+}
+
+.adminCard:hover {
+  border-color: color-mix(in srgb, var(--mf-primary) 35%, var(--mf-border));
+  background: var(--mf-surface-muted);
+}
+
+.adminCard strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.adminCard > span:not(.adminArrow) {
+  color: var(--mf-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.adminArrow {
+  position: absolute;
+  top: 16px;
+  right: 17px;
+  color: var(--mf-text-muted);
+  font-size: 18px;
+}
+
 .form {
   display: grid;
-  grid-template-columns: minmax(160px, 1.4fr) minmax(140px, 1fr) minmax(200px, 1.4fr) auto;
+  grid-template-columns: minmax(160px, 1.4fr) minmax(140px, 1fr) minmax(
+      200px,
+      1.4fr
+    ) auto;
   gap: 10px;
   align-items: end;
   border: 1px solid var(--mf-border);
@@ -108,7 +234,7 @@
   background: var(--mf-surface-muted);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -130,8 +256,22 @@
   line-height: 1.5;
 }
 
+@media (max-width: 1100px) {
+  .healthGrid,
+  .resourceGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adminGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
-  .grid {
+  .grid,
+  .healthGrid,
+  .resourceGrid,
+  .adminGrid {
     grid-template-columns: 1fr;
   }
 
