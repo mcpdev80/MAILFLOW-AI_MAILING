@@ -21,7 +21,7 @@ export default function RootLayout({
 }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={geist.variable}>
+      <body className={`${geist.className} ${geist.variable}`}>
         <AppearanceProvider>
           <I18nProvider>
             <Suspense fallback={null}>{children}</Suspense>
