@@ -19,7 +19,10 @@ async function requireInstanceAdmin(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const caller = await requireInstanceAdmin(request);
   if (!caller) {
-    return NextResponse.json({ detail: "instance_admin_required" }, { status: 403 });
+    return NextResponse.json(
+      { detail: "instance_admin_required" },
+      { status: 403 },
+    );
   }
 
   const result = await pool.query<{
@@ -49,7 +52,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const caller = await requireInstanceAdmin(request);
   if (!caller) {
-    return NextResponse.json({ detail: "instance_admin_required" }, { status: 403 });
+    return NextResponse.json(
+      { detail: "instance_admin_required" },
+      { status: 403 },
+    );
   }
 
   const payload = (await request.json()) as {
@@ -58,7 +64,8 @@ export async function POST(request: NextRequest) {
     admin_email?: unknown;
   };
   const name = typeof payload.name === "string" ? payload.name.trim() : "";
-  const slug = typeof payload.slug === "string" ? payload.slug.trim().toLowerCase() : "";
+  const slug =
+    typeof payload.slug === "string" ? payload.slug.trim().toLowerCase() : "";
   const adminEmail =
     typeof payload.admin_email === "string"
       ? payload.admin_email.trim().toLowerCase()
@@ -120,10 +127,10 @@ export async function POST(request: NextRequest) {
       mf_org_id: provisioned.org_id,
       mf_api_key_enc: encryptSecret(provisioned.api_key),
     });
-    await client.query('update "organization" set metadata = $1 where id = $2', [
-      metadata,
-      organizationId,
-    ]);
+    await client.query(
+      'update "organization" set metadata = $1 where id = $2',
+      [metadata, organizationId],
+    );
 
     await client.query("commit");
     return NextResponse.json(
