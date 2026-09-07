@@ -1,0 +1,96 @@
+.folderDivider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 8px 7px;
+  color: var(--mf-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.folderDivider::before,
+.folderDivider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--mf-border);
+}
+
+.remoteContentNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--mf-warning) 32%, var(--mf-border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--mf-warning) 7%, var(--mf-surface));
+  color: var(--mf-text-secondary);
+  font-size: 11px;
+}
+
+.remoteContentNotice strong {
+  display: block;
+  color: var(--mf-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.remoteContentActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.remoteContentActions button {
+  min-height: 30px;
+  border: 1px solid var(--mf-border);
+  border-radius: 7px;
+  background: var(--mf-surface);
+  color: var(--mf-text-secondary);
+  padding: 0 9px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.remoteContentActions button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--mf-primary) 45%, var(--mf-border));
+  color: var(--mf-primary);
+}
+
+.remoteContentActions button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.remoteContentError {
+  display: block;
+  margin-top: 4px;
+  color: var(--mf-danger);
+}
+
+.richMailFrame {
+  display: block;
+  width: 100%;
+  min-height: 680px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color-scheme: light;
+}
+
+@media (max-width: 900px) {
+  .remoteContentNotice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .remoteContentActions {
+    flex-wrap: wrap;
+  }
+}
