@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from app.auth import RequestIdentity
 from app.models.organization import Organization
@@ -49,6 +50,8 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
     initial = await get_user_preferences(session, user_a)
     assert initial.locale == "en"
     assert initial.locale_configured is False
+    assert initial.timezone == "UTC"
+    assert initial.date_format == "YYYY-MM-DD"
     assert initial.theme == "system"
     assert initial.density == "comfortable"
     assert initial.workspace_layout == "classic"
@@ -60,6 +63,8 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
         user_a,
         UserPreferencesUpdate(
             locale="de",
+            timezone="Europe/Berlin",
+            date_format="DD.MM.YYYY",
             theme="dark",
             density="compact",
             workspace_layout="custom",
@@ -69,6 +74,8 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
     )
     assert saved.locale == "de"
     assert saved.locale_configured is True
+    assert saved.timezone == "Europe/Berlin"
+    assert saved.date_format == "DD.MM.YYYY"
     assert saved.theme == "dark"
     assert saved.density == "compact"
     assert saved.workspace_layout == "custom"
@@ -80,6 +87,8 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
     loaded_b = await get_user_preferences(session, user_b)
     assert loaded_b.locale == "en"
     assert loaded_b.locale_configured is False
+    assert loaded_b.timezone == "UTC"
+    assert loaded_b.date_format == "YYYY-MM-DD"
     assert loaded_b.theme == "system"
     assert loaded_b.workspace_layout == "classic"
     assert loaded_b.side_panel_alignment == "left"
@@ -87,10 +96,16 @@ async def test_preferences_default_then_persist_per_user(session) -> None:
 
 
 @pytest.mark.asyncio
-async def test_partial_workspace_update_preserves_locale(session) -> None:
+async def test_partial_workspace_update_preserves_locale_profile_preferences(session) -> None:
     org = await _organization(session, "Partial Preferences")
     identity = RequestIdentity(org=org, user_id="user-a")
-    await update_user_preferences(session, identity, UserPreferencesUpdate(locale="es"))
+    await update_user_preferences(
+        session,
+        identity,
+        UserPreferencesUpdate(
+            locale="es", timezone="Europe/Madrid", date_format="DD.MM.YYYY"
+        ),
+    )
 
     updated = await update_user_preferences(
         session,
@@ -104,6 +119,8 @@ async def test_partial_workspace_update_preserves_locale(session) -> None:
 
     assert updated.locale == "es"
     assert updated.locale_configured is True
+    assert updated.timezone == "Europe/Madrid"
+    assert updated.date_format == "DD.MM.YYYY"
     assert updated.theme == "light"
     assert updated.density == "comfortable"
     assert updated.workspace_layout == "vertical"
@@ -149,9 +166,16 @@ async def test_single_user_preferences_use_stable_actor_key(session) -> None:
     loaded = await get_user_preferences(session, identity)
     assert loaded.locale == "es"
     assert loaded.locale_configured is True
+    assert loaded.timezone == "UTC"
+    assert loaded.date_format == "YYYY-MM-DD"
     assert loaded.theme == "dark"
     assert loaded.density == "compact"
     assert loaded.side_panel_alignment == "left"
+
+
+def test_invalid_timezone_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="valid IANA time zone"):
+        UserPreferencesUpdate(timezone="Mars/Olympus_Mons")
 
 
 def test_custom_workspace_requires_each_panel_once() -> None:
