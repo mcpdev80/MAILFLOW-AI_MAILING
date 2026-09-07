@@ -36,6 +36,28 @@ def _model_role(value: str) -> ModelRole:
     return cast(ModelRole, value)
 
 
+def _litellm_model_id(provider: LLMProvider, model_id: str) -> str:
+    """Make instance-defined custom endpoints explicit to LiteLLM.
+
+    MailFlow's ``custom`` provider type represents an OpenAI-compatible endpoint
+    (for example AgentGateway, vLLM, SGLang or llama.cpp). LiteLLM cannot infer
+    the provider from arbitrary model names such as ``qwen3.5-4b``. Prefixing
+    the model with ``openai/`` selects LiteLLM's OpenAI-compatible transport;
+    the upstream request still carries the configured model name.
+    """
+    value = model_id.strip()
+    if provider.type.strip().lower() == "custom" and not value.startswith("openai/"):
+        return f"openai/{value}"
+    return value
+
+
+def _optional_litellm_model_id(provider: LLMProvider, value: object) -> str | None:
+    model_id = _optional_string(value)
+    if model_id is None:
+        return None
+    return _litellm_model_id(provider, model_id)
+
+
 def _scheduled(config: LLMConfig, account_id: object, priority: int) -> LLMClient:
     return ScheduledLLMClient(
         config,
@@ -69,12 +91,13 @@ def build_llm_client(
     }
 
     if for_generation:
+        generation_model = (
+            _provider_string(llm_provider, "generation_model")
+            or llm_provider.default_generation_model
+        )
         return _scheduled(
             LLMConfig(
-                model_id=(
-                    _provider_string(llm_provider, "generation_model")
-                    or llm_provider.default_generation_model
-                ),
+                model_id=_litellm_model_id(llm_provider, generation_model),
                 api_base=(
                     _provider_string(llm_provider, "generation_base_url")
                     or llm_provider.base_url
@@ -95,10 +118,14 @@ def build_llm_client(
 
     return _scheduled(
         LLMConfig(
-            model_id=llm_provider.default_classification_model,
+            model_id=_litellm_model_id(
+                llm_provider, llm_provider.default_classification_model
+            ),
             api_base=llm_provider.base_url,
             api_key=shared_api_key,
-            fast_model_id=_provider_string(llm_provider, "fast_classification_model"),
+            fast_model_id=_optional_litellm_model_id(
+                llm_provider, getattr(llm_provider, "fast_classification_model", None)
+            ),
             fast_api_base=_provider_string(
                 llm_provider, "fast_classification_base_url"
             ),
@@ -108,7 +135,9 @@ def build_llm_client(
             ),
             fast_timeout=settings.LLM_FAST_TIMEOUT_SECONDS,
             fast_max_retries=settings.LLM_FAST_MAX_RETRIES,
-            deep_model_id=_provider_string(llm_provider, "deep_classification_model"),
+            deep_model_id=_optional_litellm_model_id(
+                llm_provider, getattr(llm_provider, "deep_classification_model", None)
+            ),
             deep_api_base=_provider_string(
                 llm_provider, "deep_classification_base_url"
             ),
