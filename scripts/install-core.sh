@@ -290,12 +290,11 @@ choose_edge_ports() {
 
   HTTP_PORT="$(find_free_port 80)"
   if [ "$HTTP_PORT" != "80" ]; then
-    printf "$(msg port_busy)\n" 80 "$HTTP_PORT" > /dev/tty
+    printf "$(msg port_busy)\n" "80" "$HTTP_PORT" > /dev/tty
   fi
-
   HTTPS_PORT="$(find_free_port 443)"
   if [ "$HTTPS_PORT" != "443" ]; then
-    printf "$(msg port_busy)\n" 443 "$HTTPS_PORT" > /dev/tty
+    printf "$(msg port_busy)\n" "443" "$HTTPS_PORT" > /dev/tty
   fi
 }
 
@@ -583,7 +582,7 @@ set_env MAILFLOW_CADDY_ADDRESS "$CADDY_ADDRESS" "$ENV_FILE"
 set_env HTTP_PORT "$HTTP_PORT" "$ENV_FILE"
 set_env HTTPS_PORT "$HTTPS_PORT" "$ENV_FILE"
 set_env MAILFLOW_PORTS_MANAGED "cli" "$ENV_FILE"
-set_env AUTH_MODE "single" "$ENV_FILE"
+set_env AUTH_MODE "multi" "$ENV_FILE"
 set_env WEB_AUTH "on" "$ENV_FILE"
 set_env API_INTERNAL_URL "http://api:8000" "$ENV_FILE"
 set_env API_DOCS_ENABLED "false" "$ENV_FILE"
@@ -642,7 +641,7 @@ if [[ "$PUBLIC_URL" = https://* ]]; then
     fi
     [ "$https_ready" -eq 0 ] || break
     sleep 2
-  done
+done
   [ "$https_ready" -eq 1 ] || fail "Mailflow is running, but HTTPS verification did not become ready for $PUBLIC_URL"
 fi
 
