@@ -3,7 +3,7 @@
 import { ApiError, api } from "@/lib/api";
 import { authClient, useSession } from "@/lib/auth-client";
 import { backfillApi } from "@/lib/backfill-api";
-import type { ActionMode, EmailAccount, LLMProvider } from "@/lib/types";
+import type { ActionMode, EmailAccount, SmtpSecurity } from "@/lib/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -23,10 +23,17 @@ export type OrganizationMember = {
 };
 export type AccountForm = {
   imap_host: string;
+  imap_port: number;
+  use_ssl: boolean;
   username: string;
   password: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_security: SmtpSecurity;
+  smtp_username: string;
+  smtp_password: string;
+  smtp_same_credentials: boolean;
   interval_minutes: number;
-  llm_provider_id: string;
   ownership_mode: "private" | "shared";
   shared_user_ids: string[];
   move_policy: ActionMode;
@@ -41,15 +48,21 @@ export function useOnboardingPage() {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [providerChoice, setProviderChoice] =
     useState<MailProviderChoice>("gmail");
-  const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [account, setAccount] = useState<EmailAccount | null>(null);
   const [accountForm, setAccountForm] = useState<AccountForm>({
     imap_host: "",
+    imap_port: 993,
+    use_ssl: true,
     username: "",
     password: "",
+    smtp_host: "",
+    smtp_port: 587,
+    smtp_security: "starttls",
+    smtp_username: "",
+    smtp_password: "",
+    smtp_same_credentials: true,
     interval_minutes: 5,
-    llm_provider_id: "",
     ownership_mode: "private",
     shared_user_ids: [],
     move_policy: "automatic",
@@ -63,19 +76,9 @@ export function useOnboardingPage() {
   useEffect(() => {
     const addMailbox = params.get("new") === "1";
     const connectedAccountId = params.get("account_id");
-    void Promise.allSettled([api.listProviders(), api.listAccounts()]).then(
-      ([providerResult, accountResult]) => {
-        if (providerResult.status === "fulfilled") {
-          setProviders(providerResult.value);
-          if (providerResult.value[0]) {
-            setAccountForm((current) => ({
-              ...current,
-              llm_provider_id: providerResult.value[0].id,
-            }));
-          }
-        }
-        const accounts =
-          accountResult.status === "fulfilled" ? accountResult.value : [];
+    void api
+      .listAccounts()
+      .then((accounts) => {
         const connectedAccount = connectedAccountId
           ? accounts.find((candidate) => candidate.id === connectedAccountId)
           : addMailbox
@@ -92,6 +95,17 @@ export function useOnboardingPage() {
           );
           setAccountForm((current) => ({
             ...current,
+            imap_host: connectedAccount.imap_host,
+            imap_port: connectedAccount.imap_port,
+            use_ssl: connectedAccount.use_ssl,
+            username: connectedAccount.username,
+            smtp_host: connectedAccount.smtp_host ?? "",
+            smtp_port: connectedAccount.smtp_port ?? 587,
+            smtp_security: connectedAccount.smtp_security,
+            smtp_username: connectedAccount.smtp_username ?? "",
+            smtp_same_credentials:
+              !connectedAccount.smtp_username ||
+              connectedAccount.smtp_username === connectedAccount.username,
             ownership_mode:
               connectedAccount.ownership_mode === "shared"
                 ? "shared"
@@ -110,9 +124,9 @@ export function useOnboardingPage() {
         } else if (params.get("step") === "mailbox") {
           setStep("mailbox");
         }
-        setLoading(false);
-      },
-    );
+      })
+      .catch((err) => setError(messageOf(err, "onboarding_accounts_load_failed")))
+      .finally(() => setLoading(false));
   }, [params]);
 
   useEffect(() => {
@@ -163,12 +177,27 @@ export function useOnboardingPage() {
 
   const continueFromMailbox = useCallback(() => {
     setError(null);
-    if (
-      providerChoice === "imap" &&
-      (!accountForm.imap_host || !accountForm.username || !accountForm.password)
-    ) {
-      setError("Enter the IMAP host, username and password before continuing.");
-      return;
+    if (providerChoice === "imap") {
+      if (
+        !accountForm.imap_host ||
+        !accountForm.imap_port ||
+        !accountForm.username ||
+        !accountForm.password
+      ) {
+        setError("Enter the IMAP server, port, username and password before continuing.");
+        return;
+      }
+      if (!accountForm.smtp_host || !accountForm.smtp_port) {
+        setError("Enter the SMTP server and port before continuing.");
+        return;
+      }
+      if (
+        !accountForm.smtp_same_credentials &&
+        (!accountForm.smtp_username || !accountForm.smtp_password)
+      ) {
+        setError("Enter the SMTP username and password or use the IMAP credentials.");
+        return;
+      }
     }
     if (providerChoice !== "imap" && !account) {
       setError(
@@ -185,12 +214,24 @@ export function useOnboardingPage() {
     try {
       let currentAccount = account;
       if (!currentAccount) {
+        const smtpUsername = accountForm.smtp_same_credentials
+          ? accountForm.username
+          : accountForm.smtp_username;
+        const smtpPassword = accountForm.smtp_same_credentials
+          ? accountForm.password
+          : accountForm.smtp_password;
         currentAccount = await api.createAccount({
           imap_host: accountForm.imap_host,
+          imap_port: accountForm.imap_port,
+          use_ssl: accountForm.use_ssl,
           username: accountForm.username,
           password: accountForm.password,
+          smtp_host: accountForm.smtp_host || null,
+          smtp_port: accountForm.smtp_port || null,
+          smtp_security: accountForm.smtp_security,
+          smtp_username: smtpUsername || null,
+          smtp_password: smtpPassword || null,
           interval_minutes: accountForm.interval_minutes,
-          llm_provider_id: accountForm.llm_provider_id || null,
           ownership_mode: accountForm.ownership_mode,
           shared_user_ids:
             accountForm.ownership_mode === "shared"
@@ -271,7 +312,6 @@ export function useOnboardingPage() {
     setStep,
     providerChoice,
     setProviderChoice,
-    providers,
     members,
     account,
     accountForm,
