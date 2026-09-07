@@ -32,16 +32,19 @@ export async function GET(request: NextRequest) {
     created_at: string;
     member_count: number;
     admin_count: number;
+    pending_admin_count: number;
   }>(`
     select
       o.id,
       o.name,
       o.slug,
       o."createdAt"::text as created_at,
-      count(m.id)::int as member_count,
-      count(m.id) filter (where m.role in ('owner', 'admin'))::int as admin_count
+      count(distinct m.id)::int as member_count,
+      count(distinct m.id) filter (where m.role in ('owner', 'admin'))::int as admin_count,
+      count(distinct i.id) filter (where i.status = 'pending' and i.role in ('owner', 'admin'))::int as pending_admin_count
     from "organization" o
     left join "member" m on m."organizationId" = o.id
+    left join "invitation" i on i."organizationId" = o.id
     group by o.id, o.name, o.slug, o."createdAt"
     order by lower(o.name), o.id
   `);
@@ -99,13 +102,6 @@ export async function POST(request: NextRequest) {
         [adminEmail],
       );
       adminUserId = user.rows[0]?.id ?? null;
-      if (!adminUserId) {
-        await client.query("rollback");
-        return NextResponse.json(
-          { detail: "admin_user_not_found" },
-          { status: 422 },
-        );
-      }
     }
 
     await client.query(
@@ -114,12 +110,22 @@ export async function POST(request: NextRequest) {
       [organizationId, name, slug],
     );
 
+    let initialAdminState: "member" | "invited" | null = null;
     if (adminUserId) {
       await client.query(
         `insert into "member" (id, "organizationId", "userId", role, "createdAt")
          values ($1, $2, $3, 'owner', now())`,
         [randomUUID(), organizationId, adminUserId],
       );
+      initialAdminState = "member";
+    } else if (adminEmail) {
+      await client.query(
+        `insert into "invitation"
+          (id, "organizationId", email, role, status, "expiresAt", "createdAt", "inviterId")
+         values ($1, $2, $3, 'owner', 'pending', now() + interval '7 days', now(), $4)`,
+        [randomUUID(), organizationId, adminEmail, caller.session.user.id],
+      );
+      initialAdminState = "invited";
     }
 
     const provisioned = await provisionOrg({ name, slug });
@@ -139,6 +145,7 @@ export async function POST(request: NextRequest) {
         name,
         slug,
         initial_admin: adminEmail || null,
+        initial_admin_state: initialAdminState,
       },
       { status: 201 },
     );
