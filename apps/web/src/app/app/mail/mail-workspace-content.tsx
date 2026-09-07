@@ -1,7 +1,7 @@
 "use client";
 
 import { mailAttachmentUrl } from "@/lib/api";
-import { useI18n } from "@/lib/i18n";
+import { enumLabel, useI18n } from "@/lib/i18n";
 import type { MessageDetail } from "@/lib/types";
 import { mailFolderLabel } from "./mail-folder-label";
 import { formatAttachmentBytes, messageKey } from "./mail-workspace-utils";
@@ -185,6 +185,9 @@ function addTag(state: WorkspaceState, prompt: string) {
 
 function MessageArticle({ message }: { message: MessageDetail }) {
   const { t, locale } = useI18n();
+  const tags = Array.from(
+    new Set([...message.system_tags, ...message.user_tags, ...message.keywords]),
+  ).filter((tag) => tag.trim());
   return (
     <article className={styles.threadMessage}>
       <header className={styles.messageHeader}>
@@ -204,6 +207,22 @@ function MessageArticle({ message }: { message: MessageDetail }) {
       <h2 className={styles.messageTitle}>
         {message.subject || t("mail.noSubject")}
       </h2>
+      {(message.category || tags.length > 0 || message.review_required) && (
+        <div className={styles.rowMeta} style={{ marginBottom: 14 }}>
+          {message.category && (
+            <span className={styles.tagPill}>
+              {enumLabel(t, "category", message.category)}
+            </span>
+          )}
+          {message.importance && message.importance !== "unknown" && (
+            <span className={styles.tagMore}>{message.importance}</span>
+          )}
+          {message.review_required && <span className={styles.tagPill}>Review</span>}
+          {tags.map((tag) => (
+            <span key={tag} className={styles.tagPill}>{tag}</span>
+          ))}
+        </div>
+      )}
       {message.safe_html ? (
         <div
           className={styles.mailBody}
