@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { WizardShell, wizardStyles as s } from "@/components/wizard-shell";
 import { type BootstrapStatus, getBootstrapStatus } from "@/lib/bootstrap-api";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { InstanceSetup } from "./setup-ui";
 
 type SupportedLanguage = "de" | "en" | "es";
+
+type InstanceBootstrapStatus = {
+  auth_enabled: boolean;
+  instance_owner_exists: boolean;
+};
 
 const copy = {
   de: {
@@ -75,14 +81,36 @@ function normalizeLanguage(value: string | null | undefined): SupportedLanguage 
 }
 
 export function SetupFlow() {
+  const router = useRouter();
   const [started, setStarted] = useState(false);
   const [bootstrap, setBootstrap] = useState<BootstrapStatus | null>(null);
+  const [guardLoaded, setGuardLoaded] = useState(false);
 
   useEffect(() => {
-    void getBootstrapStatus()
-      .then(setBootstrap)
-      .catch(() => setBootstrap(null));
-  }, []);
+    void Promise.allSettled([
+      getBootstrapStatus(),
+      fetch("/api/instance-bootstrap/status", { cache: "no-store" }).then(async (response) => {
+        if (!response.ok) throw new Error("instance_bootstrap_status_failed");
+        return (await response.json()) as InstanceBootstrapStatus;
+      }),
+    ]).then(([bootstrapResult, guardResult]) => {
+      if (bootstrapResult.status === "fulfilled") {
+        setBootstrap(bootstrapResult.value);
+      } else {
+        setBootstrap(null);
+      }
+
+      if (
+        guardResult.status === "fulfilled" &&
+        guardResult.value.auth_enabled &&
+        guardResult.value.instance_owner_exists
+      ) {
+        router.replace("/app");
+        return;
+      }
+      setGuardLoaded(true);
+    });
+  }, [router]);
 
   const language = normalizeLanguage(bootstrap?.fields.language.value);
   const t = copy[language];
@@ -92,6 +120,7 @@ export function SetupFlow() {
     return tlsValue === "custom" ? t.tlsCustom : t.tlsAutomatic;
   }, [bootstrap, tlsValue, t]);
 
+  if (!guardLoaded) return null;
   if (started) return <InstanceSetup />;
 
   return (
