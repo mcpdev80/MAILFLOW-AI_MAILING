@@ -346,6 +346,22 @@ export type LLMProviderUpdate = Partial<LLMProviderCreate> & {
   is_active?: boolean;
 };
 
+export type LLMRole = "fast" | "deep" | "generation";
+
+export interface LLMRoleAssignment {
+  role: LLMRole;
+  provider_id: string;
+  model_id: string;
+}
+
+export interface LLMRoleAssignments {
+  fast: LLMRoleAssignment | null;
+  deep: LLMRoleAssignment | null;
+  generation: LLMRoleAssignment | null;
+}
+
+export type LLMRoleAssignmentsUpdate = Partial<LLMRoleAssignments>;
+
 export interface Cycle {
   id: string;
   account_id: string;

@@ -15,6 +15,8 @@ import type {
   LLMProvider,
   LLMProviderCreate,
   LLMProviderUpdate,
+  LLMRoleAssignments,
+  LLMRoleAssignmentsUpdate,
   MailActionRequest,
   MailActionResult,
   MailDraft,
@@ -239,6 +241,17 @@ export const api = {
   updateProvider: (id: string, payload: LLMProviderUpdate) =>
     request<LLMProvider>(`/llm-providers/${id}`, {
       method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteProvider: (id: string) =>
+    request<void>(`/llm-providers/${id}`, { method: "DELETE" }),
+  listProviderModels: (id: string) =>
+    request<{ models: string[] }>(`/llm-providers/${id}/models`),
+  getLLMRoleAssignments: () =>
+    request<LLMRoleAssignments>("/llm-providers/role-assignments"),
+  updateLLMRoleAssignments: (payload: LLMRoleAssignmentsUpdate) =>
+    request<LLMRoleAssignments>("/llm-providers/role-assignments", {
+      method: "PUT",
       body: JSON.stringify(payload),
     }),
 

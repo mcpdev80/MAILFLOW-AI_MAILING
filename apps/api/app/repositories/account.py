@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from types import SimpleNamespace
 from uuid import UUID
 
 from mailflow_core.classification.rule_engine import AccountConfig
@@ -142,4 +143,116 @@ class AccountRepository:
             ],
         )
 
-        return account, account_config, account.llm_provider
+        resolved_provider = await self._resolve_role_provider(
+            account.org_id, account.llm_provider
+        )
+        return account, account_config, resolved_provider
+
+    async def _resolve_role_provider(
+        self, org_id: UUID, fallback: LLMProvider | None
+    ) -> LLMProvider | None:
+        rows = list(
+            (
+                await self._session.execute(
+                    text(
+                        "SELECT role, provider_id, model_id FROM llm_role_assignments "
+                        "WHERE org_id = :org_id"
+                    ),
+                    {"org_id": org_id},
+                )
+            )
+        )
+        if not rows:
+            return fallback
+
+        provider_ids = {row.provider_id for row in rows}
+        providers = list(
+            (
+                await self._session.execute(
+                    select(LLMProvider).where(
+                        LLMProvider.org_id == org_id,
+                        LLMProvider.id.in_(provider_ids),
+                        LLMProvider.is_active.is_(True),
+                    )
+                )
+            ).scalars()
+        )
+        by_id = {provider.id: provider for provider in providers}
+        assignments = {row.role: row for row in rows if row.provider_id in by_id}
+        if not assignments:
+            return fallback
+
+        def provider_for(role: str) -> LLMProvider | None:
+            item = assignments.get(role)
+            if item is not None:
+                return by_id.get(item.provider_id)
+            return fallback
+
+        def model_for(role: str, provider: LLMProvider | None) -> str | None:
+            item = assignments.get(role)
+            if item is not None and item.model_id:
+                model_id = str(item.model_id)
+            elif provider is None:
+                return None
+            elif role == "generation":
+                model_id = (
+                    provider.generation_model or provider.default_generation_model
+                )
+            elif role == "deep":
+                model_id = (
+                    provider.deep_classification_model
+                    or provider.default_classification_model
+                )
+            else:
+                model_id = (
+                    provider.fast_classification_model
+                    or provider.default_classification_model
+                )
+            if provider is None or "/" in model_id:
+                return model_id
+            prefix = {
+                "anthropic": "anthropic",
+                "gemini": "gemini",
+                "openrouter": "openrouter",
+                "ollama": "ollama",
+            }.get(provider.type.lower())
+            return f"{prefix}/{model_id}" if prefix else model_id
+
+        fast_provider = provider_for("fast")
+        deep_provider = provider_for("deep") or fast_provider
+        generation_provider = provider_for("generation") or fallback or fast_provider
+        if fast_provider is None:
+            fast_provider = deep_provider or generation_provider
+        if fast_provider is None:
+            return fallback
+
+        fast_model = (
+            model_for("fast", fast_provider)
+            or fast_provider.default_classification_model
+        )
+        deep_model = model_for("deep", deep_provider) or fast_model
+        generation_model = model_for("generation", generation_provider) or fast_model
+        return SimpleNamespace(
+            is_active=True,
+            base_url=fast_provider.base_url,
+            encrypted_api_key=fast_provider.encrypted_api_key,
+            default_classification_model=fast_model,
+            default_generation_model=generation_model,
+            fast_classification_model=fast_model,
+            deep_classification_model=deep_model,
+            generation_model=generation_model,
+            fast_classification_base_url=fast_provider.base_url,
+            deep_classification_base_url=deep_provider.base_url
+            if deep_provider
+            else fast_provider.base_url,
+            generation_base_url=generation_provider.base_url
+            if generation_provider
+            else fast_provider.base_url,
+            encrypted_fast_api_key=fast_provider.encrypted_api_key,
+            encrypted_deep_api_key=deep_provider.encrypted_api_key
+            if deep_provider
+            else fast_provider.encrypted_api_key,
+            encrypted_generation_api_key=generation_provider.encrypted_api_key
+            if generation_provider
+            else fast_provider.encrypted_api_key,
+        )
