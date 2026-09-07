@@ -4,6 +4,7 @@ import { ApiError, api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { ActionMode, EmailAccount } from "@/lib/types";
 import { useEffect, useState } from "react";
+import { ConnectionSettingsCard } from "./ConnectionSettingsCard";
 
 type Props = {
   account: EmailAccount;
@@ -54,33 +55,40 @@ export function ActionPolicyCard({ account, canManage, onSaved }: Props) {
   }
 
   return (
-    <section className="card" style={{ marginBottom: 20 }}>
-      <h2 style={{ marginTop: 0 }}>{t("account.actions.title")}</h2>
-      <p className="muted">{t("account.actions.description")}</p>
-      {error && <div className="alert error">{error}</div>}
-      {notice && <div className="alert ok">{notice}</div>}
-      <PolicySelect
-        id="move-policy"
-        label={t("account.actions.move")}
-        value={movePolicy}
-        onChange={setMovePolicy}
+    <>
+      <ConnectionSettingsCard
+        account={account}
+        canManage={canManage}
+        onSaved={onSaved}
       />
-      <PolicySelect
-        id="archive-policy"
-        label={t("account.actions.archive")}
-        value={archivePolicy}
-        onChange={setArchivePolicy}
-      />
-      <ConfidenceField value={threshold} onChange={setThreshold} />
-      <button
-        className="btn secondary"
-        type="button"
-        disabled={busy || threshold < 0 || threshold > 1}
-        onClick={() => void save()}
-      >
-        {busy ? t("account.actions.saving") : t("account.actions.save")}
-      </button>
-    </section>
+      <section className="card" style={{ marginTop: 20, marginBottom: 20 }}>
+        <h2 style={{ marginTop: 0 }}>{t("account.actions.title")}</h2>
+        <p className="muted">{t("account.actions.description")}</p>
+        {error && <div className="alert error">{error}</div>}
+        {notice && <div className="alert ok">{notice}</div>}
+        <PolicySelect
+          id="move-policy"
+          label={t("account.actions.move")}
+          value={movePolicy}
+          onChange={setMovePolicy}
+        />
+        <PolicySelect
+          id="archive-policy"
+          label={t("account.actions.archive")}
+          value={archivePolicy}
+          onChange={setArchivePolicy}
+        />
+        <ConfidenceField value={threshold} onChange={setThreshold} />
+        <button
+          className="btn secondary"
+          type="button"
+          disabled={busy || threshold < 0 || threshold > 1}
+          onClick={() => void save()}
+        >
+          {busy ? t("account.actions.saving") : t("account.actions.save")}
+        </button>
+      </section>
+    </>
   );
 }
 
