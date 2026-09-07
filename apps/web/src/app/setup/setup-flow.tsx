@@ -22,17 +22,29 @@ const copy = {
     language: "Sprache",
     languageSet: "wurde vom Installer auf Deutsch gesetzt",
     tls: "TLS-Zertifikat",
-    tlsCustom: "vorhandenes Zertifikat wurde vom Installer erkannt und eingerichtet",
+    tlsCustom:
+      "vorhandenes Zertifikat wurde vom Installer erkannt und eingerichtet",
     tlsAutomatic: "automatische Zertifikatsverwaltung ist eingerichtet",
     url: "Öffentliche URL",
     steps: [
-      ["1. Sprache & Darstellung", "Prüfe die vom Installer gesetzte Sprache und die Darstellungs-Vorgaben."],
-      ["2. URL & HTTPS", "Prüfe die erkannte öffentliche Adresse und TLS-Konfiguration."],
-      ["3. KI-Provider", "Verbinde den Modell-Endpunkt für Klassifizierung und Generierung."],
-      ["4. Instanzprüfung", "Prüfe Frontend, API, Authentifizierung, Datenbank, HTTPS und KI-Verbindung."],
+      [
+        "1. Sprache & Darstellung",
+        "Prüfe die vom Installer gesetzte Sprache und die Darstellungs-Vorgaben.",
+      ],
+      [
+        "2. URL & HTTPS",
+        "Prüfe die erkannte öffentliche Adresse und TLS-Konfiguration.",
+      ],
+      [
+        "3. KI-Provider",
+        "Verbinde den Modell-Endpunkt für Klassifizierung und Generierung.",
+      ],
+      [
+        "4. Instanzprüfung",
+        "Prüfe Frontend, API, Authentifizierung, Datenbank, HTTPS und KI-Verbindung.",
+      ],
     ],
-    info:
-      "Nach der Instanz-Einrichtung startet das separate 6-Schritt-Onboarding für Postfach, Datenschutz und Verhalten.",
+    info: "Nach der Instanz-Einrichtung startet das separate 6-Schritt-Onboarding für Postfach, Datenschutz und Verhalten.",
   },
   en: {
     title: "Welcome to Mailflow",
@@ -42,17 +54,29 @@ const copy = {
     language: "Language",
     languageSet: "was set to English by the installer",
     tls: "TLS certificate",
-    tlsCustom: "an existing certificate was detected and configured by the installer",
+    tlsCustom:
+      "an existing certificate was detected and configured by the installer",
     tlsAutomatic: "automatic certificate management is configured",
     url: "Public URL",
     steps: [
-      ["1. Language & appearance", "Review the language and appearance defaults set during installation."],
-      ["2. URL & HTTPS", "Review the detected public address and TLS configuration."],
-      ["3. AI provider", "Connect the model endpoint for classification and generation."],
-      ["4. Instance verification", "Verify frontend, API, authentication, database, HTTPS and AI connectivity."],
+      [
+        "1. Language & appearance",
+        "Review the language and appearance defaults set during installation.",
+      ],
+      [
+        "2. URL & HTTPS",
+        "Review the detected public address and TLS configuration.",
+      ],
+      [
+        "3. AI provider",
+        "Connect the model endpoint for classification and generation.",
+      ],
+      [
+        "4. Instance verification",
+        "Verify frontend, API, authentication, database, HTTPS and AI connectivity.",
+      ],
     ],
-    info:
-      "After instance setup, Mailflow starts the separate 6-step onboarding for mailbox, privacy and behavior settings.",
+    info: "After instance setup, Mailflow starts the separate 6-step onboarding for mailbox, privacy and behavior settings.",
   },
   es: {
     title: "Bienvenido a Mailflow",
@@ -66,17 +90,30 @@ const copy = {
     tlsAutomatic: "la gestión automática de certificados está configurada",
     url: "URL pública",
     steps: [
-      ["1. Idioma y apariencia", "Revisa el idioma y la apariencia definidos durante la instalación."],
-      ["2. URL y HTTPS", "Revisa la dirección pública detectada y la configuración TLS."],
-      ["3. Proveedor de IA", "Conecta el endpoint del modelo para clasificación y generación."],
-      ["4. Verificación de instancia", "Verifica frontend, API, autenticación, base de datos, HTTPS y conectividad con IA."],
+      [
+        "1. Idioma y apariencia",
+        "Revisa el idioma y la apariencia definidos durante la instalación.",
+      ],
+      [
+        "2. URL y HTTPS",
+        "Revisa la dirección pública detectada y la configuración TLS.",
+      ],
+      [
+        "3. Proveedor de IA",
+        "Conecta el endpoint del modelo para clasificación y generación.",
+      ],
+      [
+        "4. Verificación de instancia",
+        "Verifica frontend, API, autenticación, base de datos, HTTPS y conectividad con IA.",
+      ],
     ],
-    info:
-      "Después de configurar la instancia, Mailflow inicia la incorporación separada de 6 pasos para buzón, privacidad y comportamiento.",
+    info: "Después de configurar la instancia, Mailflow inicia la incorporación separada de 6 pasos para buzón, privacidad y comportamiento.",
   },
 } as const;
 
-function normalizeLanguage(value: string | null | undefined): SupportedLanguage {
+function normalizeLanguage(
+  value: string | null | undefined,
+): SupportedLanguage {
   return value === "de" || value === "es" ? value : "en";
 }
 
@@ -89,10 +126,12 @@ export function SetupFlow() {
   useEffect(() => {
     void Promise.allSettled([
       getBootstrapStatus(),
-      fetch("/api/instance-bootstrap/status", { cache: "no-store" }).then(async (response) => {
-        if (!response.ok) throw new Error("instance_bootstrap_status_failed");
-        return (await response.json()) as InstanceBootstrapStatus;
-      }),
+      fetch("/api/instance-bootstrap/status", { cache: "no-store" }).then(
+        async (response) => {
+          if (!response.ok) throw new Error("instance_bootstrap_status_failed");
+          return (await response.json()) as InstanceBootstrapStatus;
+        },
+      ),
     ]).then(([bootstrapResult, guardResult]) => {
       if (bootstrapResult.status === "fulfilled") {
         setBootstrap(bootstrapResult.value);
@@ -151,7 +190,8 @@ export function SetupFlow() {
           </div>
         ) : null}
 
-        {bootstrap?.fields.public_url.configured && bootstrap.fields.public_url.value ? (
+        {bootstrap?.fields.public_url.configured &&
+        bootstrap.fields.public_url.value ? (
           <div className={s.info}>
             <span className={s.infoIcon}>✓</span>
             <span>
