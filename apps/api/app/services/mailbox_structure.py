@@ -127,6 +127,17 @@ class MailboxStructureService:
         provider = await self._provider(account)
         created_folders: list[str] = []
         reused_folders: list[str] = []
+        previous_config = dict(account.structure_config or {})
+        previous_tags_raw = previous_config.get("tags")
+        previous_tags = (
+            {
+                str(value).casefold()
+                for value in previous_tags_raw.values()
+                if isinstance(value, str)
+            }
+            if isinstance(previous_tags_raw, dict)
+            else set()
+        )
         try:
             await asyncio.to_thread(provider.connect)
             existing_folders, existing_tags = await asyncio.to_thread(
@@ -148,6 +159,7 @@ class MailboxStructureService:
                 if (
                     item.action == "reuse"
                     and item.mailbox_name.casefold() not in existing_tag_set
+                    and item.mailbox_name.casefold() not in previous_tags
                 ):
                     raise ValueError(f"tag_to_reuse_not_found:{item.mailbox_name}")
 
