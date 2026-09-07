@@ -65,7 +65,7 @@ function slugify(value: string): string {
   return value
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{M}+/gu, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
@@ -82,15 +82,22 @@ export default function InstanceOrganizationsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/instance-organizations", { cache: "no-store" });
-    if (!response.ok) throw new Error(`organizations_load_failed:${response.status}`);
-    const payload = (await response.json()) as { organizations: Organization[] };
+    const response = await fetch("/api/instance-organizations", {
+      cache: "no-store",
+    });
+    if (!response.ok)
+      throw new Error(`organizations_load_failed:${response.status}`);
+    const payload = (await response.json()) as {
+      organizations: Organization[];
+    };
     setOrganizations(payload.organizations);
   }, []);
 
   useEffect(() => {
     void load().catch((err) =>
-      setError(err instanceof Error ? err.message : "organizations_load_failed"),
+      setError(
+        err instanceof Error ? err.message : "organizations_load_failed",
+      ),
     );
   }, [load]);
 
@@ -108,17 +115,21 @@ export default function InstanceOrganizationsPage() {
         }),
       });
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { detail?: string }
-          | null;
-        throw new Error(payload?.detail ?? `organization_create_failed:${response.status}`);
+        const payload = (await response.json().catch(() => null)) as {
+          detail?: string;
+        } | null;
+        throw new Error(
+          payload?.detail ?? `organization_create_failed:${response.status}`,
+        );
       }
       setName("");
       setSlug("");
       setAdminEmail("");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "organization_create_failed");
+      setError(
+        err instanceof Error ? err.message : "organization_create_failed",
+      );
     } finally {
       setBusy(false);
     }
@@ -145,7 +156,10 @@ export default function InstanceOrganizationsPage() {
         </label>
         <label>
           {copy.slug}
-          <input value={slug} onChange={(event) => setSlug(event.currentTarget.value)} />
+          <input
+            value={slug}
+            onChange={(event) => setSlug(event.currentTarget.value)}
+          />
         </label>
         <label>
           {copy.admin}
@@ -186,7 +200,9 @@ export default function InstanceOrganizationsPage() {
                 <td>{organization.slug}</td>
                 <td>{organization.member_count}</td>
                 <td>{organization.admin_count}</td>
-                <td>{new Date(organization.created_at).toLocaleDateString(locale)}</td>
+                <td>
+                  {new Date(organization.created_at).toLocaleDateString(locale)}
+                </td>
               </tr>
             ))}
             {organizations.length === 0 && (
