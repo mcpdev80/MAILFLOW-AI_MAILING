@@ -3,14 +3,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.secret_storage import validate_stored_secrets
 
-EXPECTED_SCHEMA_REVISION = "026"
+
+def _expected_schema_revision() -> str:
+    """Return the Alembic head shipped with this API build.
+
+    Restore validation must follow the migration graph automatically. Keeping a
+    second hard-coded revision here caused valid databases to be rejected after
+    adding a migration.
+    """
+    api_root = Path(__file__).resolve().parents[1]
+    config = Config(str(api_root / "alembic.ini"))
+    head = ScriptDirectory.from_config(config).get_current_head()
+    if not head:
+        raise RuntimeError("MailFlow has no Alembic head revision")
+    return head
+
+
+EXPECTED_SCHEMA_REVISION = _expected_schema_revision()
 
 
 class RestoreValidationError(RuntimeError):
