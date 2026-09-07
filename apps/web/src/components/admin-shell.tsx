@@ -91,11 +91,15 @@ export function AdminShell({
   useEffect(() => {
     if (!context?.authenticated) return;
     if (plane === "instance" && !context.instance_role) {
-      router.replace(adminOrganizations.length > 0 ? "/admin/org" : "/app/dashboard");
+      router.replace(
+        adminOrganizations.length > 0 ? "/admin/org" : "/app/dashboard",
+      );
       return;
     }
     if (plane === "organization" && adminOrganizations.length === 0) {
-      router.replace(context.instance_role ? "/admin/instance" : "/app/dashboard");
+      router.replace(
+        context.instance_role ? "/admin/instance" : "/app/dashboard",
+      );
     }
   }, [adminOrganizations.length, context, plane, router]);
 
@@ -137,8 +141,11 @@ export function AdminShell({
       }
       const [target, organizationId] = value.split(":", 2);
       if (!organizationId) return;
-      const result = await authClient.organization.setActive({ organizationId });
-      if (result.error) throw new Error(result.error.message ?? "set_active_failed");
+      const result = await authClient.organization.setActive({
+        organizationId,
+      });
+      if (result.error)
+        throw new Error(result.error.message ?? "set_active_failed");
       router.push(target === "org" ? "/admin/org" : "/app/dashboard");
       router.refresh();
     } finally {
@@ -166,7 +173,9 @@ export function AdminShell({
           </Link>
           <div className={styles.plane}>
             <span className={styles.planeLabel}>{copy.plane}</span>
-            <strong>{plane === "instance" ? copy.instance : copy.orgAdmin}</strong>
+            <strong>
+              {plane === "instance" ? copy.instance : copy.orgAdmin}
+            </strong>
           </div>
           <nav className={styles.nav}>
             {items.map((item) => {
@@ -195,7 +204,9 @@ export function AdminShell({
             disabled={switching}
             onChange={(event) => void switchArea(event.currentTarget.value)}
           >
-            {context.instance_role && <option value="instance">{copy.instance}</option>}
+            {context.instance_role && (
+              <option value="instance">{copy.instance}</option>
+            )}
             {adminOrganizations.map((org) => (
               <option key={`org:${org.id}`} value={`org:${org.id}`}>
                 {copy.orgAdmin}: {org.name}
@@ -215,12 +226,12 @@ export function AdminShell({
           <span className={styles.headerTitle}>
             {plane === "instance"
               ? copy.instance
-              : activeOrganization?.name ?? copy.orgAdmin}
+              : (activeOrganization?.name ?? copy.orgAdmin)}
           </span>
           <span className={styles.rolePill}>
             {plane === "instance"
               ? context.instance_role
-              : activeOrganization?.role ?? "admin"}
+              : (activeOrganization?.role ?? "admin")}
           </span>
         </header>
         <main className={styles.main}>{children}</main>
