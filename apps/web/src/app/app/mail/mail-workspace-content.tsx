@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { loadRichHtml, rememberRemoteSender, trustedRemoteSenders } from "./mail-data-api";
 import { mailFolderLabel } from "./mail-folder-label";
 import { MailIcon } from "./mail-icons";
+import extra from "./mail-workspace-enhancements.module.css";
 import { formatAttachmentBytes, messageKey } from "./mail-workspace-utils";
 import { SenderAvatar } from "./sender-avatar";
 import styles from "./mail-workspace.module.css";
@@ -199,13 +200,13 @@ function MessageArticle({ message }: { message: MessageDetail }) {
         </div>
       )}
       {message.safe_html && !richHtml && (
-        <div className={styles.remoteContentNotice}>
+        <div className={extra.remoteContentNotice}>
           <div>
             <strong>{trusted ? copy.trusted : copy.notice}</strong>
-            {richError && <span className={styles.remoteContentError}>{richError}</span>}
+            {richError && <span className={extra.remoteContentError}>{richError}</span>}
           </div>
           {!trusted && (
-            <div className={styles.remoteContentActions}>
+            <div className={extra.remoteContentActions}>
               <button type="button" disabled={richLoading} onClick={() => void showRich(false)}>{copy.once}</button>
               <button type="button" disabled={richLoading} onClick={() => void showRich(true)}>{copy.always}</button>
             </div>
@@ -215,7 +216,7 @@ function MessageArticle({ message }: { message: MessageDetail }) {
       <div className={styles.messageBodyCard}>
         {richHtml ? (
           <iframe
-            className={styles.richMailFrame}
+            className={extra.richMailFrame}
             title={message.subject || "HTML mail"}
             sandbox="allow-popups allow-popups-to-escape-sandbox"
             referrerPolicy="no-referrer"
