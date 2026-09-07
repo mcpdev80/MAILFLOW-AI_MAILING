@@ -1,7 +1,7 @@
 "use client";
 
-import { InstanceSetup } from "./setup-ui";
+import { SetupFlow } from "./setup-flow";
 
 export default function SetupPage() {
-  return <InstanceSetup />;
+  return <SetupFlow />;
 }

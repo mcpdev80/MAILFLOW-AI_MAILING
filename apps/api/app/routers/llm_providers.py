@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,7 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import require_org, require_org_admin
 from app.crypto import encrypt_secret
 from app.database import get_session
-from app.llm_schemas import LLMProviderCreate, LLMProviderOut, LLMProviderUpdate
+from app.llm_schemas import (
+    LLMModelDiscoveryOut,
+    LLMModelDiscoveryRequest,
+    LLMProviderCreate,
+    LLMProviderOut,
+    LLMProviderUpdate,
+)
 from app.models.llm_provider import LLMProvider
 from app.models.organization import Organization
 
@@ -48,6 +58,60 @@ async def _get_owned(
     return provider
 
 
+def _openai_models_url(base_url: str) -> str:
+    return f"{base_url.rstrip('/')}/models"
+
+
+def _ollama_models_url(base_url: str) -> str:
+    normalized = base_url.rstrip("/")
+    if normalized.endswith("/v1"):
+        normalized = normalized[:-3]
+    return f"{normalized}/api/tags"
+
+
+def _fetch_model_ids(
+    url: str, api_key: str | None, *, ollama: bool = False
+) -> list[str]:
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    request = Request(url, headers=headers, method="GET")
+    with urlopen(request, timeout=8) as response:  # noqa: S310 - admin-configured endpoint
+        payload = json.loads(response.read().decode("utf-8"))
+
+    if ollama:
+        raw_models = payload.get("models", []) if isinstance(payload, dict) else []
+        values = [item.get("name") for item in raw_models if isinstance(item, dict)]
+    else:
+        raw_models = payload.get("data", []) if isinstance(payload, dict) else []
+        values = [item.get("id") for item in raw_models if isinstance(item, dict)]
+
+    return sorted(
+        {value for value in values if isinstance(value, str) and value.strip()}
+    )
+
+
+def _discover_models(payload: LLMModelDiscoveryRequest) -> list[str]:
+    base_url = payload.base_url.strip()
+    if not base_url.startswith(("http://", "https://")):
+        raise ValueError("provider_url_must_use_http_or_https")
+
+    try:
+        models = _fetch_model_ids(_openai_models_url(base_url), payload.api_key)
+        if models:
+            return models
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        if payload.type != "ollama":
+            raise
+
+    if payload.type == "ollama":
+        return _fetch_model_ids(
+            _ollama_models_url(base_url), payload.api_key, ollama=True
+        )
+    return []
+
+
 @router.get("", response_model=list[LLMProviderOut])
 async def list_providers(
     limit: int = Query(default=50, ge=1, le=200),
@@ -63,6 +127,40 @@ async def list_providers(
         .offset(offset)
     )
     return [_to_out(provider) for provider in rows.scalars()]
+
+
+@router.post("/discover-models", response_model=LLMModelDiscoveryOut)
+async def discover_models(
+    payload: LLMModelDiscoveryRequest,
+    _org: Organization = Depends(require_org_admin),
+) -> LLMModelDiscoveryOut:
+    try:
+        models = await asyncio.to_thread(_discover_models, payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    except HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"model_discovery_http_{exc.code}",
+        ) from exc
+    except (URLError, TimeoutError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="model_discovery_connection_failed",
+        ) from exc
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="model_discovery_invalid_response",
+        ) from exc
+
+    if not models:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="no_models_discovered"
+        )
+    return LLMModelDiscoveryOut(models=models)
 
 
 @router.post("", response_model=LLMProviderOut, status_code=status.HTTP_201_CREATED)

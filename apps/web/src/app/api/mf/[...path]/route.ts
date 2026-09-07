@@ -24,6 +24,16 @@ const ALLOWED_PREFIXES = new Set([
   "health",
 ]);
 
+function isPreAuthSetupRoute(method: string, targetPath: string): boolean {
+  if (method === "GET" && targetPath === "/bootstrap/status") return true;
+  if (method === "GET" && targetPath === "/health") return true;
+  if (method === "GET" && targetPath === "/llm-providers") return true;
+  if (method === "POST" && targetPath === "/llm-providers") return true;
+  if (method === "POST" && targetPath === "/llm-providers/discover-models")
+    return true;
+  return false;
+}
+
 function buildForwardHeaders(
   request: NextRequest,
   apiKey: string | null,
@@ -55,7 +65,10 @@ async function proxy(
     return NextResponse.json({ detail: "not_found" }, { status: 404 });
   }
 
-  const resolution = await resolveApiKey(request.headers);
+  const targetPath = `/${path.join("/")}`;
+  const resolution = await resolveApiKey(request.headers, {
+    allowPreAuthSetup: isPreAuthSetupRoute(request.method, targetPath),
+  });
   if (!resolution.ok) {
     return NextResponse.json(
       { detail: resolution.error },
@@ -63,7 +76,6 @@ async function proxy(
     );
   }
 
-  const targetPath = `/${path.join("/")}`;
   const target = `${API_INTERNAL_URL}${targetPath}${request.nextUrl.search}`;
   const init: RequestInit = {
     method: request.method,

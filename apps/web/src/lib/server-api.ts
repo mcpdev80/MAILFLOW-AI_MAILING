@@ -63,8 +63,17 @@ async function resolveMemberRole(
   return result.rows[0]?.role ?? null;
 }
 
+async function hasRegisteredUser(): Promise<boolean> {
+  if (!membershipDb) {
+    return false;
+  }
+  const result = await membershipDb.query('select 1 from "user" limit 1');
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function resolveApiKey(
   reqHeaders: Headers,
+  options?: { allowPreAuthSetup?: boolean },
 ): Promise<KeyResolution> {
   if (!authEnabled || !auth) {
     return {
@@ -76,6 +85,13 @@ export async function resolveApiKey(
 
   const session = await auth.api.getSession({ headers: reqHeaders });
   if (!session) {
+    if (options?.allowPreAuthSetup && !(await hasRegisteredUser())) {
+      return {
+        ok: true,
+        apiKey: process.env.SINGLE_TENANT_API_KEY || null,
+        actor: null,
+      };
+    }
     return { ok: false, status: 401, error: "not_authenticated" };
   }
 
@@ -109,7 +125,9 @@ export async function resolveApiKey(
     };
   }
 
-  const authTime = Math.floor(new Date(session.session.createdAt).getTime() / 1000);
+  const authTime = Math.floor(
+    new Date(session.session.createdAt).getTime() / 1000,
+  );
   if (!Number.isFinite(authTime)) {
     return { ok: false, status: 401, error: "invalid_session_timestamp" };
   }

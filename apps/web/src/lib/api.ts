@@ -222,6 +222,15 @@ export const api = {
   // LLM providers
   listProviders: () => request<LLMProvider[]>("/llm-providers"),
   getProvider: (id: string) => request<LLMProvider>(`/llm-providers/${id}`),
+  discoverProviderModels: (payload: {
+    type: string;
+    base_url: string;
+    api_key?: string | null;
+  }) =>
+    request<{ models: string[] }>("/llm-providers/discover-models", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   createProvider: (payload: LLMProviderCreate) =>
     request<LLMProvider>("/llm-providers", {
       method: "POST",

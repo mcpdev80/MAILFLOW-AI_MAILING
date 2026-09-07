@@ -5,9 +5,65 @@ set -euo pipefail
 # Start from a stable directory so readline/tab completion and path hooks can resolve cwd.
 cd "$HOME"
 
-BRANCH="main"
-RAW_BASE="https://raw.githubusercontent.com/mcpdev80/MAILFLOW-AI_MAILING/$BRANCH/scripts"
+REPO_SLUG="mcpdev80/MAILFLOW-AI_MAILING"
 DEFAULT_INSTALL="$HOME/mailflow"
+INSTALLER_BUILD="2026-09-07.1"
+
+parse_ref_from_url() {
+  local url="$1" rest
+  case "$url" in
+    https://raw.githubusercontent.com/$REPO_SLUG/*/scripts/install.sh)
+      rest="${url#https://raw.githubusercontent.com/$REPO_SLUG/}"
+      printf '%s' "${rest%/scripts/install.sh}"
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+resolve_install_ref() {
+  local candidate="${MAILFLOW_INSTALL_REF:-}" source_url="${MAILFLOW_INSTALL_URL:-}" current=""
+
+  if [ -n "$candidate" ]; then
+    printf '%s' "$candidate"
+    return
+  fi
+
+  if [ -n "$source_url" ]; then
+    parse_ref_from_url "$source_url" && return
+  fi
+
+  if [ -n "${1:-}" ]; then
+    if parse_ref_from_url "$1" 2>/dev/null; then
+      return
+    fi
+    printf '%s' "$1"
+    return
+  fi
+
+  if [ -d "$DEFAULT_INSTALL/.git" ]; then
+    current="$(git -C "$DEFAULT_INSTALL" branch --show-current 2>/dev/null || true)"
+    if [ -n "$current" ]; then
+      printf '%s' "$current"
+      return
+    fi
+  fi
+
+  printf 'main'
+}
+
+checkout_ref() {
+  local dir="$1" ref="$2"
+  # Fetch the requested branch directly. FETCH_HEAD is guaranteed to point at
+  # exactly the fetched commit even for old single-branch clones.
+  git -C "$dir" fetch origin "$ref"
+  git -C "$dir" checkout -B "$ref" FETCH_HEAD
+  git -C "$dir" branch --set-upstream-to="origin/$ref" "$ref" >/dev/null 2>&1 || true
+}
+
+BRANCH="$(resolve_install_ref "${1:-}")"
+export MAILFLOW_INSTALL_REF="$BRANCH"
+RAW_BASE="https://raw.githubusercontent.com/$REPO_SLUG/$BRANCH/scripts"
 
 language() {
   local locale="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
@@ -60,6 +116,8 @@ is_mailflow_install() {
 }
 
 printf '\n==> %s\n' "$(msg title)"
+printf 'Installer build: %s\n' "$INSTALLER_BUILD"
+printf 'Git ref: %s\n' "$BRANCH"
 
 if is_mailflow_install "$DEFAULT_INSTALL"; then
   printf '\n%s\n  %s\n\n' "$(msg found)" "$DEFAULT_INSTALL"
@@ -74,14 +132,12 @@ if is_mailflow_install "$DEFAULT_INSTALL"; then
   case "$choice" in
     1)
       printf '\n==> %s\n' "$(msg updating)"
-      git -C "$DEFAULT_INSTALL" fetch origin "$BRANCH"
-      git -C "$DEFAULT_INSTALL" checkout "$BRANCH"
-      git -C "$DEFAULT_INSTALL" pull --ff-only origin "$BRANCH"
-      MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
+      checkout_ref "$DEFAULT_INSTALL" "$BRANCH"
+      MAILFLOW_INSTALL_REF="$BRANCH" MAILFLOW_SKIP_SELF_UPDATE=1 exec bash "$DEFAULT_INSTALL/scripts/resume.sh" "$DEFAULT_INSTALL"
       ;;
     2)
       printf '\n%s\n' "$(msg new_hint)"
-      exec bash <(curl -fsSL "$RAW_BASE/install-core.sh")
+      MAILFLOW_INSTALL_REF="$BRANCH" exec bash <(curl -fsSL "$RAW_BASE/install-core.sh") "$BRANCH"
       ;;
     *)
       printf 'Invalid choice.\n' >&2
@@ -89,5 +145,5 @@ if is_mailflow_install "$DEFAULT_INSTALL"; then
       ;;
   esac
 else
-  exec bash <(curl -fsSL "$RAW_BASE/install-core.sh")
+  MAILFLOW_INSTALL_REF="$BRANCH" exec bash <(curl -fsSL "$RAW_BASE/install-core.sh") "$BRANCH"
 fi

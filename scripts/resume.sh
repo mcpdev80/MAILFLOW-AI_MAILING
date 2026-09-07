@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BRANCH="feat/mvp-guidelines-figma-redesign"
+CURRENT_BRANCH="$(git -C "${1:-$HOME/mailflow}" branch --show-current 2>/dev/null || true)"
+BRANCH="${MAILFLOW_INSTALL_REF:-${CURRENT_BRANCH:-main}}"
+export MAILFLOW_INSTALL_REF="$BRANCH"
 INSTALL_DIR="${1:-$HOME/mailflow}"
 COMPOSE_FILE="infrastructure/docker-compose.yml"
 TLS_COMPOSE_FILE="infrastructure/docker-compose.custom-tls.yml"
@@ -101,8 +103,12 @@ show_success() {
 
 cd "$INSTALL_DIR"
 if [ "${MAILFLOW_SKIP_SELF_UPDATE:-0}" != "1" ]; then
-  git fetch origin "$BRANCH"
-  git checkout "$BRANCH"
+  git fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git checkout "$BRANCH"
+  else
+    git checkout -b "$BRANCH" --track "origin/$BRANCH"
+  fi
   git pull --ff-only origin "$BRANCH"
 fi
 
