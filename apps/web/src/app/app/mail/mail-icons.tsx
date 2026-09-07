@@ -3,6 +3,7 @@ import type { SVGProps } from "react";
 export type MailIconName =
   | "archive"
   | "chevron"
+  | "draft"
   | "folder"
   | "forward"
   | "inbox"
@@ -13,7 +14,9 @@ export type MailIconName =
   | "reply"
   | "replyAll"
   | "search"
+  | "sent"
   | "settings"
+  | "spam"
   | "star"
   | "tag"
   | "trash";
@@ -47,6 +50,8 @@ function iconPath(name: MailIconName) {
       return <><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v10h14V9M10 13h4" /></>;
     case "chevron":
       return <path d="m9 18 6-6-6-6" />;
+    case "draft":
+      return <><path d="M5 4h10l4 4v12H5z" /><path d="M14 4v5h5M8 14h8M8 17h6" /></>;
     case "folder":
       return <path d="M3 7.5h6l2 2h10v9.5H3zM3 7.5V5h6l2 2h8" />;
     case "forward":
@@ -67,8 +72,12 @@ function iconPath(name: MailIconName) {
       return <><path d="m8 8-5 4 5 4v-2.5h3.5c3 0 5 1.2 6 3.5-.2-4.7-2.5-7-6.5-7H8z" /><path d="m12 7 5 5-2 1.7" /></>;
     case "search":
       return <><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></>;
+    case "sent":
+      return <><path d="M3 11.5 21 4l-7.5 17-2.2-7.2z" /><path d="M11.3 13.8 21 4" /></>;
     case "settings":
       return <><circle cx="12" cy="12" r="3" /><path d="M19 13.5v-3l-2-.6-.8-1.9 1-1.8-2.1-2.1-1.8 1-.8-.3L12 3h-3l-.6 2-.9.4-1.8-1-2.1 2.1 1 1.8-.4 1L3 10v3l2 .6.4 1-1 1.8 2.1 2.1 1.8-1 .9.4L10 20h3l.6-2 .9-.4 1.8 1 2.1-2.1-1-1.8.4-1z" /></>;
+    case "spam":
+      return <><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z" /><path d="M12 7v6M12 17h.01" /></>;
     case "star":
       return <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z" />;
     case "tag":
