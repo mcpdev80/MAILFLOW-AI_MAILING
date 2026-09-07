@@ -1,12 +1,13 @@
 "use client";
 
+import { useAccessContext } from "@/lib/access-context";
 import { api } from "@/lib/api";
 import { useAppearance } from "@/lib/appearance-preferences";
 import { attentionApi } from "@/lib/attention-api";
-import { useSession } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import styles from "./app-shell.module.css";
 
@@ -68,6 +69,71 @@ function useShellState(): ShellState {
     };
   }, []);
   return state;
+}
+
+function AreaSwitcher() {
+  const router = useRouter();
+  const { locale } = useI18n();
+  const { context } = useAccessContext();
+  const [switching, setSwitching] = useState(false);
+  const labels = {
+    de: { label: "Bereich", instance: "Instanzverwaltung", org: "Organisation", mail: "Mail" },
+    en: { label: "Area", instance: "Instance administration", org: "Organization", mail: "Mail" },
+    es: { label: "Área", instance: "Administración de instancia", org: "Organización", mail: "Correo" },
+  }[locale];
+
+  if (!context || (!context.instance_role && context.organizations.every((org) => org.role === "member"))) {
+    return null;
+  }
+
+  const activeId = context.active_organization_id;
+  const value = activeId ? `mail:${activeId}` : "";
+
+  async function switchArea(next: string) {
+    if (!next || switching) return;
+    setSwitching(true);
+    try {
+      if (next === "instance") {
+        router.push("/admin/instance");
+        return;
+      }
+      const [target, organizationId] = next.split(":", 2);
+      if (!organizationId) return;
+      const result = await authClient.organization.setActive({ organizationId });
+      if (result.error) throw new Error(result.error.message ?? "set_active_failed");
+      router.push(target === "org" ? "/admin/org" : "/app/dashboard");
+      router.refresh();
+    } finally {
+      setSwitching(false);
+    }
+  }
+
+  return (
+    <div className={styles.areaSwitcher}>
+      <label htmlFor="mailflow-user-area">{labels.label}</label>
+      <select
+        id="mailflow-user-area"
+        value={value}
+        disabled={switching}
+        onChange={(event) => void switchArea(event.currentTarget.value)}
+      >
+        {!activeId && <option value="">{labels.mail}</option>}
+        {context.instance_role && <option value="instance">{labels.instance}</option>}
+        {context.organizations
+          .filter((org) => org.role === "owner" || org.role === "admin")
+          .map((org) => (
+            <option key={`org:${org.id}`} value={`org:${org.id}`}>
+              {labels.org}: {org.name}
+            </option>
+          ))}
+        {context.organizations.map((org) => (
+          <option key={`mail:${org.id}`} value={`mail:${org.id}`}>
+            {labels.mail}: {org.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 function Sidebar({ reviewCount }: { reviewCount: number | null }) {
@@ -166,22 +232,25 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
           })}
         </nav>
       </div>
-      <Link href="/app/settings/profile" className={styles.profile}>
-        <span className={styles.avatar}>
-          {initials(user?.name, user?.email)}
-        </span>
-        <span className={styles.profileMeta}>
-          <span className={styles.profileName}>
-            {user?.name || user?.email || ""}
+      <div className={styles.sidebarBottom}>
+        <AreaSwitcher />
+        <Link href="/app/settings/profile" className={styles.profile}>
+          <span className={styles.avatar}>
+            {initials(user?.name, user?.email)}
           </span>
-          {user?.email && (
-            <span className={styles.profileEmail}>{user.email}</span>
-          )}
-        </span>
-        <span className={styles.profileChevron} aria-hidden="true">
-          ⌄
-        </span>
-      </Link>
+          <span className={styles.profileMeta}>
+            <span className={styles.profileName}>
+              {user?.name || user?.email || ""}
+            </span>
+            {user?.email && (
+              <span className={styles.profileEmail}>{user.email}</span>
+            )}
+          </span>
+          <span className={styles.profileChevron} aria-hidden="true">
+            ⌄
+          </span>
+        </Link>
+      </div>
     </aside>
   );
 }
