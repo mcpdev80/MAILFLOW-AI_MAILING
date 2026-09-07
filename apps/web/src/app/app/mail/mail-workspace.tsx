@@ -2,7 +2,7 @@
 
 import { useAppearance } from "@/lib/appearance-preferences";
 import type { WorkspacePanel } from "@/lib/types";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ContentPane } from "./mail-workspace-content";
 import { WorkspaceOverlays } from "./mail-workspace-overlays";
 import {
@@ -69,7 +69,8 @@ function StandardWorkspace({ state }: { state: WorkspaceState }) {
 
   function resizePane(kind: keyof PaneSizes, startX: number, startSize: number) {
     const onMove = (event: PointerEvent) => {
-      const direction = kind === "side" && appearance.sidePanelAlignment === "right" ? -1 : 1;
+      const direction =
+        kind === "side" && appearance.sidePanelAlignment === "right" ? -1 : 1;
       const next = clamp(
         startSize + (event.clientX - startX) * direction,
         kind === "side" ? 170 : 260,
@@ -79,7 +80,6 @@ function StandardWorkspace({ state }: { state: WorkspaceState }) {
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
       setSizes((current) => {
         window.localStorage.setItem(PANE_STORAGE_KEY, JSON.stringify(current));
         return current;
@@ -93,14 +93,31 @@ function StandardWorkspace({ state }: { state: WorkspaceState }) {
     window.addEventListener("pointerup", onUp, { once: true });
   }
 
-  const side = (
+  if (appearance.workspaceLayout === "focus") {
+    return (
+      <div
+        className={styles.workspace}
+        data-layout="focus"
+        data-side={appearance.sidePanelAlignment}
+      >
+        <MessageListPane state={state} />
+      </div>
+    );
+  }
+
+  const sidePane = (
     <div className={styles.standardSide} style={{ width: sizes.side }}>
       <ClassicSidePane state={state} />
     </div>
   );
-  const list = (
+  const messageList = (
     <div className={styles.standardList} style={{ width: sizes.list }}>
       <MessageListPane state={state} />
+    </div>
+  );
+  const content = (
+    <div className={styles.standardContent}>
+      <ContentPane state={state} />
     </div>
   );
   const sideHandle = (
@@ -116,23 +133,29 @@ function StandardWorkspace({ state }: { state: WorkspaceState }) {
     />
   );
 
-  const ordered = useMemo(
-    () =>
-      appearance.sidePanelAlignment === "right"
-        ? [list, listHandle, <div className={styles.standardContent} key="content"><ContentPane state={state} /></div>, sideHandle, side]
-        : [side, sideHandle, list, listHandle, <div className={styles.standardContent} key="content"><ContentPane state={state} /></div>],
-    // Pane elements intentionally track live sizes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [appearance.sidePanelAlignment, sizes.side, sizes.list, state],
-  );
-
   return (
     <div
       className={styles.workspace}
       data-layout={appearance.workspaceLayout}
       data-side={appearance.sidePanelAlignment}
     >
-      {appearance.workspaceLayout === "focus" ? <MessageListPane state={state} /> : ordered}
+      {appearance.sidePanelAlignment === "right" ? (
+        <>
+          {messageList}
+          {listHandle}
+          {content}
+          {sideHandle}
+          {sidePane}
+        </>
+      ) : (
+        <>
+          {sidePane}
+          {sideHandle}
+          {messageList}
+          {listHandle}
+          {content}
+        </>
+      )}
     </div>
   );
 }
