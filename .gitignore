@@ -60,6 +60,9 @@ desktop.ini
 # Docker
 *.log
 
+# Local MailFlow runtime state, TLS material and managed backups
+.mailflow/
+
 # Local test output
 /test-report.md
 /.test-output.log
