@@ -17,6 +17,11 @@ type ApiHealth = {
   latency_ms?: number;
 };
 
+type ApiStatus = ApiHealth & {
+  reachable: boolean;
+  http_status?: number;
+};
+
 async function requireInstanceAdmin(request: NextRequest) {
   if (!authEnabled || !auth) return null;
   const session = await auth.api.getSession({ headers: request.headers });
@@ -46,11 +51,7 @@ async function readCpuSample() {
   const raw = await readFile("/proc/stat", "utf8");
   const line = raw.split("\n").find((entry) => entry.startsWith("cpu "));
   if (!line) return null;
-  const values = line
-    .trim()
-    .split(/\s+/)
-    .slice(1)
-    .map(Number);
+  const values = line.trim().split(/\s+/).slice(1).map(Number);
   const idle = (values[3] ?? 0) + (values[4] ?? 0);
   const total = values.reduce((sum, value) => sum + value, 0);
   return { idle, total };
@@ -71,6 +72,26 @@ async function cpuUsagePercent() {
   }
 }
 
+async function getApiStatus(): Promise<ApiStatus> {
+  try {
+    const response = await fetch(`${API_INTERNAL_URL}/health`, {
+      cache: "no-store",
+    });
+    return {
+      reachable: true,
+      http_status: response.status,
+      ...((await response.json()) as ApiHealth),
+    };
+  } catch {
+    return {
+      reachable: false,
+      status: "down",
+      db: "unknown",
+      redis: "unknown",
+    };
+  }
+}
+
 async function certificateStatus() {
   const publicUrl = process.env.MAILFLOW_PUBLIC_URL;
   if (!publicUrl) return { configured: false as const };
@@ -81,15 +102,21 @@ async function certificateStatus() {
     return { configured: false as const };
   }
   if (url.protocol !== "https:") {
-    return { configured: true as const, https: false as const, host: url.hostname };
+    return {
+      configured: true as const,
+      https: false as const,
+      host: url.hostname,
+    };
   }
 
-  const port = Number(url.port || 443);
+  const production = process.env.NODE_ENV === "production";
+  const probeHost = production ? "edge" : url.hostname;
+  const probePort = production ? 443 : Number(url.port || 443);
   return await new Promise<Record<string, unknown>>((resolve) => {
     const socket = tlsConnect(
       {
-        host: url.hostname,
-        port,
+        host: probeHost,
+        port: probePort,
         servername: url.hostname,
         rejectUnauthorized: false,
         timeout: 4000,
@@ -116,7 +143,12 @@ async function certificateStatus() {
     );
     socket.on("timeout", () => {
       socket.destroy();
-      resolve({ configured: true, https: true, host: url.hostname, error: "timeout" });
+      resolve({
+        configured: true,
+        https: true,
+        host: url.hostname,
+        error: "timeout",
+      });
     });
     socket.on("error", (error) =>
       resolve({
@@ -138,30 +170,30 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [apiResult, databaseResult, countsResult, memoryRaw, cpuPercent, certificate] =
-    await Promise.all([
-      fetch(`${API_INTERNAL_URL}/health`, { cache: "no-store" })
-        .then(async (response) => ({
-          reachable: true,
-          http_status: response.status,
-          ...((await response.json()) as ApiHealth),
-        }))
-        .catch(() => ({ reachable: false, status: "down" })),
-      pool.query<{ size_bytes: string }>(
-        "select pg_database_size(current_database())::text as size_bytes",
-      ),
-      pool.query<{
-        users: number;
-        organizations: number;
-        instance_admins: number;
-      }>(`select
-          (select count(*)::int from "user") as users,
-          (select count(*)::int from "organization") as organizations,
-          (select count(*)::int from "mailflow_instance_admin") as instance_admins`),
-      readFile("/proc/meminfo", "utf8").catch(() => ""),
-      cpuUsagePercent(),
-      certificateStatus(),
-    ]);
+  const [
+    apiResult,
+    databaseResult,
+    countsResult,
+    memoryRaw,
+    cpuPercent,
+    certificate,
+  ] = await Promise.all([
+    getApiStatus(),
+    pool.query<{ size_bytes: string }>(
+      "select pg_database_size(current_database())::text as size_bytes",
+    ),
+    pool.query<{
+      users: number;
+      organizations: number;
+      instance_admins: number;
+    }>(`select
+        (select count(*)::int from "user") as users,
+        (select count(*)::int from "organization") as organizations,
+        (select count(*)::int from "mailflow_instance_admin") as instance_admins`),
+    readFile("/proc/meminfo", "utf8").catch(() => ""),
+    cpuUsagePercent(),
+    certificateStatus(),
+  ]);
 
   const memory = memoryRaw
     ? parseMeminfo(memoryRaw)
@@ -169,7 +201,9 @@ export async function GET(request: NextRequest) {
         total_bytes: os.totalmem(),
         used_bytes: os.totalmem() - os.freemem(),
         available_bytes: os.freemem(),
-        used_percent: Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 1000) / 10,
+        used_percent:
+          Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 1000) /
+          10,
       };
   const counts = countsResult.rows[0] ?? {
     users: 0,
