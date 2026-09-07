@@ -1,0 +1,46 @@
+name: MVP final web validation (temporary)
+
+on:
+  push:
+    branches:
+      - test-mvp
+    paths:
+      - .github/workflows/mvp-web-final-validation-temp.yml
+
+jobs:
+  lint-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pnpm install --frozen-lockfile
+      - shell: bash
+        run: |
+          base=$(git merge-base HEAD origin/main)
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base"...HEAD | grep -E '\.(js|jsx|mjs|cjs|ts|tsx|mts|cts|json|jsonc)$' || true)
+          if (( ${#files[@]} )); then
+            pnpm biome check "${files[@]}"
+          fi
+
+  e2e-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npm --prefix apps/web/e2e install --no-package-lock --ignore-scripts
+      - name: Install Chromium
+        working-directory: apps/web/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run browser tests
+        working-directory: apps/web/e2e
+        run: npm test
