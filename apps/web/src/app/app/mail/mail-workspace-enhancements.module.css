@@ -74,6 +74,72 @@
   color: var(--mf-danger);
 }
 
+.safeMailBody {
+  white-space: normal !important;
+  line-height: 1.48 !important;
+  word-break: normal;
+}
+
+.safeMailBody p,
+.safeMailBody div,
+.safeMailBody blockquote,
+.safeMailBody ul,
+.safeMailBody ol,
+.safeMailBody pre,
+.safeMailBody table {
+  margin-top: 0;
+}
+
+.safeMailBody p,
+.safeMailBody div {
+  margin-bottom: .58em;
+}
+
+.safeMailBody p:last-child,
+.safeMailBody div:last-child,
+.safeMailBody blockquote:last-child,
+.safeMailBody ul:last-child,
+.safeMailBody ol:last-child,
+.safeMailBody table:last-child {
+  margin-bottom: 0;
+}
+
+.safeMailBody blockquote {
+  margin-bottom: .75em;
+  margin-left: 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--mf-border);
+}
+
+.safeMailBody ul,
+.safeMailBody ol {
+  margin-bottom: .7em;
+  padding-left: 1.5em;
+}
+
+.safeMailBody table {
+  width: auto;
+  max-width: 100%;
+  margin-bottom: .75em;
+  table-layout: auto;
+}
+
+.safeMailBody td,
+.safeMailBody th {
+  height: auto !important;
+  padding: 2px 4px;
+  vertical-align: top;
+}
+
+.safeMailBody br + br {
+  line-height: .85;
+}
+
+.plainMailBody {
+  white-space: pre-wrap !important;
+  line-height: 1.55 !important;
+}
+
 .richMailFrame {
   display: block;
   width: 100%;
