@@ -69,7 +69,9 @@ def _ollama_models_url(base_url: str) -> str:
     return f"{normalized}/api/tags"
 
 
-def _fetch_model_ids(url: str, api_key: str | None, *, ollama: bool = False) -> list[str]:
+def _fetch_model_ids(
+    url: str, api_key: str | None, *, ollama: bool = False
+) -> list[str]:
     headers = {"Accept": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -85,7 +87,9 @@ def _fetch_model_ids(url: str, api_key: str | None, *, ollama: bool = False) -> 
         raw_models = payload.get("data", []) if isinstance(payload, dict) else []
         values = [item.get("id") for item in raw_models if isinstance(item, dict)]
 
-    return sorted({value for value in values if isinstance(value, str) and value.strip()})
+    return sorted(
+        {value for value in values if isinstance(value, str) and value.strip()}
+    )
 
 
 def _discover_models(payload: LLMModelDiscoveryRequest) -> list[str]:
