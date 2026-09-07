@@ -1,12 +1,14 @@
 """API contracts for user application preferences."""
 
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 Locale = Literal["de", "en", "es"]
 Theme = Literal["light", "dark", "system"]
 Density = Literal["comfortable", "compact"]
+DateFormat = Literal["DD.MM.YYYY", "MM/DD/YYYY", "YYYY-MM-DD"]
 WorkspaceLayout = Literal["classic", "vertical", "focus", "compact", "wide", "custom"]
 SidePanelAlignment = Literal["left", "right"]
 WorkspacePanel = Literal["accounts", "folders", "message_list", "message_content"]
@@ -46,6 +48,8 @@ class WorkspaceCustomConfig(BaseModel):
 class UserPreferencesView(BaseModel):
     locale: Locale = "en"
     locale_configured: bool = False
+    timezone: str = "UTC"
+    date_format: DateFormat = "YYYY-MM-DD"
     theme: Theme = "system"
     density: Density = "comfortable"
     workspace_layout: WorkspaceLayout = "classic"
@@ -55,8 +59,21 @@ class UserPreferencesView(BaseModel):
 
 class UserPreferencesUpdate(BaseModel):
     locale: Locale | None = None
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
+    date_format: DateFormat | None = None
     theme: Theme | None = None
     density: Density | None = None
     workspace_layout: WorkspaceLayout | None = None
     side_panel_alignment: SidePanelAlignment | None = None
     workspace_custom_config: WorkspaceCustomConfig | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError("timezone must be a valid IANA time zone") from exc
+        return value
