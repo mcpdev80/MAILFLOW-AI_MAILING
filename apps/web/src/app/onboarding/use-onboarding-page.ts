@@ -3,7 +3,7 @@
 import { ApiError, api } from "@/lib/api";
 import { authClient, useSession } from "@/lib/auth-client";
 import { backfillApi } from "@/lib/backfill-api";
-import type { EmailAccount, LLMProvider } from "@/lib/types";
+import type { ActionMode, EmailAccount, LLMProvider } from "@/lib/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -29,6 +29,8 @@ export type AccountForm = {
   llm_provider_id: string;
   ownership_mode: "private" | "shared";
   shared_user_ids: string[];
+  move_policy: ActionMode;
+  archive_policy: ActionMode;
 };
 
 export function useOnboardingPage() {
@@ -50,6 +52,8 @@ export function useOnboardingPage() {
     llm_provider_id: "",
     ownership_mode: "private",
     shared_user_ids: [],
+    move_policy: "automatic",
+    archive_policy: "review",
   });
   const [analyzeExisting, setAnalyzeExisting] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -92,6 +96,8 @@ export function useOnboardingPage() {
               connectedAccount.ownership_mode === "shared"
                 ? "shared"
                 : "private",
+            move_policy: connectedAccount.move_policy,
+            archive_policy: connectedAccount.archive_policy,
           }));
         } else {
           setAccount(null);
@@ -190,8 +196,8 @@ export function useOnboardingPage() {
             accountForm.ownership_mode === "shared"
               ? accountForm.shared_user_ids
               : [],
-          move_policy: "automatic",
-          archive_policy: "review",
+          move_policy: accountForm.move_policy,
+          archive_policy: accountForm.archive_policy,
         });
         setAccount(currentAccount);
       } else {
@@ -222,8 +228,8 @@ export function useOnboardingPage() {
     setError(null);
     try {
       const updated = await api.updateAccount(account.id, {
-        move_policy: "automatic",
-        archive_policy: "review",
+        move_policy: accountForm.move_policy,
+        archive_policy: accountForm.archive_policy,
       });
       setAccount(updated);
       setStep("existing");
@@ -232,7 +238,7 @@ export function useOnboardingPage() {
     } finally {
       setBusy(false);
     }
-  }, [account]);
+  }, [account, accountForm.archive_policy, accountForm.move_policy]);
 
   const finishExisting = useCallback(async () => {
     if (!account) return;
