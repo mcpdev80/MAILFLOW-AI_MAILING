@@ -1,6 +1,6 @@
 import { auth, authEnabled } from "@/lib/auth";
 import { getInstanceRole, grantInstanceAdmin } from "@/lib/instance-admin";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   if (!authEnabled || !auth) {
@@ -13,7 +13,10 @@ export async function POST(request: NextRequest) {
   }
   const callerRole = await getInstanceRole(session.user.id);
   if (callerRole !== "owner") {
-    return NextResponse.json({ detail: "instance_owner_required" }, { status: 403 });
+    return NextResponse.json(
+      { detail: "instance_owner_required" },
+      { status: 403 },
+    );
   }
 
   const payload = (await request.json()) as { user_id?: unknown };
