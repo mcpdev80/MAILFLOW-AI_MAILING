@@ -35,7 +35,10 @@ function isPreAuthSetupRoute(method: string, targetPath: string): boolean {
   return false;
 }
 
-function requiresOrganizationAdmin(method: string, targetPath: string): boolean {
+function requiresOrganizationAdmin(
+  method: string,
+  targetPath: string,
+): boolean {
   if (!targetPath.startsWith("/llm-providers")) return false;
   return !["GET", "HEAD"].includes(method.toUpperCase());
 }
