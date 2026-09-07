@@ -178,6 +178,8 @@ function MessageRow({
     "{count}",
     String(message.attachments.length),
   );
+  const visibleTags = message.keywords.filter((tag) => tag.trim()).slice(0, 4);
+  const hiddenTagCount = Math.max(0, message.keywords.length - visibleTags.length);
   return (
     <button
       type="button"
@@ -197,7 +199,10 @@ function MessageRow({
       onContextMenu={(event) => openRowMenu(event, state, message)}
     >
       <span className={styles.rowTop}>
-        <span className={styles.sender}>{message.from_email}</span>
+        <span className={styles.senderLine}>
+          {!message.seen && <span className={styles.unreadDot} aria-label="Unread" />}
+          <span className={styles.sender}>{message.from_email}</span>
+        </span>
         <span className={styles.date}>{displayMailDate(message.date)}</span>
       </span>
       <span className={styles.subject}>
@@ -205,7 +210,11 @@ function MessageRow({
         {message.subject || t("mail.noSubject")}
       </span>
       <span className={styles.rowMeta}>
-        <span className={styles.pill}>{message.account_address}</span>
+        <span className={styles.accountPill}>{message.account_address}</span>
+        {visibleTags.map((tag) => (
+          <span key={tag} className={styles.tagPill}>{tag}</span>
+        ))}
+        {hiddenTagCount > 0 && <span className={styles.tagMore}>+{hiddenTagCount}</span>}
         {message.attachments.length > 0 && <span>{attachments}</span>}
         {message.thread_id && <span>{t("mail.thread")}</span>}
       </span>
@@ -240,6 +249,8 @@ function filterMessages(messages: InboxMessage[], query: string) {
   const needle = query.trim().toLowerCase();
   if (!needle) return messages;
   return messages.filter((message) =>
-    `${message.from_email} ${message.subject}`.toLowerCase().includes(needle),
+    `${message.from_email} ${message.subject} ${message.keywords.join(" ")}`
+      .toLowerCase()
+      .includes(needle),
   );
 }
