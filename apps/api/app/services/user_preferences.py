@@ -34,6 +34,8 @@ def _view(row: UserPreference | None) -> UserPreferencesView:
     return UserPreferencesView(
         locale=row.locale,
         locale_configured=True,
+        timezone=row.timezone,
+        date_format=row.date_format,
         theme=row.theme,
         density=row.density,
         workspace_layout=row.workspace_layout,
