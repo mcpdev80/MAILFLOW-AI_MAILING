@@ -8,6 +8,7 @@ import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from redis.asyncio import Redis
 from sqlalchemy import text
 
 from app.config import settings
@@ -130,26 +131,41 @@ async def _startup_security_checks() -> None:
 async def health() -> JSONResponse:
     started = time.monotonic()
     db_ok = False
-    error: str | None = None
+    redis_ok = False
+    errors: dict[str, str] = {}
+
     try:
         async with async_session_factory() as session:
             await session.execute(text("SELECT 1"))
         db_ok = True
     except Exception as exc:  # noqa: BLE001 — health must never raise
-        error = redact_text(str(exc))
-        logger.warning("health check DB probe failed: %s", error)
+        errors["db"] = redact_text(str(exc))
+        logger.warning("health check DB probe failed: %s", errors["db"])
 
+    redis: Redis | None = None
+    try:
+        redis = Redis.from_url(settings.REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+        redis_ok = bool(await redis.ping())
+    except Exception as exc:  # noqa: BLE001 — health must never raise
+        errors["redis"] = redact_text(str(exc))
+        logger.warning("health check Redis probe failed: %s", errors["redis"])
+    finally:
+        if redis is not None:
+            await redis.aclose()
+
+    healthy = db_ok and redis_ok
     payload: dict[str, object] = {
-        "status": "ok" if db_ok else "degraded",
+        "status": "ok" if healthy else "degraded",
         "db": "up" if db_ok else "down",
+        "redis": "up" if redis_ok else "down",
         "version": "0.1.0",
         "latency_ms": round((time.monotonic() - started) * 1000, 1),
     }
-    if error:
-        payload["error"] = error
+    if errors:
+        payload["errors"] = errors
     return JSONResponse(
         payload,
-        status_code=200 if db_ok else 503,
+        status_code=200 if healthy else 503,
         headers={"Cache-Control": "no-store"},
     )
 
