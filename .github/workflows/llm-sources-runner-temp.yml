@@ -63,7 +63,6 @@ jobs:
           text = text.replace('controller.setRoleModel(role, e.target.value)', 'controller.setRoleModel(modelRole, e.target.value)')
           text = text.replace('<label className="field"><span>{t("models.model")}</span>{draftModels.length ?', '<div className="field"><span>{t("models.model")}</span>{draftModels.length ?')
           text = text.replace('placeholder={t("models.manualModel")} />}</label>\n      <button className="btn secondary"', 'placeholder={t("models.manualModel")} />}</div>\n      <button className="btn secondary"', 1)
-          # The role model control can render either select or input, so use a field container instead of a dynamic label.
           marker = '<label className="field"><span>{t("models.model")}</span>{options.length ?'
           if marker in text:
               text = text.replace(marker, '<div className="field"><span>{t("models.model")}</span>{options.length ?', 1)
@@ -93,7 +92,7 @@ jobs:
           node-version: 20
       - run: corepack enable
       - run: corepack prepare pnpm@10.17.1 --activate
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm biome check --write apps/web/src/app/app/settings/models apps/web/src/lib/api.ts apps/web/src/lib/types.ts apps/web/src/lib/locales/*-model-settings.ts
       - run: pnpm typecheck
       - name: Commit implementation
