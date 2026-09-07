@@ -3,6 +3,7 @@
 import { mailAttachmentUrl } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { MessageDetail } from "@/lib/types";
+import { mailFolderLabel } from "./mail-folder-label";
 import { formatAttachmentBytes, messageKey } from "./mail-workspace-utils";
 import styles from "./mail-workspace.module.css";
 import type { useMailWorkspace } from "./use-mail-workspace";
@@ -115,7 +116,7 @@ function ActionToolbar({
 }
 
 function MoveControls({ state }: { state: WorkspaceState }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const selected = state.selected;
   if (!selected) return null;
   return (
@@ -130,7 +131,7 @@ function MoveControls({ state }: { state: WorkspaceState }) {
           .filter((folder) => folder.name !== selected.folder)
           .map((folder) => (
             <option key={folder.name} value={folder.name}>
-              {folder.name}
+              {mailFolderLabel(folder, locale)}
             </option>
           ))}
       </select>
@@ -190,8 +191,7 @@ function MessageArticle({ message }: { message: MessageDetail }) {
         <div className={styles.senderBlock}>
           <strong>{message.from_email}</strong>
           <span>
-            {t("mail.to")}:{" "}
-            {message.to_emails.join(", ") || message.account_address}
+            {t("mail.to")}: {message.to_emails.join(", ") || message.account_address}
             {message.cc_emails.length
               ? ` · ${t("mail.cc")}: ${message.cc_emails.join(", ")}`
               : ""}
@@ -205,11 +205,17 @@ function MessageArticle({ message }: { message: MessageDetail }) {
         {message.subject || t("mail.noSubject")}
       </h2>
       {message.safe_html ? (
-        <iframe
-          className={styles.mailFrame}
-          sandbox=""
-          srcDoc={message.safe_html}
-          title={`${t("mail.messageFrom")} ${message.from_email}`}
+        <div
+          className={styles.mailBody}
+          style={{
+            whiteSpace: "normal",
+            overflowWrap: "anywhere",
+            maxWidth: "100%",
+            overflowX: "auto",
+          }}
+          // The API strips scripts, styles, forms, iframes, images and unsafe attributes.
+          // Remote content therefore cannot load from this HTML fragment.
+          dangerouslySetInnerHTML={{ __html: message.safe_html }}
         />
       ) : (
         <div className={styles.mailBody}>
