@@ -22,6 +22,7 @@ from app.routers.mail import router as mail_router
 from app.routers.mail_client import router as mail_client_router
 from app.routers.metrics import router as metrics_router
 from app.routers.oauth import router as oauth_router
+from app.routers.org_llm_catalog import router as org_llm_catalog_router
 from app.routers.rules import router as rules_router
 from app.routers.structure import router as structure_router
 from app.routers.user_preferences import router as user_preferences_router
@@ -49,6 +50,7 @@ __all__ = [
     "mail_router",
     "metrics_router",
     "oauth_router",
+    "org_llm_catalog_router",
     "rules_router",
     "structure_router",
     "user_preferences_router",
