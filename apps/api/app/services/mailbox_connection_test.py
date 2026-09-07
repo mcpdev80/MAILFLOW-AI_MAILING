@@ -75,7 +75,7 @@ def _test_imap(*, host: str, port: int, use_ssl: bool, username: str, password: 
         if client is not None:
             try:
                 client.logout()
-            except Exception:  # noqa: S110 - best-effort cleanup only
+            except Exception:  # noqa: BLE001, S110
                 pass
 
 
