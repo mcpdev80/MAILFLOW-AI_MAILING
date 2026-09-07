@@ -15,7 +15,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.alter_column("llm_providers", "org_id", existing_type=postgresql.UUID(as_uuid=True), nullable=True)
+    op.alter_column(
+        "llm_providers",
+        "org_id",
+        existing_type=postgresql.UUID(as_uuid=True),
+        nullable=True,
+    )
 
     op.create_table(
         "llm_models",
@@ -23,11 +28,25 @@ def upgrade() -> None:
         sa.Column("provider_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("model_id", sa.String(length=200), nullable=False),
         sa.Column("is_enabled", sa.Boolean(), server_default=sa.true(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.ForeignKeyConstraint(["provider_id"], ["llm_providers.id"], ondelete="CASCADE"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["provider_id"], ["llm_providers.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("provider_id", "model_id", name="uq_llm_models_provider_model"),
+        sa.UniqueConstraint(
+            "provider_id", "model_id", name="uq_llm_models_provider_model"
+        ),
     )
     op.create_index("ix_llm_models_provider", "llm_models", ["provider_id"])
 
@@ -35,19 +54,30 @@ def upgrade() -> None:
         "llm_org_model_access",
         sa.Column("org_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("model_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.ForeignKeyConstraint(["org_id"], ["organizations.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["model_id"], ["llm_models.id"], ondelete="CASCADE"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["org_id"], ["organizations.id"], ondelete="CASCADE"
+        ),
+        sa.ForeignKeyConstraint(
+            ["model_id"], ["llm_models.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("org_id", "model_id"),
     )
-    op.create_index("ix_llm_org_model_access_model", "llm_org_model_access", ["model_id"])
+    op.create_index(
+        "ix_llm_org_model_access_model", "llm_org_model_access", ["model_id"]
+    )
 
     # Existing provider profiles become instance-managed. Preserve their previous
     # tenant availability by seeding catalog entries and grants for each original org.
     op.execute(
         """
         INSERT INTO llm_models (id, provider_id, model_id)
-        SELECT gen_random_uuid(), p.id, model_id
+        SELECT gen_random_uuid(), p.id, models.model_id
         FROM llm_providers p
         CROSS JOIN LATERAL (
           SELECT DISTINCT model_id
@@ -57,7 +87,7 @@ def upgrade() -> None:
             p.fast_classification_model,
             p.deep_classification_model,
             p.generation_model
-          ]) AS model_id
+          ]) AS discovered(model_id)
           WHERE model_id IS NOT NULL AND model_id <> ''
         ) models
         ON CONFLICT (provider_id, model_id) DO NOTHING
@@ -77,14 +107,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Instance-wide providers cannot be losslessly mapped back to a single org.
-    # Refuse an unsafe downgrade if any provider no longer has exactly one grant owner.
+    # A provider shared by several organizations cannot be mapped losslessly back
+    # to the old schema. Only providers with exactly one grant are recoverable.
     op.execute(
         """
         UPDATE llm_providers p
         SET org_id = x.org_id
         FROM (
-          SELECT m.provider_id, min(a.org_id)::uuid AS org_id
+          SELECT m.provider_id, min(a.org_id::text)::uuid AS org_id
           FROM llm_models m
           JOIN llm_org_model_access a ON a.model_id = m.id
           GROUP BY m.provider_id
@@ -93,8 +123,15 @@ def downgrade() -> None:
         WHERE x.provider_id = p.id
         """
     )
-    op.drop_index("ix_llm_org_model_access_model", table_name="llm_org_model_access")
+    op.drop_index(
+        "ix_llm_org_model_access_model", table_name="llm_org_model_access"
+    )
     op.drop_table("llm_org_model_access")
     op.drop_index("ix_llm_models_provider", table_name="llm_models")
     op.drop_table("llm_models")
-    op.alter_column("llm_providers", "org_id", existing_type=postgresql.UUID(as_uuid=True), nullable=False)
+    op.alter_column(
+        "llm_providers",
+        "org_id",
+        existing_type=postgresql.UUID(as_uuid=True),
+        nullable=False,
+    )
