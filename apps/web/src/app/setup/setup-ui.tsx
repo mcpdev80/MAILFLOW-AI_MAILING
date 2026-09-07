@@ -204,7 +204,9 @@ export function InstanceSetup() {
         name: ownerName.trim(),
       });
       if (signUp.error) {
-        throw new Error(signUp.error.message ?? "Unable to create administrator.");
+        throw new Error(
+          signUp.error.message ?? "Unable to create administrator.",
+        );
       }
 
       const orgName = organization.trim();
@@ -221,14 +223,24 @@ export function InstanceSetup() {
         headers: { "Content-Type": "application/json" },
       });
       if (!claim.ok) {
-        const detail = (await claim.json().catch(() => null)) as
-          | { detail?: string }
-          | null;
+        const detail = (await claim.json().catch(() => null)) as {
+          detail?: string;
+        } | null;
         throw new Error(
           detail?.detail === "instance_owner_already_exists"
             ? "The instance owner was already claimed by another setup session."
             : "Unable to assign the instance owner role.",
         );
+      }
+
+      const ownerLocale =
+        language === "de" || language === "es" ? language : "en";
+      window.localStorage.setItem("mailflow.locale", ownerLocale);
+      document.documentElement.lang = ownerLocale;
+      try {
+        await api.updateUserPreferences({ locale: ownerLocale });
+      } catch {
+        // Keep the installer/setup language locally even if preferences are not yet writable.
       }
 
       setOwnerCreated(true);
@@ -643,9 +655,9 @@ export function InstanceSetup() {
         <div className={s.info}>
           <span className={s.infoIcon}>i</span>
           <span>
-            The first account becomes the Instance Owner exactly once. Additional
-            organization owners do not automatically receive instance-wide
-            administrator privileges.
+            The first account becomes the Instance Owner exactly once.
+            Additional organization owners do not automatically receive
+            instance-wide administrator privileges.
           </span>
         </div>
       </WizardShell>
@@ -658,10 +670,10 @@ export function InstanceSetup() {
       step={5}
       total={5}
       title="Instance Verification"
-      subtitle="Your Instance Owner is created. Optionally register a passkey, then continue with mailbox onboarding."
+      subtitle="Your Instance Owner is created. Optionally register a passkey, then open instance administration. A mailbox is optional."
       next={{
-        label: "Continue to onboarding",
-        onClick: () => router.push("/onboarding"),
+        label: "Open instance administration",
+        onClick: () => router.push("/app/settings/members"),
         disabled: !ownerCreated,
       }}
     >
@@ -693,7 +705,8 @@ export function InstanceSetup() {
         <div>
           <strong>Instance setup complete</strong>
           <span>
-            Passkey registration is optional and can also be configured later.
+            Passkey registration and mailbox onboarding are optional. You can
+            administer the instance without connecting a mailbox.
           </span>
         </div>
       </div>
