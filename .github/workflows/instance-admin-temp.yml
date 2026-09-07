@@ -1,0 +1,34 @@
+name: Instance admin validation (temporary)
+
+on:
+  push:
+    branches: [test-mvp]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --project apps/api --locked
+      - run: uv run --project apps/api ruff check apps/api/app/main.py
+      - run: python -m compileall -q apps/api/app/main.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: >-
+          pnpm exec biome check
+          apps/web/src/app/api/instance-system/route.ts
+          apps/web/src/app/api/instance-organizations/route.ts
+          apps/web/src/components/admin-shell.tsx
+          apps/web/src/app/admin/admin-pages.module.css
+          apps/web/src/app/admin/instance/page.tsx
+          apps/web/src/app/admin/instance/instance-system-panel.tsx
+          apps/web/src/app/admin/instance/system/page.tsx
+          apps/web/src/app/admin/instance/updates/page.tsx
+          apps/web/src/app/admin/instance/backups/page.tsx
+          apps/web/src/app/admin/instance/certificates/page.tsx
+          apps/web/src/app/admin/instance/organizations/page.tsx
+      - run: pnpm --filter @mailflow/web typecheck
