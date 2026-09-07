@@ -213,8 +213,7 @@ function MessageArticle({ message }: { message: MessageDetail }) {
             maxWidth: "100%",
             overflowX: "auto",
           }}
-          // The API strips scripts, styles, forms, iframes, images and unsafe attributes.
-          // Remote content therefore cannot load from this HTML fragment.
+          /* biome-ignore lint/security/noDangerouslySetInnerHtml: The API removes active, remote and styling content before returning this fragment. */
           dangerouslySetInnerHTML={{ __html: message.safe_html }}
         />
       ) : (
