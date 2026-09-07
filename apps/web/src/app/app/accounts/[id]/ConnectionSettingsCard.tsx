@@ -288,10 +288,10 @@ function ConnectionSection({ title, children }: { title: string; children: React
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="field">
+    <div className="field">
       <span>{label}</span>
       {children}
-    </label>
+    </div>
   );
 }
 
