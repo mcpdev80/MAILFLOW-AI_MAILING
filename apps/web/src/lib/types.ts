@@ -246,6 +246,14 @@ export interface InboxMessage {
   answered: boolean;
   keywords: string[];
   attachments: MailAttachment[];
+  category: string | null;
+  subcategory: string | null;
+  importance: string | null;
+  urgency: string | null;
+  action_required: string | null;
+  review_required: boolean;
+  system_tags: string[];
+  user_tags: string[];
 }
 
 export interface UnifiedInbox {
