@@ -10,6 +10,7 @@ from uuid import UUID
 from mailflow_core.classification.rule_engine import RuleEngine
 from mailflow_core.email_parser import EmailParser
 from mailflow_core.providers.imap_generic import ImapGenericProvider
+from mailflow_core.resilience import CircuitOpenError
 
 from app import oauth
 from app.config import settings
@@ -199,6 +200,15 @@ class BulkBackfillService:
                                 raise KeyError(str(job_id))
                             if current.state != "running":
                                 stopped = True
+                                break
+
+                            if isinstance(error, CircuitOpenError):
+                                # Circuit-open is a transient model-health state, not
+                                # a message failure. Yield the batch without consuming
+                                # a per-UID retry attempt; the worker requeues after the
+                                # configured circuit reset window.
+                                await session.commit()
+                                yielded_for_retry = True
                                 break
 
                             if error is not None:
