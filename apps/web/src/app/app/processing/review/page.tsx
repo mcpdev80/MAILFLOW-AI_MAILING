@@ -57,6 +57,8 @@ type Copy = {
   missingParams: string;
   approvedCount: string;
   editedCount: string;
+  targetSavedPending: string;
+  pendingConfirmation: string;
   applyStarted: string;
   applyExisting: string;
 };
@@ -101,6 +103,8 @@ const COPY: Record<Locale, Copy> = {
     missingParams: "Postfach oder Job fehlt.",
     approvedCount: "Ergebnisse freigegeben",
     editedCount: "Vorschläge aktualisiert",
+    targetSavedPending: "Ziel gespeichert. Die Prüfung bleibt offen, bis du ausdrücklich bestätigst.",
+    pendingConfirmation: "Ziel geändert · Bestätigung noch offen",
     applyStarted: "Anwendung wurde gestartet.",
     applyExisting: "Für diesen Testlauf existiert bereits ein Apply-Lauf.",
   },
@@ -143,6 +147,8 @@ const COPY: Record<Locale, Copy> = {
     missingParams: "Mailbox or job is missing.",
     approvedCount: "results approved",
     editedCount: "proposals updated",
+    targetSavedPending: "Target saved. Review stays open until you explicitly confirm it.",
+    pendingConfirmation: "Target changed · confirmation still pending",
     applyStarted: "Apply job started.",
     applyExisting: "An apply job already exists for this dry run.",
   },
@@ -185,6 +191,8 @@ const COPY: Record<Locale, Copy> = {
     missingParams: "Falta el buzón o el trabajo.",
     approvedCount: "resultados aprobados",
     editedCount: "propuestas actualizadas",
+    targetSavedPending: "Destino guardado. La revisión sigue abierta hasta que la confirmes explícitamente.",
+    pendingConfirmation: "Destino cambiado · confirmación pendiente",
     applyStarted: "La aplicación se ha iniciado.",
     applyExisting: "Ya existe una aplicación para esta prueba.",
   },
@@ -286,7 +294,7 @@ export default function BulkReviewPage() {
         ? { do_move: false }
         : { do_move: true, proposed_folder: target };
       const result = await bulkReviewApi.editCluster(accountId, jobId, clusterId, payload);
-      setNotice(`${result.edited.toLocaleString()} ${copy.editedCount}`);
+      setNotice(`${result.edited.toLocaleString()} ${copy.editedCount}. ${copy.targetSavedPending}`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -390,7 +398,7 @@ function Stat({ label, value, hint }: { label: string; value: number; hint: stri
   return <div className={styles.stat}><span className={styles.statLabel}>{label}</span><span className={styles.statValue}>{value.toLocaleString()}</span><span className={styles.statHint}>{hint}</span></div>;
 }
 
-function FilterButton({ value, current, label, onChange }: { value: Filter; current: Filter; label: string; onChange: (value: Filter) => void }) {
+function FilterButton({ value, current, label, onChange }: { value: Filter; label: string; current: Filter; onChange: (value: Filter) => void }) {
   return <button type="button" className={`${styles.tab} ${current === value ? styles.tabActive : ""}`} onClick={() => onChange(value)}>{label}</button>;
 }
 
@@ -426,6 +434,7 @@ function ClusterCard({
             {cluster.safe > 0 && <span className={`${styles.pill} ${styles.pillSuccess}`}>{cluster.safe.toLocaleString()} {copy.safe.toLowerCase()}</span>}
             {cluster.review_required > 0 && <span className={`${styles.pill} ${styles.pillReview}`}>{cluster.review_required.toLocaleString()} {copy.review.toLowerCase()}</span>}
             {cluster.suspicious > 0 && <span className={`${styles.pill} ${styles.pillDanger}`}>{cluster.suspicious.toLocaleString()} {copy.suspicious.toLowerCase()}</span>}
+            {cluster.edited > 0 && proposed > 0 && <span className={`${styles.pill} ${styles.pillPending}`}>{copy.pendingConfirmation}</span>}
           </div>
         </div>
         <div className={styles.clusterActions}>
@@ -445,7 +454,8 @@ function ClusterCard({
                 <div className={styles.child}>
                   <div className={styles.childIdentity}>
                     <strong className={styles.childDomain}>{senderGroupTitle(child, copy)}</strong>
-                    <span className={styles.childMeta}>{copy.subgroup} · {child.count.toLocaleString()} Mails · {copy.confidence}: {Math.round(child.confidence_avg * 100)}%</span>
+                    <span className={styles.childMeta}>{senderGroupMeta(child, copy)}</span>
+                    {child.edited > 0 && (child.statuses.proposed ?? 0) > 0 && <span className={`${styles.pill} ${styles.pillPending}`}>{copy.pendingConfirmation}</span>}
                   </div>
                   <TargetEditor cluster={child} folders={folders} locale={locale} copy={copy} busy={busy} onSave={onEditTarget} compact />
                   <button className="btn secondary" type="button" disabled={(child.statuses.proposed ?? 0) === 0 || child.suspicious >= child.count || busy !== null} onClick={() => void onApprove(child.id)}>{busy === child.id ? copy.approving : copy.approveDomain}</button>
@@ -502,7 +512,7 @@ function TargetEditor({
           )}
         </select>
       </label>
-      <button className="btn" type="button" disabled={!changed || busy !== null} onClick={() => void onSave(cluster.id, target)}>
+      <button className="btn secondary" type="button" disabled={!changed || busy !== null} onClick={() => void onSave(cluster.id, target)}>
         {busy === busyKey ? copy.saving : copy.saveTarget}
       </button>
     </div>
@@ -510,10 +520,24 @@ function TargetEditor({
 }
 
 function senderGroupTitle(cluster: BulkReviewCluster, copy: Copy): string {
-  const domain = (cluster.sender_domain ?? "").trim().replace(/^@+/, "");
+  const sample = cluster.samples.find((item) => item.from_email.trim());
+  const sender = sample?.from_email.trim() ?? "";
+  const displayName = sender.match(/^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/)?.[1]?.trim();
+  if (displayName && !displayName.includes("@")) return displayName;
+  const domain = cleanSenderDomain(cluster.sender_domain);
   if (domain) return domain;
-  const sender = cluster.samples.find((sample) => sample.from_email)?.from_email;
   return sender || copy.unknownSender;
+}
+
+function senderGroupMeta(cluster: BulkReviewCluster, copy: Copy): string {
+  const domain = cleanSenderDomain(cluster.sender_domain);
+  const prefix = domain ? `${domain} · ` : "";
+  return `${prefix}${copy.subgroup} · ${cluster.count.toLocaleString()} Mails · ${copy.confidence}: ${Math.round(cluster.confidence_avg * 100)}%`;
+}
+
+function cleanSenderDomain(value: string | null): string {
+  const domain = (value ?? "").trim().replace(/^@+/, "");
+  return domain && domain !== "unknown" ? domain : "";
 }
 
 function displayFolder(name: string, folders: MailboxFolderView[], locale: Locale): string {
