@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { backfillApi, type BackfillJob } from "@/lib/backfill-api";
 import {
   bulkReviewApi,
@@ -8,12 +8,15 @@ import {
   type BulkReviewSummary,
 } from "@/lib/bulk-review-api";
 import { enumLabel, useI18n } from "@/lib/i18n";
+import type { MailboxFolderView } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { mailFolderLabel } from "../../mail/mail-folder-label";
 import styles from "./review.module.css";
 
 type Filter = "review" | "safe" | "all";
+type Locale = "de" | "en" | "es";
 
 type Copy = {
   title: string;
@@ -42,18 +45,23 @@ type Copy = {
   confidence: string;
   approveGroup: string;
   approveDomain: string;
-  senders: string;
+  showSubgroups: string;
+  subgroup: string;
+  editTarget: string;
+  saveTarget: string;
+  saving: string;
+  unknownSender: string;
   examples: string;
   noClusters: string;
   loading: string;
   missingParams: string;
-  refreshed: string;
   approvedCount: string;
+  editedCount: string;
   applyStarted: string;
   applyExisting: string;
 };
 
-const COPY: Record<"de" | "en" | "es", Copy> = {
+const COPY: Record<Locale, Copy> = {
   de: {
     title: "Historische Entscheidungen prüfen",
     subtitle: "Mailflow fasst ähnliche Mails zu wenigen Entscheidungen zusammen. Du prüfst Gruppen statt einzelne Nachrichten.",
@@ -81,13 +89,18 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     confidence: "Ø Sicherheit",
     approveGroup: "Gruppe bestätigen",
     approveDomain: "Teilgruppe bestätigen",
-    senders: "Absender-Gruppen",
+    showSubgroups: "Teilgruppen anzeigen und bearbeiten",
+    subgroup: "Teilgruppe",
+    editTarget: "Ziel ändern",
+    saveTarget: "Ziel speichern",
+    saving: "Speichern …",
+    unknownSender: "Unbekannter Absender",
     examples: "Beispiele",
     noClusters: "Für diesen Filter gibt es keine Gruppen.",
     loading: "Entscheidungen werden zusammengefasst …",
     missingParams: "Postfach oder Job fehlt.",
-    refreshed: "Ansicht aktualisiert.",
     approvedCount: "Ergebnisse freigegeben",
+    editedCount: "Vorschläge aktualisiert",
     applyStarted: "Anwendung wurde gestartet.",
     applyExisting: "Für diesen Testlauf existiert bereits ein Apply-Lauf.",
   },
@@ -118,13 +131,18 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     confidence: "Avg. confidence",
     approveGroup: "Confirm group",
     approveDomain: "Confirm subgroup",
-    senders: "Sender groups",
+    showSubgroups: "Show and edit subgroups",
+    subgroup: "Subgroup",
+    editTarget: "Change target",
+    saveTarget: "Save target",
+    saving: "Saving …",
+    unknownSender: "Unknown sender",
     examples: "Examples",
     noClusters: "No groups match this filter.",
     loading: "Compressing decisions …",
     missingParams: "Mailbox or job is missing.",
-    refreshed: "View refreshed.",
     approvedCount: "results approved",
+    editedCount: "proposals updated",
     applyStarted: "Apply job started.",
     applyExisting: "An apply job already exists for this dry run.",
   },
@@ -155,13 +173,18 @@ const COPY: Record<"de" | "en" | "es", Copy> = {
     confidence: "Confianza media",
     approveGroup: "Confirmar grupo",
     approveDomain: "Confirmar subgrupo",
-    senders: "Grupos de remitentes",
+    showSubgroups: "Mostrar y editar subgrupos",
+    subgroup: "Subgrupo",
+    editTarget: "Cambiar destino",
+    saveTarget: "Guardar destino",
+    saving: "Guardando …",
+    unknownSender: "Remitente desconocido",
     examples: "Ejemplos",
     noClusters: "No hay grupos para este filtro.",
     loading: "Agrupando decisiones …",
     missingParams: "Falta el buzón o el trabajo.",
-    refreshed: "Vista actualizada.",
     approvedCount: "resultados aprobados",
+    editedCount: "propuestas actualizadas",
     applyStarted: "La aplicación se ha iniciado.",
     applyExisting: "Ya existe una aplicación para esta prueba.",
   },
@@ -175,6 +198,7 @@ export default function BulkReviewPage() {
   const copy = COPY[locale];
   const [summary, setSummary] = useState<BulkReviewSummary | null>(null);
   const [job, setJob] = useState<BackfillJob | null>(null);
+  const [folders, setFolders] = useState<MailboxFolderView[]>([]);
   const [filter, setFilter] = useState<Filter>("review");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -183,12 +207,14 @@ export default function BulkReviewPage() {
   const load = useCallback(async () => {
     if (!accountId || !jobId) return;
     setError(null);
-    const [summaryResult, jobsResult] = await Promise.all([
+    const [summaryResult, jobsResult, metadata] = await Promise.all([
       bulkReviewApi.summary(accountId, jobId),
       backfillApi.list(accountId),
+      api.mailboxMetadata(accountId),
     ]);
     setSummary(summaryResult);
     setJob(jobsResult.find((item) => item.id === jobId) ?? null);
+    setFolders(metadata.folders.filter((item) => item.selectable));
   }, [accountId, jobId]);
 
   useEffect(() => {
@@ -241,6 +267,26 @@ export default function BulkReviewPage() {
         ? ` · ${result.blocked_suspicious.toLocaleString()} ${copy.suspicious.toLowerCase()}`
         : "";
       setNotice(`${result.approved.toLocaleString()} ${copy.approvedCount}${blocked}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function editClusterTarget(clusterId: string, target: string) {
+    if (!accountId || !jobId) return;
+    const busyKey = `edit:${clusterId}`;
+    setBusy(busyKey);
+    setNotice(null);
+    setError(null);
+    try {
+      const payload = target === "__keep__"
+        ? { do_move: false }
+        : { do_move: true, proposed_folder: target };
+      const result = await bulkReviewApi.editCluster(accountId, jobId, clusterId, payload);
+      setNotice(`${result.edited.toLocaleString()} ${copy.editedCount}`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -325,8 +371,11 @@ export default function BulkReviewPage() {
                 cluster={cluster}
                 busy={busy}
                 copy={copy}
+                locale={locale}
+                folders={folders}
                 categoryLabel={enumLabel(t, "category", cluster.category)}
                 onApprove={approveCluster}
+                onEditTarget={editClusterTarget}
               />
             ))}
             {clusters.length === 0 && <div className={styles.empty}>{copy.noClusters}</div>}
@@ -345,7 +394,25 @@ function FilterButton({ value, current, label, onChange }: { value: Filter; curr
   return <button type="button" className={`${styles.tab} ${current === value ? styles.tabActive : ""}`} onClick={() => onChange(value)}>{label}</button>;
 }
 
-function ClusterCard({ cluster, busy, copy, categoryLabel, onApprove }: { cluster: BulkReviewCluster; busy: string | null; copy: Copy; categoryLabel: string; onApprove: (id: string) => Promise<void> }) {
+function ClusterCard({
+  cluster,
+  busy,
+  copy,
+  locale,
+  folders,
+  categoryLabel,
+  onApprove,
+  onEditTarget,
+}: {
+  cluster: BulkReviewCluster;
+  busy: string | null;
+  copy: Copy;
+  locale: Locale;
+  folders: MailboxFolderView[];
+  categoryLabel: string;
+  onApprove: (id: string) => Promise<void>;
+  onEditTarget: (id: string, target: string) => Promise<void>;
+}) {
   const proposed = cluster.statuses.proposed ?? 0;
   const canApprove = proposed > 0 && cluster.suspicious < cluster.count;
   return (
@@ -353,7 +420,7 @@ function ClusterCard({ cluster, busy, copy, categoryLabel, onApprove }: { cluste
       <div className={styles.clusterHeader}>
         <div className={styles.clusterMain}>
           <div className={styles.clusterTitle}><strong>{categoryLabel}</strong><span className={styles.count}>{cluster.count.toLocaleString()} Mails</span></div>
-          <div className={styles.route}><span>{cluster.action === "move" ? copy.move : copy.keep}</span>{cluster.action === "move" && <><span className={styles.arrow}>→</span><span>{copy.target}: {cluster.destination}</span></>}</div>
+          <div className={styles.route}><span>{cluster.action === "move" ? copy.move : copy.keep}</span>{cluster.action === "move" && <><span className={styles.arrow}>→</span><span>{copy.target}: {displayFolder(cluster.destination, folders, locale)}</span></>}</div>
           <div className={styles.meta}>
             <span className={styles.pill}>{copy.confidence}: {Math.round(cluster.confidence_avg * 100)}%</span>
             {cluster.safe > 0 && <span className={`${styles.pill} ${styles.pillSuccess}`}>{cluster.safe.toLocaleString()} {copy.safe.toLowerCase()}</span>}
@@ -362,28 +429,94 @@ function ClusterCard({ cluster, busy, copy, categoryLabel, onApprove }: { cluste
           </div>
         </div>
         <div className={styles.clusterActions}>
+          <TargetEditor cluster={cluster} folders={folders} locale={locale} copy={copy} busy={busy} onSave={onEditTarget} />
           <button className="btn secondary" type="button" disabled={!canApprove || busy !== null} onClick={() => void onApprove(cluster.id)}>{busy === cluster.id ? copy.approving : copy.approveGroup}</button>
         </div>
       </div>
-      <details className={styles.details}>
-        <summary>{copy.senders} · {cluster.children.length}</summary>
-        <div className={styles.children}>
-          {cluster.children.map((child) => (
-            <div key={child.id}>
-              <div className={styles.child}>
-                <span className={styles.childDomain}>{child.sender_domain}</span>
-                <span className={styles.childMeta}>{child.count.toLocaleString()} · {Math.round(child.confidence_avg * 100)}%</span>
-                <button className="btn secondary" type="button" disabled={(child.statuses.proposed ?? 0) === 0 || child.suspicious >= child.count || busy !== null} onClick={() => void onApprove(child.id)}>{busy === child.id ? copy.approving : copy.approveDomain}</button>
-              </div>
-              {child.samples.length > 0 && (
-                <div className={styles.samples}>
-                  {child.samples.map((sample) => <div className={styles.sample} key={sample.proposal_id}><span>{sample.from_email}</span><span>{sample.subject}</span><span>{Math.round(sample.confidence * 100)}%</span></div>)}
+      {cluster.children.length > 0 && (
+        <details className={styles.details}>
+          <summary>
+            <span className={styles.summaryChevron}>›</span>
+            <strong>{cluster.children.length} {copy.showSubgroups}</strong>
+          </summary>
+          <div className={styles.children}>
+            {cluster.children.map((child) => (
+              <div className={styles.childBlock} key={child.id}>
+                <div className={styles.child}>
+                  <div className={styles.childIdentity}>
+                    <strong className={styles.childDomain}>{senderGroupTitle(child, copy)}</strong>
+                    <span className={styles.childMeta}>{copy.subgroup} · {child.count.toLocaleString()} Mails · {copy.confidence}: {Math.round(child.confidence_avg * 100)}%</span>
+                  </div>
+                  <TargetEditor cluster={child} folders={folders} locale={locale} copy={copy} busy={busy} onSave={onEditTarget} compact />
+                  <button className="btn secondary" type="button" disabled={(child.statuses.proposed ?? 0) === 0 || child.suspicious >= child.count || busy !== null} onClick={() => void onApprove(child.id)}>{busy === child.id ? copy.approving : copy.approveDomain}</button>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </details>
+                {child.samples.length > 0 && (
+                  <div className={styles.samples}>
+                    <div className={styles.samplesLabel}>{copy.examples}</div>
+                    {child.samples.map((sample) => <div className={styles.sample} key={sample.proposal_id}><span>{sample.from_email}</span><span title={sample.subject}>{sample.subject || "—"}</span><span>{Math.round(sample.confidence * 100)}%</span></div>)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </article>
   );
+}
+
+function TargetEditor({
+  cluster,
+  folders,
+  locale,
+  copy,
+  busy,
+  onSave,
+  compact = false,
+}: {
+  cluster: BulkReviewCluster;
+  folders: MailboxFolderView[];
+  locale: Locale;
+  copy: Copy;
+  busy: string | null;
+  onSave: (id: string, target: string) => Promise<void>;
+  compact?: boolean;
+}) {
+  const initial = cluster.action === "move" ? cluster.destination : "__keep__";
+  const [target, setTarget] = useState(initial);
+  useEffect(() => setTarget(initial), [initial]);
+  const busyKey = `edit:${cluster.id}`;
+  const changed = target !== initial;
+
+  return (
+    <div className={`${styles.targetEditor} ${compact ? styles.targetEditorCompact : ""}`}>
+      <label>
+        <span>{copy.editTarget}</span>
+        <select value={target} disabled={busy !== null} onChange={(event) => setTarget(event.target.value)}>
+          <option value="__keep__">{copy.keep}</option>
+          {folders.map((folder) => (
+            <option key={folder.name} value={folder.name}>{mailFolderLabel(folder, locale)}</option>
+          ))}
+          {cluster.action === "move" && cluster.destination && !folders.some((folder) => folder.name === cluster.destination) && (
+            <option value={cluster.destination}>{cluster.destination}</option>
+          )}
+        </select>
+      </label>
+      <button className="btn" type="button" disabled={!changed || busy !== null} onClick={() => void onSave(cluster.id, target)}>
+        {busy === busyKey ? copy.saving : copy.saveTarget}
+      </button>
+    </div>
+  );
+}
+
+function senderGroupTitle(cluster: BulkReviewCluster, copy: Copy): string {
+  const domain = (cluster.sender_domain ?? "").trim().replace(/^@+/, "");
+  if (domain) return domain;
+  const sender = cluster.samples.find((sample) => sample.from_email)?.from_email;
+  return sender || copy.unknownSender;
+}
+
+function displayFolder(name: string, folders: MailboxFolderView[], locale: Locale): string {
+  const folder = folders.find((item) => item.name === name);
+  return folder ? mailFolderLabel(folder, locale) : name;
 }
