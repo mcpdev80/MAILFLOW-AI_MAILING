@@ -77,11 +77,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
   const text = await response.text();
-  const body = text ? JSON.parse(text) : undefined;
+  let body: unknown;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = undefined;
+    }
+  }
   if (!response.ok) {
     const detail =
-      (body && (body.detail as string)) || response.statusText || "request failed";
+      (body && typeof body === "object" && "detail" in body && typeof body.detail === "string"
+        ? body.detail
+        : text.trim()) ||
+      response.statusText ||
+      "request failed";
     throw new ApiError(response.status, detail);
+  }
+  if (text && body === undefined) {
+    throw new ApiError(response.status, "invalid_json_response");
   }
   return body as T;
 }
