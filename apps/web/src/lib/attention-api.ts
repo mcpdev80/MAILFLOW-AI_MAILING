@@ -170,30 +170,138 @@ function withExplicitConfirmation(payload: ReviewCorrection): ReviewCorrection {
   return confirmsClassification ? { ...payload, confirm: true } : payload;
 }
 
+type UiLocale = "de" | "en" | "es";
+
+const FOLDER_ROLE_LABELS: Record<UiLocale, Record<string, string>> = {
+  de: {
+    inbox: "Posteingang",
+    archive: "Archiv",
+    drafts: "Entwürfe",
+    sent: "Gesendet",
+    trash: "Papierkorb",
+    spam: "Spam",
+    all: "Alle Nachrichten",
+  },
+  en: {
+    inbox: "Inbox",
+    archive: "Archive",
+    drafts: "Drafts",
+    sent: "Sent",
+    trash: "Trash",
+    spam: "Spam",
+    all: "All Mail",
+  },
+  es: {
+    inbox: "Bandeja de entrada",
+    archive: "Archivo",
+    drafts: "Borradores",
+    sent: "Enviados",
+    trash: "Papelera",
+    spam: "Spam",
+    all: "Todos los mensajes",
+  },
+};
+
+function currentLocale(): UiLocale {
+  if (typeof document === "undefined") return "en";
+  const locale = document.documentElement.lang.toLowerCase().split("-")[0];
+  return locale === "de" || locale === "es" ? locale : "en";
+}
+
+function folderDisplayName(folder: Pick<MailboxFolder, "name" | "role">): string {
+  const locale = currentLocale();
+  const role = folder.role?.toLowerCase();
+  if (role && FOLDER_ROLE_LABELS[locale][role]) {
+    return FOLDER_ROLE_LABELS[locale][role];
+  }
+  if (folder.name.toUpperCase() === "INBOX") {
+    return FOLDER_ROLE_LABELS[locale].inbox;
+  }
+  return folder.name;
+}
+
 const mailboxFolderCache = new Map<string, Promise<MailboxFolder[]>>();
+const folderWireNames = new Map<string, Map<string, string>>();
+const reviewAccountIds = new Map<string, string>();
 
 async function mailboxFolders(accountId: string): Promise<MailboxFolder[]> {
-  const cached = mailboxFolderCache.get(accountId);
+  const cacheKey = `${accountId}:${currentLocale()}`;
+  const cached = mailboxFolderCache.get(cacheKey);
   if (cached) return cached;
 
   const pending = request<MailboxMetadata>(
     `/mail-client/accounts/${encodeURIComponent(accountId)}/metadata`,
   )
-    .then((metadata) => metadata.folders.filter((folder) => folder.selectable))
+    .then((metadata) => {
+      const wireNames = new Map<string, string>();
+      const folders = metadata.folders
+        .filter((folder) => folder.selectable)
+        .map((folder) => {
+          const displayName = folderDisplayName(folder);
+          wireNames.set(displayName, folder.name);
+          return { ...folder, name: displayName };
+        });
+      folderWireNames.set(accountId, wireNames);
+      return folders;
+    })
     .catch((error) => {
-      mailboxFolderCache.delete(accountId);
+      mailboxFolderCache.delete(cacheKey);
       throw error;
     });
-  mailboxFolderCache.set(accountId, pending);
+  mailboxFolderCache.set(cacheKey, pending);
   return pending;
 }
 
+function localizeReviewInbox(inbox: ReviewInbox): ReviewInbox {
+  return {
+    ...inbox,
+    items: inbox.items.map((item) => {
+      reviewAccountIds.set(item.id, item.account_id);
+      return {
+        ...item,
+        destination_folder:
+          item.destination_folder.toUpperCase() === "INBOX"
+            ? FOLDER_ROLE_LABELS[currentLocale()].inbox
+            : item.destination_folder,
+      };
+    }),
+  };
+}
+
+function destinationWireName(reviewId: string, displayName: string): string {
+  const accountId = reviewAccountIds.get(reviewId);
+  const mapped = accountId
+    ? folderWireNames.get(accountId)?.get(displayName)
+    : undefined;
+  if (mapped) return mapped;
+
+  const inboxLabels = new Set(
+    Object.values(FOLDER_ROLE_LABELS).map((labels) => labels.inbox),
+  );
+  return inboxLabels.has(displayName) ? "INBOX" : displayName;
+}
+
+function normalizeCorrectionForWire(
+  reviewId: string,
+  payload: ReviewCorrection,
+): ReviewCorrection {
+  if (payload.destination_folder === undefined || payload.destination_folder === null) {
+    return payload;
+  }
+  return {
+    ...payload,
+    destination_folder: destinationWireName(reviewId, payload.destination_folder),
+  };
+}
+
 export const attentionApi = {
-  review: () => request<ReviewInbox>("/attention/review"),
+  review: async () => localizeReviewInbox(await request<ReviewInbox>("/attention/review")),
   correctReview: (id: string, payload: ReviewCorrection) =>
     request<ReviewItem | undefined>(`/attention/review/${id}`, {
       method: "PATCH",
-      body: JSON.stringify(withExplicitConfirmation(payload)),
+      body: JSON.stringify(
+        withExplicitConfirmation(normalizeCorrectionForWire(id, payload)),
+      ),
     }),
   mailboxFolders,
   retryBackfillFailure: (accountId: string, jobId: string, failureId: string) =>
