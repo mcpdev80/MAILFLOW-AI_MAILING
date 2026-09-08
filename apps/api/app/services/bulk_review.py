@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections import defaultdict
 from dataclasses import dataclass
+from email.header import decode_header, make_header
 from email.utils import parseaddr
 from uuid import UUID
 
@@ -42,8 +43,18 @@ class ChildKey:
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
 
 
+def _decode_header_value(value: object) -> str:
+    raw = str(value or "")
+    if not raw:
+        return ""
+    try:
+        return str(make_header(decode_header(raw)))
+    except (LookupError, UnicodeError, ValueError):
+        return raw
+
+
 def _domain(value: object) -> str:
-    address = parseaddr(str(value or ""))[1].strip().lower()
+    address = parseaddr(_decode_header_value(value))[1].strip().lower()
     if "@" not in address:
         return "unknown"
     return address.rsplit("@", 1)[1] or "unknown"
@@ -76,6 +87,7 @@ def _aggregate(
     review = 0
     suspicious = 0
     safe = 0
+    edited = 0
     statuses: dict[str, int] = defaultdict(int)
     samples: list[dict[str, object]] = []
     for proposal in proposals:
@@ -90,13 +102,14 @@ def _aggregate(
         review += int(needs_review)
         suspicious += int(is_suspicious)
         safe += int(not needs_review and not is_suspicious)
+        edited += int(proposal.status == "proposed" and proposal.edited_snapshot is not None)
         statuses[proposal.status] += 1
         if len(samples) < 3:
             samples.append(
                 {
                     "proposal_id": str(proposal.id),
-                    "from_email": str(snapshot.get("from_email") or ""),
-                    "subject": str(snapshot.get("subject") or ""),
+                    "from_email": _decode_header_value(snapshot.get("from_email")),
+                    "subject": _decode_header_value(snapshot.get("subject")),
                     "confidence": confidence,
                     "reason": snapshot.get("reason"),
                 }
@@ -112,6 +125,7 @@ def _aggregate(
         "review_required": review,
         "suspicious": suspicious,
         "safe": safe,
+        "edited": edited,
         "confidence_avg": avg,
         "confidence_min": min(confidences, default=0.0),
         "confidence_max": max(confidences, default=0.0),
