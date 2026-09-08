@@ -71,6 +71,7 @@ class BulkReviewClusterOut(BaseModel):
     review_required: int
     suspicious: int
     safe: int
+    edited: int = 0
     confidence_avg: float
     confidence_min: float
     confidence_max: float
