@@ -70,10 +70,10 @@
 .navItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 38px;
+  gap: 11px;
+  min-height: 40px;
   border-radius: var(--mf-radius-md);
-  padding: 8px 11px;
+  padding: 9px 11px;
   color: var(--mf-text-secondary);
   text-decoration: none;
   font-size: 13px;
@@ -86,15 +86,22 @@
 }
 
 .navItemActive {
-  background: color-mix(in srgb, var(--mf-primary) 8%, var(--mf-surface));
-  color: var(--mf-text);
+  background: color-mix(in srgb, var(--mf-primary) 10%, var(--mf-surface));
+  color: var(--mf-primary);
   font-weight: 600;
 }
 
 .glyph {
-  width: 18px;
-  color: var(--mf-text-muted);
-  text-align: center;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  place-items: center;
+  color: currentColor;
+}
+
+.glyph svg {
+  display: block;
 }
 
 .context {
