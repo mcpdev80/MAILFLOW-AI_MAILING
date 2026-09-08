@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from arq.connections import RedisSettings, create_pool
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import RequestIdentity, require_identity
+from app.backfill_queue import WORKER_QUEUE_NAME
 from app.bulk_schemas import (
     BulkApplyControlOut,
     BulkApplyCreate,
@@ -76,7 +77,8 @@ async def _enqueue_apply(apply_job_id: UUID) -> bool:
         result = await redis.enqueue_job(
             "process_bulk_apply",
             str(apply_job_id),
-            _job_id=f"bulk-apply-{apply_job_id}",
+            _job_id=f"bulk-apply-{apply_job_id}-{uuid4().hex[:10]}",
+            _queue_name=WORKER_QUEUE_NAME,
         )
         return result is not None
     except Exception as exc:  # noqa: BLE001 - enqueue failure must not become an HTML 500
