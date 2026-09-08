@@ -121,8 +121,12 @@ class BulkApplyService:
                         result = "review"
                         error = "uidvalidity_changed"
                     elif not batch.messages or batch.messages[0].uid != proposal.uid:
-                        result = "review"
-                        error = "message_missing_or_moved"
+                        # The message no longer exists at the exact historical IMAP
+                        # position. This is not actionable for a human reviewer: the
+                        # message may have been moved or deleted in the meantime.
+                        # Treat the proposal as finished without touching the mailbox.
+                        result = "skipped"
+                        error = None
                     else:
                         provider.set_source_folder(proposal.source_folder)
                         tags = list(snapshot.get("system_tags") or []) + list(
