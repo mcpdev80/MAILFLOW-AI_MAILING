@@ -41,14 +41,14 @@ export function useMailMessageView(options: MessageViewOptions) {
     setThread(null);
   }, [options.selectedAccountId]);
 
-  const openMessage = useCallback(
-    async (message: InboxMessage) => {
+  const openDetail = useCallback(
+    async (accountId: string, folder: string, uid: number) => {
       setMessageLoading(true);
       options.setError(null);
       try {
         const [detail, metadata] = await Promise.all([
-          api.messageDetail(message.account_id, message.folder, message.uid),
-          options.ensureMetadata(message.account_id),
+          api.messageDetail(accountId, folder, uid),
+          options.ensureMetadata(accountId),
         ]);
         const resolved = await markReadIfNeeded(
           detail,
@@ -66,23 +66,29 @@ export function useMailMessageView(options: MessageViewOptions) {
     [options.ensureMetadata, options.setError, options.setInbox, t],
   );
 
+  const openMessage = useCallback(
+    async (message: InboxMessage) => {
+      await openDetail(message.account_id, message.folder, message.uid);
+    },
+    [openDetail],
+  );
+
   useEffect(() => {
     const target = options.target;
     if (
       openedDeepLink.current ||
-      options.loading ||
-      !options.inbox ||
       !target.uid ||
-      !target.account
+      !target.account ||
+      !target.folder
     )
       return;
-    const message = options.inbox.messages.find((item) =>
-      matchesTarget(item, target),
-    );
-    if (!message) return;
+
+    // A review/search deep link must open the requested message even when it is
+    // older than the currently loaded inbox page. Do not depend on the first 60
+    // visible messages being present before resolving the target.
     openedDeepLink.current = true;
-    void openMessage(message);
-  }, [openMessage, options.inbox, options.loading, options.target]);
+    void openDetail(target.account, target.folder, target.uid);
+  }, [openDetail, options.target]);
 
   const detailFor = useCallback(
     async (message: InboxMessage) => {
@@ -147,17 +153,6 @@ async function loadThread(detail: MessageDetail): Promise<ThreadView | null> {
   return detail.thread_id
     ? api.threadDetail(detail.account_id, detail.thread_id)
     : null;
-}
-
-function matchesTarget(
-  message: InboxMessage,
-  target: MailDeepLinkTarget,
-): boolean {
-  return (
-    message.account_id === target.account &&
-    message.uid === target.uid &&
-    (!target.folder || message.folder === target.folder)
-  );
 }
 
 function apiErrorMessage(error: unknown, fallback: string): string {
