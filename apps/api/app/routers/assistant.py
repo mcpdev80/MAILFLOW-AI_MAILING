@@ -19,7 +19,6 @@ async def assistant_capabilities(
     return {
         "enabled": settings.ASSISTANT_RUNTIME != "disabled",
         "runtime": settings.ASSISTANT_RUNTIME,
-        "platform_backend": settings.PLATFORM_BACKEND,
         "tools": [
             {
                 "name": tool.name,
@@ -31,9 +30,5 @@ async def assistant_capabilities(
         "contracts": {
             "openai_compatible": bool(settings.OPENAI_BASE_URL),
             "mcp": bool(settings.MCP_ENDPOINT),
-            "openbao": bool(settings.OPENBAO_ADDR),
-            "oidc": bool(settings.OIDC_ISSUER),
-            "s3": bool(settings.S3_ENDPOINT),
-            "otel": bool(settings.OTEL_EXPORTER_OTLP_ENDPOINT),
         },
     }
