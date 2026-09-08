@@ -22,9 +22,10 @@ _LANGUAGE_NAMES = {
 }
 
 
-def _human_language_instruction() -> str:
+def _human_language_instruction(output_locale: str | None) -> str:
     configured = (
-        os.getenv("MAILFLOW_AI_LANGUAGE", "").strip().lower()
+        (output_locale or "").strip().lower()
+        or os.getenv("MAILFLOW_AI_LANGUAGE", "").strip().lower()
         or os.getenv("MAILFLOW_BOOTSTRAP_LANGUAGE", "").strip().lower()
     )
     language = _LANGUAGE_NAMES.get(configured)
@@ -51,11 +52,13 @@ class ScheduledLLMClient(LLMClient):
         controller: RedisWorkloadController,
         account_id: str | None,
         priority: int,
+        output_locale: str | None = None,
     ) -> None:
         super().__init__(config)
         self._workload_controller = controller
         self._workload_account_id = account_id
         self._workload_priority = priority
+        self._output_locale = output_locale
 
     def _scheduled_call_path(self, messages: list[dict], path, role: str) -> str:
         with self._workload_controller.acquire(
@@ -87,15 +90,15 @@ class ScheduledLLMClient(LLMClient):
         parser: Callable[[str, str], T],
     ) -> tuple[T, ModelRole]:
         localized_messages = [dict(message) for message in messages]
+        instruction = _human_language_instruction(self._output_locale)
         if localized_messages and localized_messages[0].get("role") == "system":
             localized_messages[0]["content"] = (
-                f"{localized_messages[0].get('content', '')}\n\n"
-                f"{_human_language_instruction()}"
+                f"{localized_messages[0].get('content', '')}\n\n{instruction}"
             )
         else:
             localized_messages.insert(
                 0,
-                {"role": "system", "content": _human_language_instruction()},
+                {"role": "system", "content": instruction},
             )
 
         roles: tuple[ModelRole, ModelRole] = (
