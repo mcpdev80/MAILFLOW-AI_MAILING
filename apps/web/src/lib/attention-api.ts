@@ -145,10 +145,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
   if (res.status === 204) return undefined as T;
+
   const text = await res.text();
-  const body = text ? JSON.parse(text) : undefined;
+  let body: unknown;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = undefined;
+    }
+  }
+
   if (!res.ok) {
-    throw new Error((body?.detail as string | undefined) ?? res.statusText);
+    const detail =
+      body && typeof body === "object" && "detail" in body
+        ? String((body as { detail?: unknown }).detail ?? "")
+        : "";
+    throw new Error(detail || text || res.statusText || `HTTP ${res.status}`);
+  }
+
+  if (text && body === undefined) {
+    throw new Error(`invalid_json_response:${res.status}`);
   }
   return body as T;
 }
@@ -202,6 +219,39 @@ const FOLDER_ROLE_LABELS: Record<UiLocale, Record<string, string>> = {
   },
 };
 
+const TECHNICAL_FOLDER_LABELS: Record<UiLocale, Record<string, string>> = {
+  de: {
+    work: "Arbeit",
+    private: "Privat",
+    finance: "Finanzen",
+    orders: "Bestellungen",
+    appointments: "Termine",
+    newsletters: "Newsletter",
+    notifications: "Benachrichtigungen",
+    other: "Sonstiges",
+  },
+  en: {
+    work: "Work",
+    private: "Private",
+    finance: "Finance",
+    orders: "Orders",
+    appointments: "Appointments",
+    newsletters: "Newsletters",
+    notifications: "Notifications",
+    other: "Other",
+  },
+  es: {
+    work: "Trabajo",
+    private: "Privado",
+    finance: "Finanzas",
+    orders: "Pedidos",
+    appointments: "Citas",
+    newsletters: "Boletines",
+    notifications: "Notificaciones",
+    other: "Otros",
+  },
+};
+
 function currentLocale(): UiLocale {
   if (typeof document === "undefined") return "en";
   const locale = document.documentElement.lang.toLowerCase().split("-")[0];
@@ -217,7 +267,8 @@ function folderDisplayName(folder: Pick<MailboxFolder, "name" | "role">): string
   if (folder.name.toUpperCase() === "INBOX") {
     return FOLDER_ROLE_LABELS[locale].inbox;
   }
-  return folder.name;
+  const technical = TECHNICAL_FOLDER_LABELS[locale][folder.name.trim().toLowerCase()];
+  return technical ?? folder.name;
 }
 
 const mailboxFolderCache = new Map<string, Promise<MailboxFolder[]>>();
@@ -253,16 +304,19 @@ async function mailboxFolders(accountId: string): Promise<MailboxFolder[]> {
 }
 
 function localizeReviewInbox(inbox: ReviewInbox): ReviewInbox {
+  const locale = currentLocale();
   return {
     ...inbox,
     items: inbox.items.map((item) => {
       reviewAccountIds.set(item.id, item.account_id);
+      const destination = item.destination_folder.trim();
+      const technicalDestination = TECHNICAL_FOLDER_LABELS[locale][destination.toLowerCase()];
       return {
         ...item,
         destination_folder:
-          item.destination_folder.toUpperCase() === "INBOX"
-            ? FOLDER_ROLE_LABELS[currentLocale()].inbox
-            : item.destination_folder,
+          destination.toUpperCase() === "INBOX"
+            ? FOLDER_ROLE_LABELS[locale].inbox
+            : technicalDestination ?? destination,
       };
     }),
   };
@@ -278,7 +332,14 @@ function destinationWireName(reviewId: string, displayName: string): string {
   const inboxLabels = new Set(
     Object.values(FOLDER_ROLE_LABELS).map((labels) => labels.inbox),
   );
-  return inboxLabels.has(displayName) ? "INBOX" : displayName;
+  if (inboxLabels.has(displayName)) return "INBOX";
+
+  for (const labels of Object.values(TECHNICAL_FOLDER_LABELS)) {
+    for (const [wire, label] of Object.entries(labels)) {
+      if (label === displayName) return wire;
+    }
+  }
+  return displayName;
 }
 
 function normalizeCorrectionForWire(
