@@ -17,6 +17,7 @@ const ALLOWED_PREFIXES = new Set([
   "attachments",
   "attention",
   "bootstrap",
+  "bulk",
   "dashboard",
   "llm-catalog",
   "llm-providers",
