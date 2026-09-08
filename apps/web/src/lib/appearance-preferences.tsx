@@ -31,6 +31,7 @@ type AppearanceContextValue = {
 };
 
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
+export const APPEARANCE_STORAGE_KEY = "mailflow.appearance";
 
 function resolveTheme(theme: Theme): "light" | "dark" {
   if (theme !== "system") return theme;
@@ -39,11 +40,26 @@ function resolveTheme(theme: Theme): "light" | "dark" {
     : "light";
 }
 
+function cacheAppearance(theme: Theme, density: Density) {
+  try {
+    window.localStorage.setItem(
+      APPEARANCE_STORAGE_KEY,
+      JSON.stringify({ theme, density }),
+    );
+  } catch {
+    /* Appearance still works when browser storage is unavailable. */
+  }
+}
+
 function applyDocumentAppearance(theme: Theme, density: Density) {
   document.documentElement.dataset.theme = resolveTheme(theme);
   document.documentElement.dataset.density = density;
-  document.documentElement.style.colorScheme =
-    theme === "system" ? "light dark" : theme;
+  document.documentElement.style.colorScheme = resolveTheme(theme);
+}
+
+function applyAndCacheAppearance(theme: Theme, density: Density) {
+  applyDocumentAppearance(theme, density);
+  cacheAppearance(theme, density);
 }
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
@@ -57,7 +73,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       .then((result) => {
         if (!active) return;
         setPreferences(result);
-        applyDocumentAppearance(result.theme, result.density);
+        applyAndCacheAppearance(result.theme, result.density);
       })
       .catch(() => {
         if (!active) return;
@@ -84,7 +100,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     async (update: UserPreferencesUpdate) => {
       const saved = await api.updateUserPreferences(update);
       setPreferences(saved);
-      applyDocumentAppearance(saved.theme, saved.density);
+      applyAndCacheAppearance(saved.theme, saved.density);
     },
     [],
   );
