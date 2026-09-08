@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -13,6 +14,31 @@ from mailflow_core.resilience import CircuitOpenError
 from app.workload import RedisWorkloadController
 
 T = TypeVar("T")
+
+_LANGUAGE_NAMES = {
+    "de": "German",
+    "en": "English",
+    "es": "Spanish",
+}
+
+
+def _human_language_instruction() -> str:
+    configured = (
+        os.getenv("MAILFLOW_AI_LANGUAGE", "").strip().lower()
+        or os.getenv("MAILFLOW_BOOTSTRAP_LANGUAGE", "").strip().lower()
+    )
+    language = _LANGUAGE_NAMES.get(configured)
+    if language:
+        return (
+            f"Write all human-facing explanatory text, especially the `reason` field, in {language}. "
+            "Keep category, importance, urgency, action_required, tag and other machine-readable "
+            "enum values exactly as required by the JSON contract."
+        )
+    return (
+        "Write all human-facing explanatory text, especially the `reason` field, in the natural "
+        "language of the current email. Keep category, importance, urgency, action_required, tag "
+        "and other machine-readable enum values exactly as required by the JSON contract."
+    )
 
 
 class ScheduledLLMClient(LLMClient):
@@ -60,6 +86,18 @@ class ScheduledLLMClient(LLMClient):
         primary_role: ModelRole,
         parser: Callable[[str, str], T],
     ) -> tuple[T, ModelRole]:
+        localized_messages = [dict(message) for message in messages]
+        if localized_messages and localized_messages[0].get("role") == "system":
+            localized_messages[0]["content"] = (
+                f"{localized_messages[0].get('content', '')}\n\n"
+                f"{_human_language_instruction()}"
+            )
+        else:
+            localized_messages.insert(
+                0,
+                {"role": "system", "content": _human_language_instruction()},
+            )
+
         roles: tuple[ModelRole, ModelRole] = (
             primary_role,
             "deep" if primary_role == "fast" else "fast",
@@ -77,7 +115,7 @@ class ScheduledLLMClient(LLMClient):
                     first_error = error
                 continue
             try:
-                raw = self._scheduled_call_path(messages, path, role)
+                raw = self._scheduled_call_path(localized_messages, path, role)
                 parsed = parser(raw, path.model_id)
             except Exception as exc:
                 breaker.record_failure(exc)
