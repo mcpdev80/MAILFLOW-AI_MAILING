@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from types import SimpleNamespace
 from uuid import UUID
@@ -19,6 +20,10 @@ from app.models.llm_provider import LLMProvider
 from app.models.rules import DomainRule as DbDomainRule
 from app.models.rules import InternalDomain
 from app.models.rules import KeywordRule as DbKeywordRule
+from app.models.user_preference import UserPreference
+
+_ALLOWED_LOCALES = {"de", "en", "es"}
+_SINGLE_USER_KEY = "__single__"
 
 
 class AccountRepository:
@@ -143,10 +148,53 @@ class AccountRepository:
             ],
         )
 
+        output_locale = await self._processing_locale(account)
         resolved_provider = await self._resolve_role_provider(
             account.org_id, account.llm_provider
         )
+        if resolved_provider is not None:
+            setattr(resolved_provider, "output_locale", output_locale)
         return account, account_config, resolved_provider
+
+    async def _processing_locale(self, account: EmailAccount) -> str:
+        """Resolve the human-facing AI language without coupling the core to UI i18n."""
+        preferred_key = account.owner_user_id
+        if not preferred_key and settings.AUTH_MODE == "single":
+            preferred_key = _SINGLE_USER_KEY
+
+        if preferred_key:
+            locale = await self._session.scalar(
+                select(UserPreference.locale).where(
+                    UserPreference.org_id == account.org_id,
+                    UserPreference.user_key == preferred_key,
+                )
+            )
+            normalized = (locale or "").strip().lower()
+            if normalized in _ALLOWED_LOCALES:
+                return normalized
+
+        # A shared mailbox has no single owner. If every configured user in the
+        # organization uses the same locale, that is still a safe deterministic
+        # language for persisted human-facing classification explanations.
+        locales = list(
+            (
+                await self._session.execute(
+                    select(UserPreference.locale).where(
+                        UserPreference.org_id == account.org_id
+                    )
+                )
+            ).scalars()
+        )
+        normalized_locales = {
+            value.strip().lower()
+            for value in locales
+            if isinstance(value, str) and value.strip().lower() in _ALLOWED_LOCALES
+        }
+        if len(normalized_locales) == 1:
+            return next(iter(normalized_locales))
+
+        bootstrap_locale = os.getenv("MAILFLOW_BOOTSTRAP_LANGUAGE", "").strip().lower()
+        return bootstrap_locale if bootstrap_locale in _ALLOWED_LOCALES else "en"
 
     async def _resolve_role_provider(
         self, org_id: UUID, fallback: LLMProvider | None
