@@ -37,6 +37,18 @@ export type BulkReviewSummary = {
   clusters: BulkReviewCluster[];
 };
 
+export type BulkProposalEdit = {
+  category?: string;
+  subcategory?: string;
+  importance?: string;
+  urgency?: string;
+  action_required?: string;
+  proposed_folder?: string;
+  system_tags?: string[];
+  user_tags?: string[];
+  do_move?: boolean;
+};
+
 export type BulkApplyJob = {
   id: string;
   source_job_id: string;
@@ -88,6 +100,16 @@ export const bulkReviewApi = {
     request<{ approved: number; blocked_suspicious: number }>(
       `${base(accountId, jobId)}/clusters/${encodeURIComponent(clusterId)}/approve`,
       { method: "POST" },
+    ),
+  editCluster: (
+    accountId: string,
+    jobId: string,
+    clusterId: string,
+    payload: BulkProposalEdit,
+  ) =>
+    request<{ edited: number; skipped: number }>(
+      `${base(accountId, jobId)}/clusters/${encodeURIComponent(clusterId)}`,
+      { method: "PATCH", body: JSON.stringify(payload) },
     ),
   startApply: (accountId: string, jobId: string, batchSize = 50) =>
     request<{ job: BulkApplyJob; enqueued: boolean }>(
