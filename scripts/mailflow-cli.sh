@@ -59,7 +59,7 @@ baseharbor_env() {
 
 cmd_install() {
   if [ "$RUNTIME_MODE" = "standalone" ]; then
-    MAILFLOW_INSTALL_REF="${MAILFLOW_INSTALL_REF:-$(current_branch)}" exec bash "$ROOT/scripts/install-core.sh" "${MAILFLOW_INSTALL_REF:-$(current_branch)}"
+    fail "New guided installations are BaseHarbor-first. For an existing standalone installation use MAILFLOW_RUNTIME=standalone with start/stop/status. For a new standalone deployment configure .env (including SECRET_KEY) and infrastructure/docker-compose.standalone.yml explicitly."
   fi
   exec bash "$ROOT/scripts/install-baseharbor.sh"
 }
@@ -68,6 +68,7 @@ cmd_start() {
   if [ "$RUNTIME_MODE" = "standalone" ]; then
     ensure_checkout
     [ -f "$ENV_FILE" ] || fail ".env is required for standalone mode."
+    [ -n "$(get_env SECRET_KEY)" ] || fail "SECRET_KEY must be set in .env for standalone mode."
     standalone_compose up -d --build
     return
   fi
@@ -78,6 +79,7 @@ cmd_start() {
 cmd_stop() {
   if [ "$RUNTIME_MODE" = "standalone" ]; then
     ensure_checkout
+    [ -f "$ENV_FILE" ] || fail ".env is required for standalone mode."
     standalone_compose down
     return
   fi
@@ -105,6 +107,7 @@ cmd_status() {
   printf '  Runtime: %s\n' "$RUNTIME_MODE"
   printf '  URL: %s\n\n' "${MAILFLOW_PUBLIC_URL:-$(get_env MAILFLOW_PUBLIC_URL)}"
   if [ "$RUNTIME_MODE" = "standalone" ]; then
+    [ -f "$ENV_FILE" ] || fail ".env is required for standalone mode."
     standalone_compose ps
   else
     ensure_baseharbor
@@ -115,6 +118,7 @@ cmd_status() {
 cmd_doctor() {
   if [ "$RUNTIME_MODE" = "standalone" ]; then
     ensure_checkout
+    [ -f "$ENV_FILE" ] || fail ".env is required for standalone mode."
     standalone_compose config >/dev/null
     standalone_compose ps
     return
@@ -133,9 +137,7 @@ attachment_volume() {
 
 cmd_backup() {
   local stamp dir database_url volume
-  if [ "$RUNTIME_MODE" = "standalone" ]; then
-    fail "Standalone backup remains available through the legacy standalone tooling; BaseHarbor mode is the default."
-  fi
+  [ "$RUNTIME_MODE" != "standalone" ] || fail "The managed backup command is available in BaseHarbor mode. Existing standalone deployments should keep using their existing standalone backup procedure."
   ensure_baseharbor
   need gzip "gzip is required."
   stamp="$(date '+%Y%m%d-%H%M%S')"
@@ -160,7 +162,7 @@ cmd_backup() {
 
 cmd_restore() {
   local dir="${1:-}" database_url volume
-  [ "$RUNTIME_MODE" != "standalone" ] || fail "Use the standalone restore path when MAILFLOW_RUNTIME=standalone."
+  [ "$RUNTIME_MODE" != "standalone" ] || fail "The managed restore command is available in BaseHarbor mode."
   [ -n "$dir" ] || fail "Usage: ./mailflow restore <backup-directory> [--yes]"
   [ -f "$dir/database.sql.gz" ] || fail "Backup is missing database.sql.gz"
   if [ "${2:-}" != "--yes" ] && [ "${MAILFLOW_ASSUME_YES:-0}" != "1" ]; then
@@ -241,10 +243,11 @@ Equivalent BaseHarbor operations:
   status   -> baha app status
   doctor   -> baha app doctor
 
-Standalone compatibility is explicit:
+Standalone compatibility for existing deployments is explicit:
   MAILFLOW_RUNTIME=standalone ./mailflow start
 
 The standalone runtime uses infrastructure/docker-compose.standalone.yml.
+New guided installations use BaseHarbor.
 EOF
 }
 
