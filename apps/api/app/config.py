@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     BACKFILL_CONCURRENCY: int = Field(default=2, ge=1, le=16)
     BACKFILL_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=20)
     BACKFILL_REQUEUE_DELAY_SECONDS: float = Field(default=1.0, ge=0.0, le=60.0)
+    BACKFILL_MAX_CLASSIFICATION_STAGE: int = Field(default=1, ge=0, le=3)
 
     CLASSIFICATION_CONFIDENCE_THRESHOLD: float = Field(default=0.85, ge=0.0, le=1.0)
 
