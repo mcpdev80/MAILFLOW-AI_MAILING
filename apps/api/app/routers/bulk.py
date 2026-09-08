@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from arq.connections import RedisSettings, create_pool
@@ -14,15 +15,18 @@ from app.bulk_schemas import (
     BulkApplyCreate,
     BulkApplyJobOut,
     BulkApproveAllOut,
+    BulkClusterApproveOut,
     BulkCountsOut,
     BulkProposalEdit,
     BulkProposalOut,
+    BulkReviewSummaryOut,
 )
 from app.config import settings
 from app.database import get_session
 from app.mailbox_access import get_account_for_management
 from app.repositories.backfill import BackfillRepository
 from app.repositories.bulk import BulkRepository, BulkStateError
+from app.services.bulk_review import build_review_summary, select_cluster_proposals
 
 router = APIRouter(prefix="/accounts/{account_id}/bulk", tags=["bulk"])
 
@@ -110,6 +114,18 @@ async def bulk_counts(
 ) -> BulkCountsOut:
     await _owned_source_job(account_id, job_id, identity, session)
     return BulkCountsOut(counts=await BulkRepository(session).counts(job_id))
+
+
+@router.get("/{job_id}/review-summary", response_model=BulkReviewSummaryOut)
+async def bulk_review_summary(
+    account_id: UUID,
+    job_id: UUID,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> BulkReviewSummaryOut:
+    await _owned_source_job(account_id, job_id, identity, session)
+    rows = await BulkRepository(session).list_proposals(job_id, limit=100000)
+    return BulkReviewSummaryOut.model_validate(build_review_summary(rows))
 
 
 @router.patch("/{job_id}/proposals/{proposal_id}", response_model=BulkProposalOut)
@@ -203,6 +219,56 @@ async def approve_all_safe_bulk_proposals(
     )
     await session.commit()
     return BulkApproveAllOut(approved=approved)
+
+
+@router.post(
+    "/{job_id}/clusters/{cluster_id}/approve",
+    response_model=BulkClusterApproveOut,
+)
+async def approve_bulk_cluster(
+    account_id: UUID,
+    job_id: UUID,
+    cluster_id: str,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> BulkClusterApproveOut:
+    await _owned_source_job(account_id, job_id, identity, session)
+    if identity.user_id is None:
+        raise HTTPException(status_code=403, detail="user_identity_required")
+
+    repo = BulkRepository(session)
+    proposals = await repo.list_proposals(job_id, limit=100000)
+    selected = select_cluster_proposals(proposals, cluster_id)
+    if not selected:
+        raise HTTPException(status_code=404, detail="bulk_cluster_not_found")
+
+    approved = 0
+    blocked = 0
+    try:
+        for proposal in selected:
+            if proposal.status != "proposed":
+                continue
+            snapshot = repo.effective_snapshot(proposal)
+            if bool(snapshot.get("suspicious_content")):
+                blocked += 1
+                continue
+            if bool(snapshot.get("review_required")):
+                confirmed = dict(snapshot)
+                confirmed["review_required"] = False
+                confirmed["human_confirmed"] = True
+                proposal.edited_snapshot = confirmed
+                proposal.updated_at = datetime.now(tz=UTC)
+                await session.flush()
+            await repo.approve_proposal(
+                proposal.id,
+                actor_user_id=identity.user_id,
+            )
+            approved += 1
+        await session.commit()
+    except BulkStateError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return BulkClusterApproveOut(approved=approved, blocked_suspicious=blocked)
 
 
 @router.post(
