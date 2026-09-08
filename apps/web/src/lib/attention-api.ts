@@ -75,6 +75,16 @@ export interface ReviewCorrection {
   remember?: boolean;
 }
 
+export interface MailboxFolder {
+  name: string;
+  role: string | null;
+  selectable: boolean;
+}
+
+interface MailboxMetadata {
+  folders: MailboxFolder[];
+}
+
 export interface NotificationPreference {
   urgent_enabled: boolean;
   security_review_enabled: boolean;
@@ -160,6 +170,24 @@ function withExplicitConfirmation(payload: ReviewCorrection): ReviewCorrection {
   return confirmsClassification ? { ...payload, confirm: true } : payload;
 }
 
+const mailboxFolderCache = new Map<string, Promise<MailboxFolder[]>>();
+
+async function mailboxFolders(accountId: string): Promise<MailboxFolder[]> {
+  const cached = mailboxFolderCache.get(accountId);
+  if (cached) return cached;
+
+  const pending = request<MailboxMetadata>(
+    `/mail-client/accounts/${encodeURIComponent(accountId)}/metadata`,
+  )
+    .then((metadata) => metadata.folders.filter((folder) => folder.selectable))
+    .catch((error) => {
+      mailboxFolderCache.delete(accountId);
+      throw error;
+    });
+  mailboxFolderCache.set(accountId, pending);
+  return pending;
+}
+
 export const attentionApi = {
   review: () => request<ReviewInbox>("/attention/review"),
   correctReview: (id: string, payload: ReviewCorrection) =>
@@ -167,6 +195,7 @@ export const attentionApi = {
       method: "PATCH",
       body: JSON.stringify(withExplicitConfirmation(payload)),
     }),
+  mailboxFolders,
   retryBackfillFailure: (accountId: string, jobId: string, failureId: string) =>
     request<unknown>(
       `/accounts/${accountId}/backfill/${jobId}/failures/${failureId}/retry`,
