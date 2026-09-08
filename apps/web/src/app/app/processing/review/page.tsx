@@ -4,6 +4,7 @@ import { ApiError, api } from "@/lib/api";
 import { backfillApi, type BackfillJob } from "@/lib/backfill-api";
 import {
   bulkReviewApi,
+  type BulkApplyJob,
   type BulkReviewCluster,
   type BulkReviewSummary,
 } from "@/lib/bulk-review-api";
@@ -59,13 +60,23 @@ type Copy = {
   editedCount: string;
   targetSavedPending: string;
   pendingConfirmation: string;
-  applyStarted: string;
   applyExisting: string;
   applyReadyTitle: string;
   applyReadyBody: string;
   applyMoveCount: string;
   applyKeepCount: string;
   applyNow: string;
+  applyRunningTitle: string;
+  applyRunningBody: string;
+  applyRunningButton: string;
+  applyProgress: string;
+  applyRemaining: string;
+  applyMoved: string;
+  applySkipped: string;
+  applyFailed: string;
+  applyReview: string;
+  applyCompletedTitle: string;
+  applyCompletedBody: string;
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -110,13 +121,23 @@ const COPY: Record<Locale, Copy> = {
     editedCount: "Vorschläge aktualisiert",
     targetSavedPending: "Ziel gespeichert. Die Prüfung bleibt offen, bis du ausdrücklich bestätigst.",
     pendingConfirmation: "Ziel geändert · Bestätigung noch offen",
-    applyStarted: "Anwendung wurde gestartet.",
     applyExisting: "Für diesen Testlauf existiert bereits ein Apply-Lauf.",
     applyReadyTitle: "Freigaben sind bereit – noch wurde nichts im Postfach geändert",
     applyReadyBody: "Bestätigen gibt die Entscheidungen nur frei. Das tatsächliche Verschieben startet erst mit dem Anwenden-Schritt.",
     applyMoveCount: "werden verschoben",
     applyKeepCount: "bleiben im aktuellen Ordner",
     applyNow: "Änderungen jetzt anwenden",
+    applyRunningTitle: "Die Änderungen werden jetzt umgesetzt",
+    applyRunningBody: "Mailflow arbeitet die freigegebenen Änderungen im Postfach ab. Der Fortschritt wird automatisch aktualisiert.",
+    applyRunningButton: "Änderungen werden umgesetzt …",
+    applyProgress: "Fortschritt",
+    applyRemaining: "noch offen",
+    applyMoved: "verschoben / angewendet",
+    applySkipped: "ohne Änderung",
+    applyFailed: "fehlgeschlagen",
+    applyReview: "erneut zu prüfen",
+    applyCompletedTitle: "Die Änderungen wurden umgesetzt",
+    applyCompletedBody: "Der Apply-Lauf ist abgeschlossen.",
   },
   en: {
     title: "Review historical decisions",
@@ -159,13 +180,23 @@ const COPY: Record<Locale, Copy> = {
     editedCount: "proposals updated",
     targetSavedPending: "Target saved. Review stays open until you explicitly confirm it.",
     pendingConfirmation: "Target changed · confirmation still pending",
-    applyStarted: "Apply job started.",
     applyExisting: "An apply job already exists for this dry run.",
     applyReadyTitle: "Approved changes are ready – nothing has changed in the mailbox yet",
     applyReadyBody: "Confirming only approves decisions. Moving messages starts with the separate apply step.",
     applyMoveCount: "will be moved",
     applyKeepCount: "will stay in the current folder",
     applyNow: "Apply changes now",
+    applyRunningTitle: "The changes are now being applied",
+    applyRunningBody: "Mailflow is processing the approved mailbox changes. Progress updates automatically.",
+    applyRunningButton: "Applying changes …",
+    applyProgress: "Progress",
+    applyRemaining: "remaining",
+    applyMoved: "moved / applied",
+    applySkipped: "without change",
+    applyFailed: "failed",
+    applyReview: "needs review again",
+    applyCompletedTitle: "The changes have been applied",
+    applyCompletedBody: "The apply job has finished.",
   },
   es: {
     title: "Revisar decisiones históricas",
@@ -208,13 +239,23 @@ const COPY: Record<Locale, Copy> = {
     editedCount: "propuestas actualizadas",
     targetSavedPending: "Destino guardado. La revisión sigue abierta hasta que la confirmes explícitamente.",
     pendingConfirmation: "Destino cambiado · confirmación pendiente",
-    applyStarted: "La aplicación se ha iniciado.",
     applyExisting: "Ya existe una aplicación para esta prueba.",
     applyReadyTitle: "Los cambios aprobados están listos – todavía no se ha cambiado el buzón",
     applyReadyBody: "Confirmar solo aprueba las decisiones. El movimiento real empieza con el paso de aplicación.",
     applyMoveCount: "se moverán",
     applyKeepCount: "permanecerán en la carpeta actual",
     applyNow: "Aplicar cambios ahora",
+    applyRunningTitle: "Los cambios se están aplicando ahora",
+    applyRunningBody: "Mailflow está procesando los cambios aprobados del buzón. El progreso se actualiza automáticamente.",
+    applyRunningButton: "Aplicando cambios …",
+    applyProgress: "Progreso",
+    applyRemaining: "pendientes",
+    applyMoved: "movidos / aplicados",
+    applySkipped: "sin cambios",
+    applyFailed: "fallidos",
+    applyReview: "requieren nueva revisión",
+    applyCompletedTitle: "Los cambios se han aplicado",
+    applyCompletedBody: "El proceso de aplicación ha finalizado.",
   },
 };
 
@@ -226,24 +267,37 @@ export default function BulkReviewPage() {
   const copy = COPY[locale];
   const [summary, setSummary] = useState<BulkReviewSummary | null>(null);
   const [job, setJob] = useState<BackfillJob | null>(null);
+  const [applyJob, setApplyJob] = useState<BulkApplyJob | null>(null);
   const [folders, setFolders] = useState<MailboxFolderView[]>([]);
   const [filter, setFilter] = useState<Filter>("review");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const fetchApplyStatus = useCallback(async () => {
+    if (!accountId || !jobId) return null;
+    try {
+      return await bulkReviewApi.applyStatus(accountId, jobId);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+  }, [accountId, jobId]);
+
   const load = useCallback(async () => {
     if (!accountId || !jobId) return;
     setError(null);
-    const [summaryResult, jobsResult, metadata] = await Promise.all([
+    const [summaryResult, jobsResult, metadata, applyStatus] = await Promise.all([
       bulkReviewApi.summary(accountId, jobId),
       backfillApi.list(accountId),
       api.mailboxMetadata(accountId),
+      fetchApplyStatus(),
     ]);
     setSummary(summaryResult);
     setJob(jobsResult.find((item) => item.id === jobId) ?? null);
+    setApplyJob(applyStatus);
     setFolders(metadata.folders.filter((item) => item.selectable));
-  }, [accountId, jobId]);
+  }, [accountId, jobId, fetchApplyStatus]);
 
   useEffect(() => {
     void load().catch((err) => {
@@ -258,6 +312,24 @@ export default function BulkReviewPage() {
     }, 5000);
     return () => window.clearInterval(timer);
   }, [job?.state, load]);
+
+  useEffect(() => {
+    if (applyJob?.state !== "running" || !accountId || !jobId) return;
+    const timer = window.setInterval(() => {
+      void Promise.all([
+        bulkReviewApi.applyStatus(accountId, jobId),
+        bulkReviewApi.summary(accountId, jobId),
+      ])
+        .then(([status, nextSummary]) => {
+          setApplyJob(status);
+          setSummary(nextSummary);
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : String(err));
+        });
+    }, 1200);
+    return () => window.clearInterval(timer);
+  }, [accountId, applyJob?.state, jobId]);
 
   const clusters = useMemo(() => {
     const rows = summary?.clusters ?? [];
@@ -330,7 +402,10 @@ export default function BulkReviewPage() {
     setError(null);
     try {
       const result = await bulkReviewApi.startApply(accountId, jobId, 50);
-      setNotice(result.enqueued ? copy.applyStarted : result.job.last_error ?? copy.applyExisting);
+      setApplyJob(result.job);
+      if (result.job.state === "paused" && result.job.last_error) {
+        setError(result.job.last_error);
+      }
       await load();
     } catch (err) {
       if (err instanceof ApiError && err.message === "no_approved_proposals") {
@@ -353,7 +428,14 @@ export default function BulkReviewPage() {
     0,
   ) ?? 0;
   const approvedKeeps = Math.max(0, approved - approvedMoves);
-  const canApply = job?.state === "completed" && approved > 0;
+  const applyRunning = applyJob?.state === "running";
+  const applyCompleted = applyJob?.state === "completed";
+  const applyRemaining = applyJob ? Math.max(0, applyJob.approved - applyJob.processed) : 0;
+  const applyPercent = applyJob?.approved
+    ? Math.min(100, Math.round((applyJob.processed / applyJob.approved) * 100))
+    : 0;
+  const canRetryApply = applyJob?.state === "paused" && applyJob.last_error === "apply_enqueue_failed";
+  const canApply = job?.state === "completed" && approved > 0 && (!applyJob || canRetryApply);
 
   return (
     <main className={styles.page}>
@@ -364,11 +446,11 @@ export default function BulkReviewPage() {
           <p>{copy.subtitle}</p>
         </div>
         <div className={styles.headerActions}>
-          <button className="btn secondary" type="button" disabled={busy !== null || !summary?.safe} onClick={() => void approveSafe()}>
+          <button className="btn secondary" type="button" disabled={busy !== null || !summary?.safe || applyRunning} onClick={() => void approveSafe()}>
             {busy === "safe" ? copy.approving : copy.approveSafe}
           </button>
-          <button className="btn" type="button" disabled={busy !== null || !canApply} onClick={() => void startApply()}>
-            {busy === "apply" ? copy.applying : copy.applyApproved}
+          <button className="btn" type="button" disabled={busy !== null || !canApply || applyRunning || applyCompleted} onClick={() => void startApply()}>
+            {applyRunning ? copy.applyRunningButton : busy === "apply" ? copy.applying : copy.applyApproved}
           </button>
         </div>
       </header>
@@ -377,21 +459,40 @@ export default function BulkReviewPage() {
       {notice && <div className={styles.notice}>{notice}</div>}
       {error && <div className={styles.error}>{error}</div>}
 
-      {canApply && (
-        <section
-          className={styles.notice}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 18,
-            textAlign: "left",
-          }}
-        >
-          <div style={{ display: "grid", gap: 5 }}>
-            <strong style={{ color: "var(--mf-text)" }}>{copy.applyReadyTitle}</strong>
+      {applyJob && (applyRunning || applyCompleted) && (
+        <section className={`${styles.applyStatus} ${applyCompleted ? styles.applyStatusDone : ""}`}>
+          <div className={styles.applyStatusHeader}>
+            <div>
+              <strong>{applyCompleted ? copy.applyCompletedTitle : copy.applyRunningTitle}</strong>
+              <span>{applyCompleted ? copy.applyCompletedBody : copy.applyRunningBody}</span>
+            </div>
+            <span className={styles.applyPercent}>{applyPercent}%</span>
+          </div>
+          <div className={styles.progressTrack} aria-label={copy.applyProgress} aria-valuemin={0} aria-valuemax={100} aria-valuenow={applyPercent} role="progressbar">
+            <div className={styles.progressBar} style={{ width: `${applyPercent}%` }} />
+          </div>
+          <div className={styles.applyProgressMeta}>
+            <span><strong>{applyJob.processed.toLocaleString()}</strong> / {applyJob.approved.toLocaleString()} {copy.applyProgress.toLowerCase()}</span>
+            <span><strong>{applyRemaining.toLocaleString()}</strong> {copy.applyRemaining}</span>
+          </div>
+          <div className={styles.applyCounters}>
+            <span><strong>{applyJob.applied.toLocaleString()}</strong> {copy.applyMoved}</span>
+            <span><strong>{applyJob.skipped.toLocaleString()}</strong> {copy.applySkipped}</span>
+            <span className={applyJob.failed > 0 ? styles.applyCounterDanger : ""}><strong>{applyJob.failed.toLocaleString()}</strong> {copy.applyFailed}</span>
+            <span className={applyJob.review_required > 0 ? styles.applyCounterWarning : ""}><strong>{applyJob.review_required.toLocaleString()}</strong> {copy.applyReview}</span>
+          </div>
+          <button className="btn" type="button" disabled>
+            {applyRunning ? copy.applyRunningButton : copy.applyCompletedTitle}
+          </button>
+        </section>
+      )}
+
+      {canApply && !applyRunning && !applyCompleted && (
+        <section className={styles.applyReady}>
+          <div>
+            <strong>{copy.applyReadyTitle}</strong>
             <span>{copy.applyReadyBody}</span>
-            <span style={{ color: "var(--mf-text-secondary)" }}>
+            <span className={styles.applyReadyCounts}>
               <strong>{approvedMoves.toLocaleString()}</strong> {copy.applyMoveCount}
               {" · "}
               <strong>{approvedKeeps.toLocaleString()}</strong> {copy.applyKeepCount}
