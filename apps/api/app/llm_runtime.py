@@ -81,12 +81,19 @@ def _custom_transport_api_key(provider: object, api_key: str | None) -> str | No
     return None
 
 
-def _scheduled(config: LLMConfig, account_id: object, priority: int) -> LLMClient:
+def _scheduled(
+    config: LLMConfig,
+    account_id: object,
+    priority: int,
+    *,
+    output_locale: str | None = None,
+) -> LLMClient:
     return ScheduledLLMClient(
         config,
         controller=get_workload_controller(),
         account_id=str(account_id) if account_id is not None else None,
         priority=priority,
+        output_locale=output_locale,
     )
 
 
@@ -106,6 +113,7 @@ def build_llm_client(
     effective_priority = context.priority if priority is None else priority
     if for_generation and effective_priority == PRIORITY_LIVE:
         effective_priority = PRIORITY_GENERATION
+    output_locale = _provider_string(llm_provider, "output_locale")
 
     shared_api_key = _custom_transport_api_key(
         llm_provider, _decrypt_llm_key(llm_provider.encrypted_api_key)
@@ -141,6 +149,7 @@ def build_llm_client(
             ),
             effective_account_id,
             effective_priority,
+            output_locale=output_locale,
         )
 
     default_model = _litellm_model_id(
@@ -213,4 +222,5 @@ def build_llm_client(
         ),
         effective_account_id,
         effective_priority,
+        output_locale=output_locale,
     )
