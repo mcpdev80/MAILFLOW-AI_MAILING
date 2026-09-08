@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +11,7 @@ from app.attention_schemas import OperationalReviewItem
 from app.auth import RequestIdentity
 from app.mailbox_access import SHARED_ADMIN_ROLES, access_condition
 from app.models.backfill import BackfillFailure, BackfillJob
-from app.models.bulk import BulkProposal
+from app.models.bulk import BulkApplyJob, BulkProposal
 from app.models.email_account import EmailAccount
 
 
@@ -62,7 +64,43 @@ async def list_operational_review_items(
             )
         )
     ).all()
+
+    # Older apply runs treated a message that was no longer present at its
+    # historical source-folder/UID position as a human review item. There is
+    # nothing useful for a user to decide in that situation, so self-heal those
+    # stale proposal rows as skipped and keep the aggregate apply counters in sync.
+    stale_by_job: dict = {}
+    now = datetime.now(tz=UTC)
+    for proposal, _account in proposal_rows:
+        if proposal.last_error != "message_missing_or_moved":
+            continue
+        proposal.status = "skipped"
+        proposal.last_error = None
+        proposal.updated_at = now
+        stale_by_job[proposal.job_id] = stale_by_job.get(proposal.job_id, 0) + 1
+
+    if stale_by_job:
+        apply_jobs = list(
+            (
+                await session.execute(
+                    select(BulkApplyJob).where(
+                        BulkApplyJob.source_job_id.in_(tuple(stale_by_job))
+                    )
+                )
+            ).scalars()
+        )
+        for apply_job in apply_jobs:
+            repaired = stale_by_job.get(apply_job.source_job_id, 0)
+            if not repaired:
+                continue
+            apply_job.review_required = max(apply_job.review_required - repaired, 0)
+            apply_job.skipped += repaired
+            apply_job.updated_at = now
+        await session.commit()
+
     for proposal, account in proposal_rows:
+        if proposal.status == "skipped":
+            continue
         snapshot = dict(proposal.edited_snapshot or proposal.original_snapshot or {})
         reason = proposal.last_error or str(
             snapshot.get("reason") or "Bulk proposal needs review"
