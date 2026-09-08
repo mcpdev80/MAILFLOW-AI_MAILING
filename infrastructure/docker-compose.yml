@@ -1,5 +1,5 @@
-# MailFlow production self-host stack.
-# Only the edge proxy publishes host ports. Web/API/data services stay on Docker networks.
+# MailFlow application workload for BaseHarbor-managed self-hosting.
+# PostgreSQL, Valkey and managed secrets are supplied by BaseHarbor.
 
 services:
   edge:
@@ -24,53 +24,16 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  postgres:
-    image: pgvector/pgvector:pg17
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mailflow}
-      POSTGRES_USER: ${POSTGRES_USER:-mailflow}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mailflow}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mailflow}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - database
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - queue
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-
   api:
     build:
       context: ..
       dockerfile: infrastructure/docker/Dockerfile.api
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - see README}
       SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
       AUTH_MODE: ${AUTH_MODE:-single}
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
-      MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-compose}
+      MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-baseharbor}
       MAILFLOW_BOOTSTRAP_LANGUAGE: ${MAILFLOW_BOOTSTRAP_LANGUAGE:-}
       MAILFLOW_TLS_MODE: ${MAILFLOW_TLS_MODE:-}
       MAILFLOW_PUBLIC_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
@@ -102,22 +65,14 @@ services:
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.0}
     volumes:
       - attachment_data:/data/attachments:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
     networks:
       - backend
-      - database
-      - queue
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -127,9 +82,6 @@ services:
       context: ..
       dockerfile: infrastructure/docker/Dockerfile.worker
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - see README}
       SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -148,16 +100,10 @@ services:
     volumes:
       - attachment_data:/data/attachments
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       api:
         condition: service_healthy
     networks:
       - backend
-      - database
-      - queue
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -171,7 +117,6 @@ services:
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
       WEB_AUTH: ${WEB_AUTH:-off}
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
       BETTER_AUTH_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
       PASSKEY_RP_NAME: ${PASSKEY_RP_NAME:-MailFlow}
@@ -181,50 +126,21 @@ services:
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
       MAILFLOW_PUBLIC_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
       MAILFLOW_TLS_MODE: ${MAILFLOW_TLS_MODE:-}
-      MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-compose}
+      MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-baseharbor}
     depends_on:
       api:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
     networks:
       - backend
-      - database
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-
-  web-migrate:
-    profiles: ["migrate"]
-    image: pgvector/pgvector:pg17
-    entrypoint:
-      - sh
-      - -c
-      - psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f /schema/better-auth-schema.sql
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
-    volumes:
-      - ../apps/web/better-auth-schema.sql:/schema/better-auth-schema.sql:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - database
-    restart: "no"
     security_opt:
       - no-new-privileges:true
 
 networks:
   edge:
   backend:
-  database:
-    internal: true
-  queue:
-    internal: true
 
 volumes:
-  postgres_data:
-  redis_data:
   caddy_data:
   caddy_config:
   attachment_data:
