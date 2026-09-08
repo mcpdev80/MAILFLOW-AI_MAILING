@@ -19,6 +19,7 @@ export type BulkReviewCluster = {
   review_required: number;
   suspicious: number;
   safe: number;
+  edited: number;
   confidence_avg: number;
   confidence_min: number;
   confidence_max: number;
