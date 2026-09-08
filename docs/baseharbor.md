@@ -1,17 +1,65 @@
 # BaseHarbor integration
 
-MailFlow can use BaseHarbor as an optional backend provisioner without becoming dependent on BaseHarbor at runtime.
+BaseHarbor is the recommended self-host runtime for MailFlow. It provides PostgreSQL, Valkey/Redis, managed secrets and the application backend network. MailFlow remains portable because its containers consume standard environment variables and protocols rather than a BaseHarbor SDK.
 
-The repository-level `baseharbor.yaml` declares the backend capabilities MailFlow needs: PostgreSQL, Redis/Valkey and the required `SECRET_KEY` secret. From the repository root a BaseHarbor-enabled environment can therefore use:
+## Repository contract
+
+The repository-level `baseharbor.yaml` declares:
+
+- PostgreSQL
+- Redis/Valkey
+- managed secrets
+- required `SECRET_KEY`
+
+The primary application Compose file is `infrastructure/docker-compose.yml`. It contains only MailFlow workloads:
+
+```text
+api
+worker
+web
+edge
+```
+
+It intentionally does not define PostgreSQL or Redis. BaseHarbor supplies those services and injects the standard runtime contract into the selected application containers.
+
+## Normal operation
+
+Users can operate MailFlow through the familiar wrapper:
+
+```bash
+./mailflow install
+./mailflow start
+./mailflow stop
+./mailflow restart
+./mailflow status
+./mailflow doctor
+```
+
+The wrapper delegates the platform lifecycle to `baha`:
+
+```text
+./mailflow start    -> baha app apply
+./mailflow stop     -> baha app down
+./mailflow restart  -> baha app down + baha app up
+./mailflow status   -> baha app status
+./mailflow doctor   -> baha app doctor
+```
+
+Direct BaseHarbor commands remain available from the repository root:
 
 ```bash
 baha app plan
-baha app secret set SECRET_KEY --stdin
 baha app apply
+baha app status
+baha app doctor
 baha app env --path
+baha app secret list
+baha app secret set SECRET_KEY --stdin
 ```
 
-MailFlow itself does not call `baha`, require a BaseHarbor login/token, or use a BaseHarbor SDK. The runtime continues to consume normal interfaces:
+## Runtime independence
+
+MailFlow application code does not call `baha`, require a BaseHarbor login/token or use a BaseHarbor SDK. Runtime containers receive normal values:
 
 ```text
 DATABASE_URL=postgresql://...
@@ -19,14 +67,28 @@ REDIS_URL=redis://...
 SECRET_KEY=...
 ```
 
-The Python API accepts a conventional `postgresql://` URL and selects its `asyncpg` SQLAlchemy driver internally. Existing `postgresql+asyncpg://` deployments continue to work unchanged.
+The Python API and Alembic migrations accept conventional PostgreSQL URLs and select the `asyncpg` SQLAlchemy driver internally.
 
-The `/health` endpoint probes PostgreSQL and Redis directly. Its readiness therefore reflects MailFlow's actual runtime dependencies rather than the presence or health of BaseHarbor itself.
+The `/health` endpoint probes PostgreSQL and Redis directly. Readiness therefore reflects MailFlow's actual runtime dependencies rather than the availability of the `baha` CLI.
 
-The same application remains runnable without BaseHarbor by supplying the same environment variables through Docker Compose, a process manager, CI/CD, or another platform.
+## Secrets
 
-## Container networking
+`SECRET_KEY` is stored through the BaseHarbor managed-secret path backed by OpenBao. It is not required in the repository Compose file. BaseHarbor materializes it into the MailFlow workload at startup.
 
-BaseHarbor-managed services currently expose their generated native runtime contract independently of MailFlow's own Compose topology. Automatic attachment of existing application containers to a BaseHarbor application network is a BaseHarbor-side workload/networking capability and is intentionally not emulated in MailFlow with provider-specific networking code.
+Other application-owned provider settings remain application-owned. BaseHarbor does not choose MailFlow's LLM endpoint/model/provider.
 
-This separation keeps the application portable: when BaseHarbor's workload integration attaches the MailFlow API/worker/web containers, those containers still consume only the standard URLs above.
+## Standalone compatibility
+
+The all-in-one deployment remains available explicitly at:
+
+```text
+infrastructure/docker-compose.standalone.yml
+```
+
+That compatibility stack contains its own PostgreSQL and Redis services. Existing standalone installations can opt into it with:
+
+```bash
+MAILFLOW_RUNTIME=standalone ./mailflow start
+```
+
+The standalone stack is deliberately separate from the BaseHarbor-first production Compose file so the two backend ownership models cannot accidentally run at the same time.
