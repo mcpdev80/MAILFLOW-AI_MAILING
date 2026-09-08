@@ -32,12 +32,17 @@ export const esStructure = {
   "structure.categoryMappingSubtitle":
     "Asigna las categorías de clasificación de Mailflow a la estructura de carpetas detectada.",
   "structure.noDraft":
-    "No hay un borrador de descubrimiento. Empieza con el descubrimiento de carpetas.",
+    "Aún no existe una estructura guardada. Empieza con el descubrimiento de carpetas.",
   "structure.openDiscovery": "Abrir descubrimiento de carpetas",
   "structure.noRoutes":
-    "La propuesta no contiene rutas de categorías. Puedes continuar y revisar solo los cambios de carpetas/etiquetas.",
+    "Aún no hay rutas de categorías configuradas. Puedes añadir una nueva asignación.",
   "structure.classification": "Clasificación",
+  "structure.category": "Categoría",
+  "structure.subcategory": "Subcategoría",
   "structure.targetFolder": "Carpeta de destino",
+  "structure.addCategory": "Añadir categoría",
+  "structure.remove": "Eliminar",
+  "structure.savedConfiguration": "Configuración guardada",
   "structure.classificationRoutes": "ruta(s) de clasificación",
   "structure.targetFolders": "carpeta(s) de destino",
   "structure.back": "Atrás",

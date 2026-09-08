@@ -25,6 +25,12 @@ class UserPreference(Base):
     )
     user_key: Mapped[str] = mapped_column(String(255))
     locale: Mapped[str] = mapped_column(String(8), default="en", server_default="en")
+    timezone: Mapped[str] = mapped_column(
+        String(64), default="UTC", server_default="UTC"
+    )
+    date_format: Mapped[str] = mapped_column(
+        String(16), default="YYYY-MM-DD", server_default="YYYY-MM-DD"
+    )
     theme: Mapped[str] = mapped_column(
         String(16), default="system", server_default="system"
     )
@@ -39,6 +45,9 @@ class UserPreference(Base):
     )
     workspace_custom_config: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True
+    )
+    remote_content_senders: Mapped[list[str]] = mapped_column(
+        JSONB, default=list, server_default="[]"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

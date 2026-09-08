@@ -142,8 +142,10 @@
 }
 
 .optionButton.selected {
-  background: var(--mf-surface-selected);
-  color: var(--mf-primary);
+  border-color: color-mix(in srgb, var(--mf-primary) 55%, var(--mf-border));
+  background: color-mix(in srgb, var(--mf-primary) 10%, var(--mf-bg));
+  color: var(--mf-text-primary);
+  box-shadow: none;
   font-weight: 600;
 }
 

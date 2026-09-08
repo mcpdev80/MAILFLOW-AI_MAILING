@@ -17,7 +17,7 @@ const copy = {
   de: {
     title: "Willkommen bei Mailflow",
     subtitle:
-      "Wir bereiten deine Instanz in vier kurzen Schritten vor. Danach folgt separat das 6-Schritt-Benutzer-Onboarding.",
+      "Wir bereiten deine Instanz in fünf kurzen Schritten vor. Danach folgt separat das 6-Schritt-Benutzer-Onboarding.",
     start: "Einrichtung starten",
     language: "Sprache",
     languageSet: "wurde vom Installer auf Deutsch gesetzt",
@@ -40,8 +40,12 @@ const copy = {
         "Verbinde den Modell-Endpunkt für Klassifizierung und Generierung.",
       ],
       [
-        "4. Instanzprüfung",
-        "Prüfe Frontend, API, Authentifizierung, Datenbank, HTTPS und KI-Verbindung.",
+        "4. Instance Owner",
+        "Lege den ersten Instanz-Administrator und seine Organisation an.",
+      ],
+      [
+        "5. Instanzprüfung",
+        "Prüfe die Instanz und richte optional direkt einen Passkey ein.",
       ],
     ],
     info: "Nach der Instanz-Einrichtung startet das separate 6-Schritt-Onboarding für Postfach, Datenschutz und Verhalten.",
@@ -49,7 +53,7 @@ const copy = {
   en: {
     title: "Welcome to Mailflow",
     subtitle:
-      "We will prepare your instance in four short steps, then continue with the separate 6-step user onboarding.",
+      "We will prepare your instance in five short steps, then continue with the separate 6-step user onboarding.",
     start: "Start setup",
     language: "Language",
     languageSet: "was set to English by the installer",
@@ -72,8 +76,12 @@ const copy = {
         "Connect the model endpoint for classification and generation.",
       ],
       [
-        "4. Instance verification",
-        "Verify frontend, API, authentication, database, HTTPS and AI connectivity.",
+        "4. Instance Owner",
+        "Create the first instance administrator and organization.",
+      ],
+      [
+        "5. Instance verification",
+        "Verify the instance and optionally register a passkey immediately.",
       ],
     ],
     info: "After instance setup, Mailflow starts the separate 6-step onboarding for mailbox, privacy and behavior settings.",
@@ -81,7 +89,7 @@ const copy = {
   es: {
     title: "Bienvenido a Mailflow",
     subtitle:
-      "Prepararemos tu instancia en cuatro pasos breves y después continuaremos con la incorporación de usuario de 6 pasos.",
+      "Prepararemos tu instancia en cinco pasos breves y después continuaremos con la incorporación de usuario de 6 pasos.",
     start: "Iniciar configuración",
     language: "Idioma",
     languageSet: "fue configurado en español por el instalador",
@@ -103,8 +111,12 @@ const copy = {
         "Conecta el endpoint del modelo para clasificación y generación.",
       ],
       [
-        "4. Verificación de instancia",
-        "Verifica frontend, API, autenticación, base de datos, HTTPS y conectividad con IA.",
+        "4. Instance Owner",
+        "Crea el primer administrador de la instancia y su organización.",
+      ],
+      [
+        "5. Verificación de instancia",
+        "Verifica la instancia y registra opcionalmente una passkey.",
       ],
     ],
     info: "Después de configurar la instancia, Mailflow inicia la incorporación separada de 6 pasos para buzón, privacidad y comportamiento.",
@@ -166,7 +178,7 @@ export function SetupFlow() {
     <WizardShell
       kind="setup"
       step={1}
-      total={4}
+      total={5}
       title={t.title}
       subtitle={t.subtitle}
       next={{ label: t.start, onClick: () => setStarted(true) }}

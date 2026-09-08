@@ -2,6 +2,7 @@
 
 import { WizardShell, wizardStyles as s } from "@/components/wizard-shell";
 import { api } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import { type BootstrapStatus, getBootstrapStatus } from "@/lib/bootstrap-api";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -41,8 +42,16 @@ export function InstanceSetup() {
   const [providerConnectionReady, setProviderConnectionReady] = useState(false);
   const [providerReady, setProviderReady] = useState(false);
   const [healthReady, setHealthReady] = useState(false);
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [ownerPassword, setOwnerPassword] = useState("");
+  const [ownerPasswordConfirm, setOwnerPasswordConfirm] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [ownerCreated, setOwnerCreated] = useState(false);
+  const [passkeyAdded, setPasskeyAdded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [discoveryBusy, setDiscoveryBusy] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -160,6 +169,113 @@ export function InstanceSetup() {
     }
   }
 
+  async function createInstanceOwner() {
+    setError(null);
+    if (!ownerName.trim() || !ownerEmail.trim() || !organization.trim()) {
+      setError("Name, email address and organization are required.");
+      return;
+    }
+    if (ownerPassword.length < 8) {
+      setError("Password must contain at least 8 characters.");
+      return;
+    }
+    if (ownerPassword !== ownerPasswordConfirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const status = await fetch("/api/instance-bootstrap/status", {
+        cache: "no-store",
+      });
+      if (!status.ok) throw new Error("Unable to verify instance owner state.");
+      const bootstrapState = (await status.json()) as {
+        auth_enabled: boolean;
+        instance_owner_exists: boolean;
+      };
+      if (bootstrapState.instance_owner_exists) {
+        throw new Error("The instance owner has already been created.");
+      }
+
+      const signUp = await authClient.signUp.email({
+        email: ownerEmail.trim(),
+        password: ownerPassword,
+        name: ownerName.trim(),
+      });
+      if (signUp.error) {
+        throw new Error(
+          signUp.error.message ?? "Unable to create administrator.",
+        );
+      }
+
+      const orgName = organization.trim();
+      const org = await authClient.organization.create({
+        name: orgName,
+        slug: organizationSlug(orgName),
+      });
+      if (org.error) {
+        throw new Error(org.error.message ?? "Unable to create organization.");
+      }
+
+      const claim = await fetch("/api/instance-bootstrap/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!claim.ok) {
+        const detail = (await claim.json().catch(() => null)) as {
+          detail?: string;
+        } | null;
+        throw new Error(
+          detail?.detail === "instance_owner_already_exists"
+            ? "The instance owner was already claimed by another setup session."
+            : "Unable to assign the instance owner role.",
+        );
+      }
+
+      const ownerLocale =
+        language === "de" || language === "es" ? language : "en";
+      window.localStorage.setItem("mailflow.locale", ownerLocale);
+      document.documentElement.lang = ownerLocale;
+      try {
+        await api.updateUserPreferences({ locale: ownerLocale });
+      } catch {
+        // Keep the installer/setup language locally even if preferences are not yet writable.
+      }
+
+      setOwnerCreated(true);
+      setOwnerPassword("");
+      setOwnerPasswordConfirm("");
+      setStep(5);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to create instance owner",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addPasskey() {
+    setPasskeyBusy(true);
+    setError(null);
+    try {
+      const result = await authClient.passkey.addPasskey({
+        name: "Mailflow Instance Owner",
+      });
+      if (result.error) {
+        throw new Error(result.error.message ?? "Unable to register passkey.");
+      }
+      setPasskeyAdded(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to register passkey",
+      );
+    } finally {
+      setPasskeyBusy(false);
+    }
+  }
+
   if (!bootstrapLoaded) return null;
 
   if (step === 1) {
@@ -167,7 +283,7 @@ export function InstanceSetup() {
       <WizardShell
         kind="setup"
         step={1}
-        total={4}
+        total={5}
         title={languageConfigured ? "Appearance" : "Language & Appearance"}
         subtitle={
           languageConfigured
@@ -247,7 +363,7 @@ export function InstanceSetup() {
       <WizardShell
         kind="setup"
         step={2}
-        total={4}
+        total={5}
         title="URL & HTTPS"
         subtitle="Only values not provided by the installer need to be configured here."
         back={{ onClick: () => setStep(1) }}
@@ -319,7 +435,7 @@ export function InstanceSetup() {
       <WizardShell
         kind="setup"
         step={3}
-        total={4}
+        total={5}
         title="AI Provider"
         subtitle="Save the endpoint connection, load its models, then choose which models Mailflow should use."
         back={{ onClick: () => setStep(connectionConfigured ? 1 : 2) }}
@@ -473,18 +589,92 @@ export function InstanceSetup() {
     );
   }
 
+  if (step === 4) {
+    return (
+      <WizardShell
+        kind="setup"
+        step={4}
+        total={5}
+        title="Create Instance Owner"
+        subtitle="Create the first Mailflow administrator and the first organization. This account owns the instance and its organization."
+        back={{ onClick: () => setStep(3) }}
+        next={{
+          label: busy ? "Creating..." : "Create Instance Owner",
+          onClick: () => void createInstanceOwner(),
+          disabled: busy || !healthReady || !providerReady,
+        }}
+      >
+        <div className={s.section}>
+          <label className={s.field}>
+            Name
+            <input
+              autoComplete="name"
+              value={ownerName}
+              onChange={(e) => setOwnerName(e.target.value)}
+              placeholder="Administrator name"
+            />
+          </label>
+          <label className={s.field}>
+            Email address
+            <input
+              type="email"
+              autoComplete="email"
+              value={ownerEmail}
+              onChange={(e) => setOwnerEmail(e.target.value)}
+              placeholder="admin@example.com"
+            />
+          </label>
+          <label className={s.field}>
+            Organization
+            <input
+              value={organization}
+              onChange={(e) => setOrganization(e.target.value)}
+              placeholder="Example GmbH"
+            />
+          </label>
+          <label className={s.field}>
+            Password
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={ownerPassword}
+              onChange={(e) => setOwnerPassword(e.target.value)}
+            />
+          </label>
+          <label className={s.field}>
+            Confirm password
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={ownerPasswordConfirm}
+              onChange={(e) => setOwnerPasswordConfirm(e.target.value)}
+            />
+          </label>
+          {error && <div className={s.error}>{error}</div>}
+        </div>
+        <div className={s.info}>
+          <span className={s.infoIcon}>i</span>
+          <span>
+            The first account becomes the Instance Owner exactly once.
+            Additional organization owners do not automatically receive
+            instance-wide administrator privileges.
+          </span>
+        </div>
+      </WizardShell>
+    );
+  }
+
   return (
     <WizardShell
       kind="setup"
-      step={4}
-      total={4}
+      step={5}
+      total={5}
       title="Instance Verification"
-      subtitle="The instance is ready. Create the first administrator account before starting user onboarding."
-      back={{ onClick: () => setStep(3) }}
+      subtitle="Your Instance Owner is created. Optionally register a passkey, then open instance administration. A mailbox is optional."
       next={{
-        label: "Create first administrator",
-        onClick: () => router.push("/signup?redirect=%2Fonboarding"),
-        disabled: !healthReady || !providerReady,
+        label: "Open instance administration",
+        onClick: () => router.push("/app/settings/members"),
+        disabled: !ownerCreated,
       }}
     >
       <div className={s.checklist}>
@@ -494,16 +684,44 @@ export function InstanceSetup() {
         <Check label="Database healthy" ready={healthReady} />
         <Check label="HTTPS valid" ready={publicUrl.startsWith("https://")} />
         <Check label="AI provider connected" ready={providerReady} />
+        <Check label="Instance Owner created" ready={ownerCreated} />
+        <Check label="Passkey registered" ready={passkeyAdded} />
       </div>
+
+      {!passkeyAdded ? (
+        <button
+          type="button"
+          onClick={() => void addPasskey()}
+          disabled={passkeyBusy || !ownerCreated}
+        >
+          {passkeyBusy ? "Registering passkey..." : "Register passkey now"}
+        </button>
+      ) : null}
+
+      {error && <div className={s.error}>{error}</div>}
+
       <div className={s.success}>
         <span className={s.check}>✓</span>
         <div>
-          <strong>Configuration verified</strong>
-          <span>Create the first administrator account to continue.</span>
+          <strong>Instance setup complete</strong>
+          <span>
+            Passkey registration and mailbox onboarding are optional. You can
+            administer the instance without connecting a mailbox.
+          </span>
         </div>
       </div>
     </WizardShell>
   );
+}
+
+function organizationSlug(value: string): string {
+  const base = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `${base || "org"}-${suffix}`;
 }
 
 function Check({ label, ready }: { label: string; ready: boolean }) {

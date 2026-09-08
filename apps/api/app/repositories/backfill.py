@@ -103,6 +103,15 @@ class BackfillRepository:
         )
         return list(rows.scalars())
 
+    async def list_running(self) -> list[BackfillJob]:
+        """Return resumable jobs that must have a worker queue entry."""
+        rows = await self._session.execute(
+            select(BackfillJob)
+            .where(BackfillJob.state == "running")
+            .order_by(BackfillJob.updated_at.asc())
+        )
+        return list(rows.scalars())
+
     async def active_for_folder(
         self, account_id: UUID, folder: str
     ) -> BackfillJob | None:

@@ -9,15 +9,18 @@ from urllib.request import Request, urlopen
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_org, require_org_admin
-from app.crypto import encrypt_secret
+from app.crypto import decrypt_secret, encrypt_secret
 from app.database import get_session
 from app.llm_schemas import (
     LLMModelDiscoveryOut,
     LLMModelDiscoveryRequest,
+    LLMRoleAssignment,
+    LLMRoleAssignmentsOut,
+    LLMRoleAssignmentsUpdate,
     LLMProviderCreate,
     LLMProviderOut,
     LLMProviderUpdate,
@@ -69,20 +72,29 @@ def _ollama_models_url(base_url: str) -> str:
     return f"{normalized}/api/tags"
 
 
-def _fetch_model_ids(
-    url: str, api_key: str | None, *, ollama: bool = False
-) -> list[str]:
+def _fetch_model_ids(url: str, api_key: str | None, *, provider_type: str) -> list[str]:
     headers = {"Accept": "application/json"}
     if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+        if provider_type == "anthropic":
+            headers["x-api-key"] = api_key
+            headers["anthropic-version"] = "2023-06-01"
+        elif provider_type != "gemini":
+            headers["Authorization"] = f"Bearer {api_key}"
 
     request = Request(url, headers=headers, method="GET")
     with urlopen(request, timeout=8) as response:  # noqa: S310 - admin-configured endpoint
         payload = json.loads(response.read().decode("utf-8"))
 
-    if ollama:
+    if provider_type == "ollama":
         raw_models = payload.get("models", []) if isinstance(payload, dict) else []
         values = [item.get("name") for item in raw_models if isinstance(item, dict)]
+    elif provider_type == "gemini":
+        raw_models = payload.get("models", []) if isinstance(payload, dict) else []
+        values = [
+            str(item.get("name", "")).removeprefix("models/")
+            for item in raw_models
+            if isinstance(item, dict)
+        ]
     else:
         raw_models = payload.get("data", []) if isinstance(payload, dict) else []
         values = [item.get("id") for item in raw_models if isinstance(item, dict)]
@@ -93,23 +105,23 @@ def _fetch_model_ids(
 
 
 def _discover_models(payload: LLMModelDiscoveryRequest) -> list[str]:
-    base_url = payload.base_url.strip()
+    base_url = payload.base_url.strip().rstrip("/")
     if not base_url.startswith(("http://", "https://")):
         raise ValueError("provider_url_must_use_http_or_https")
 
-    try:
-        models = _fetch_model_ids(_openai_models_url(base_url), payload.api_key)
-        if models:
-            return models
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
-        if payload.type != "ollama":
-            raise
-
-    if payload.type == "ollama":
+    provider_type = payload.type.strip().lower()
+    if provider_type == "ollama":
         return _fetch_model_ids(
-            _ollama_models_url(base_url), payload.api_key, ollama=True
+            _ollama_models_url(base_url), payload.api_key, provider_type=provider_type
         )
-    return []
+    if provider_type == "gemini":
+        url = f"{base_url}/models"
+        if payload.api_key:
+            url = f"{url}?key={payload.api_key}"
+        return _fetch_model_ids(url, payload.api_key, provider_type=provider_type)
+    return _fetch_model_ids(
+        _openai_models_url(base_url), payload.api_key, provider_type=provider_type
+    )
 
 
 @router.get("", response_model=list[LLMProviderOut])
@@ -160,6 +172,96 @@ async def discover_models(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="no_models_discovered"
         )
+    return LLMModelDiscoveryOut(models=models)
+
+
+@router.get("/role-assignments", response_model=LLMRoleAssignmentsOut)
+async def get_role_assignments(
+    org: Organization = Depends(require_org),
+    session: AsyncSession = Depends(get_session),
+) -> LLMRoleAssignmentsOut:
+    rows = await session.execute(
+        text(
+            "SELECT role, provider_id, model_id FROM llm_role_assignments "
+            "WHERE org_id = :org_id"
+        ),
+        {"org_id": org.id},
+    )
+    values = {
+        row.role: LLMRoleAssignment(
+            role=row.role, provider_id=row.provider_id, model_id=row.model_id
+        )
+        for row in rows
+    }
+    return LLMRoleAssignmentsOut(
+        fast=values.get("fast"),
+        deep=values.get("deep"),
+        generation=values.get("generation"),
+    )
+
+
+@router.put("/role-assignments", response_model=LLMRoleAssignmentsOut)
+async def put_role_assignments(
+    payload: LLMRoleAssignmentsUpdate,
+    org: Organization = Depends(require_org_admin),
+    session: AsyncSession = Depends(get_session),
+) -> LLMRoleAssignmentsOut:
+    assignments = [
+        item
+        for item in (payload.fast, payload.deep, payload.generation)
+        if item is not None
+    ]
+    for item in assignments:
+        if item.role not in {"fast", "deep", "generation"}:
+            raise HTTPException(status_code=422, detail="invalid_llm_role")
+        provider = await _get_owned(item.provider_id, org, session)
+        if not provider.is_active:
+            raise HTTPException(status_code=422, detail="llm_provider_inactive")
+        await session.execute(
+            text(
+                "INSERT INTO llm_role_assignments (org_id, role, provider_id, model_id) "
+                "VALUES (:org_id, :role, :provider_id, :model_id) "
+                "ON CONFLICT (org_id, role) DO UPDATE SET "
+                "provider_id = EXCLUDED.provider_id, model_id = EXCLUDED.model_id, updated_at = now()"
+            ),
+            {
+                "org_id": org.id,
+                "role": item.role,
+                "provider_id": item.provider_id,
+                "model_id": item.model_id,
+            },
+        )
+    await session.commit()
+    return await get_role_assignments(org, session)
+
+
+@router.get("/{provider_id}/models", response_model=LLMModelDiscoveryOut)
+async def discover_saved_provider_models(
+    provider_id: UUID,
+    org: Organization = Depends(require_org_admin),
+    session: AsyncSession = Depends(get_session),
+) -> LLMModelDiscoveryOut:
+    provider = await _get_owned(provider_id, org, session)
+    api_key = None
+    if provider.encrypted_api_key:
+        api_key = str(decrypt_secret(provider.encrypted_api_key)["api_key"])
+    request_payload = LLMModelDiscoveryRequest(
+        type=provider.type, base_url=provider.base_url, api_key=api_key
+    )
+    try:
+        models = await asyncio.to_thread(_discover_models, request_payload)
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        json.JSONDecodeError,
+        UnicodeDecodeError,
+    ) as exc:
+        raise HTTPException(
+            status_code=502, detail="model_discovery_connection_failed"
+        ) from exc
+    if not models:
+        raise HTTPException(status_code=404, detail="no_models_discovered")
     return LLMModelDiscoveryOut(models=models)
 
 

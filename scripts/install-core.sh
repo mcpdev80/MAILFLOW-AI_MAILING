@@ -290,12 +290,11 @@ choose_edge_ports() {
 
   HTTP_PORT="$(find_free_port 80)"
   if [ "$HTTP_PORT" != "80" ]; then
-    printf "$(msg port_busy)\n" 80 "$HTTP_PORT" > /dev/tty
+    printf "$(msg port_busy)\n" "80" "$HTTP_PORT" > /dev/tty
   fi
-
   HTTPS_PORT="$(find_free_port 443)"
   if [ "$HTTPS_PORT" != "443" ]; then
-    printf "$(msg port_busy)\n" 443 "$HTTPS_PORT" > /dev/tty
+    printf "$(msg port_busy)\n" "443" "$HTTPS_PORT" > /dev/tty
   fi
 }
 
@@ -560,6 +559,7 @@ else
 fi
 
 cd "$INSTALL_DIR"
+chmod +x "$INSTALL_DIR/mailflow" "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 ENV_FILE="$INSTALL_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then
   cp .env.example "$ENV_FILE"
@@ -582,7 +582,7 @@ set_env MAILFLOW_CADDY_ADDRESS "$CADDY_ADDRESS" "$ENV_FILE"
 set_env HTTP_PORT "$HTTP_PORT" "$ENV_FILE"
 set_env HTTPS_PORT "$HTTPS_PORT" "$ENV_FILE"
 set_env MAILFLOW_PORTS_MANAGED "cli" "$ENV_FILE"
-set_env AUTH_MODE "single" "$ENV_FILE"
+set_env AUTH_MODE "multi" "$ENV_FILE"
 set_env WEB_AUTH "on" "$ENV_FILE"
 set_env API_INTERNAL_URL "http://api:8000" "$ENV_FILE"
 set_env API_DOCS_ENABLED "false" "$ENV_FILE"
@@ -632,11 +632,17 @@ done
 [ "$ready" -eq 1 ] || fail "Mailflow started, but the API health check did not become ready."
 
 if [[ "$PUBLIC_URL" = https://* ]]; then
-  if [ "$TLS_MODE" = "custom" ]; then
-    curl -fsS --connect-timeout 10 --resolve "$host:$HTTPS_PORT:127.0.0.1" "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS verification failed for $PUBLIC_URL"
-  else
-    curl -kfsS --connect-timeout 10 --resolve "$host:$HTTPS_PORT:127.0.0.1" "$PUBLIC_URL" >/dev/null || fail "Mailflow is running, but HTTPS is not reachable at $PUBLIC_URL"
-  fi
+  https_ready=0
+  for _ in $(seq 1 30); do
+    if [ "$TLS_MODE" = "custom" ]; then
+      curl -fsS --connect-timeout 10 --resolve "$host:$HTTPS_PORT:127.0.0.1" "$PUBLIC_URL" >/dev/null 2>&1 && https_ready=1
+    else
+      curl -kfsS --connect-timeout 10 --resolve "$host:$HTTPS_PORT:127.0.0.1" "$PUBLIC_URL" >/dev/null 2>&1 && https_ready=1
+    fi
+    [ "$https_ready" -eq 0 ] || break
+    sleep 2
+done
+  [ "$https_ready" -eq 1 ] || fail "Mailflow is running, but HTTPS verification did not become ready for $PUBLIC_URL"
 fi
 
 printf '\n%s\n\n%s: %s\n\n' "$(msg ready)" "$(msg open)" "$PUBLIC_URL"

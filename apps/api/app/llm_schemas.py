@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -58,6 +59,24 @@ class LLMModelDiscoveryRequest(BaseModel):
 
 class LLMModelDiscoveryOut(BaseModel):
     models: list[str]
+
+
+class LLMRoleAssignment(BaseModel):
+    role: Literal["fast", "deep", "generation"]
+    provider_id: UUID
+    model_id: str = Field(min_length=1, max_length=200)
+
+
+class LLMRoleAssignmentsOut(BaseModel):
+    fast: LLMRoleAssignment | None = None
+    deep: LLMRoleAssignment | None = None
+    generation: LLMRoleAssignment | None = None
+
+
+class LLMRoleAssignmentsUpdate(BaseModel):
+    fast: LLMRoleAssignment | None = None
+    deep: LLMRoleAssignment | None = None
+    generation: LLMRoleAssignment | None = None
 
 
 class LLMProviderOut(BaseModel):

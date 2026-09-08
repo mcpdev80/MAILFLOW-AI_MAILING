@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export MAILFLOW_ROOT="$ROOT"
+exec bash "$ROOT/scripts/mailflow-cli.sh" "$@"

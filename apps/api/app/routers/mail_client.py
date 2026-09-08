@@ -32,6 +32,9 @@ from app.services.mail_client import (
     read_message,
     read_thread,
 )
+from app.services.rich_mail import rich_message_html
+from app.services.sender_brand import sender_brand_asset
+from app.services.unified_mail import list_unified_by_role
 
 router = APIRouter(prefix="/mail-client", tags=["mail-client"])
 
@@ -52,20 +55,29 @@ def _action_http_error(exc: MailActionError) -> HTTPException:
 async def unified_inbox(
     account_id: UUID | None = None,
     folder: str | None = Query(default=None, max_length=500),
+    folder_role: str | None = Query(default=None, max_length=32),
     before_uid: int | None = Query(default=None, ge=1),
     limit: int = Query(default=50, ge=1, le=100),
     identity: RequestIdentity = Depends(require_identity),
     session: AsyncSession = Depends(get_session),
 ) -> UnifiedInbox:
     try:
-        messages, counters, cursors = await list_authorized_inbox(
-            session,
-            identity,
-            account_id=account_id,
-            folder=folder,
-            limit=limit,
-            before_uid=before_uid,
-        )
+        if account_id is None and folder_role:
+            messages, counters, cursors = await list_unified_by_role(
+                session,
+                identity,
+                folder_role=folder_role,
+                limit=limit,
+            )
+        else:
+            messages, counters, cursors = await list_authorized_inbox(
+                session,
+                identity,
+                account_id=account_id,
+                folder=folder,
+                limit=limit,
+                before_uid=before_uid,
+            )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
     except RuntimeError as exc:
@@ -75,6 +87,28 @@ async def unified_inbox(
         counters=counters,
         total_unread=sum(item.unread for item in counters),
         next_before_uid_by_account=cursors,
+    )
+
+
+@router.get("/sender-brand")
+async def sender_brand(
+    address: str = Query(..., min_length=3, max_length=500),
+    _identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Return a locally cached brand asset without exposing the user to remote hosts."""
+    asset = await sender_brand_asset(session, address)
+    if asset is None:
+        return Response(status_code=204, headers={"Cache-Control": "private, max-age=3600"})
+    payload, content_type, source_type = asset
+    return Response(
+        content=payload,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+            "X-MailFlow-Brand-Source": source_type,
+        },
     )
 
 
@@ -110,6 +144,31 @@ async def message_detail(
             account_id=account_id,
             folder=folder,
             uid=uid,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/accounts/{account_id}/messages/{uid}/rich-html")
+async def message_rich_html(
+    account_id: UUID,
+    uid: int,
+    folder: str = Query(..., min_length=1, max_length=500),
+    force: bool = Query(default=False),
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    """Return rich HTML only after explicit one-time consent or a saved sender trust."""
+    try:
+        return await rich_message_html(
+            session,
+            identity,
+            account_id=account_id,
+            folder=folder,
+            uid=uid,
+            force=force,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc

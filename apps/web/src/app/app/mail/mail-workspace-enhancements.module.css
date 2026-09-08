@@ -1,0 +1,197 @@
+.folderDivider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 8px 7px;
+  color: var(--mf-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.folderDivider::before,
+.folderDivider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--mf-border);
+}
+
+.remoteContentNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--mf-warning) 32%, var(--mf-border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--mf-warning) 7%, var(--mf-surface));
+  color: var(--mf-text-secondary);
+  font-size: 11px;
+}
+
+.remoteContentNotice strong {
+  display: block;
+  color: var(--mf-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.remoteContentActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.remoteContentActions button {
+  min-height: 30px;
+  border: 1px solid var(--mf-border);
+  border-radius: 7px;
+  background: var(--mf-surface);
+  color: var(--mf-text-secondary);
+  padding: 0 9px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.remoteContentActions button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--mf-primary) 45%, var(--mf-border));
+  color: var(--mf-primary);
+}
+
+.remoteContentActions button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.remoteContentError {
+  display: block;
+  margin-top: 4px;
+  color: var(--mf-danger);
+}
+
+/*
+ * Reduced view is a reader view, not an attempt to preserve the original mail
+ * layout. Marketing emails commonly use deeply nested tables and spacer rows.
+ * Once remote images/styles are removed those tables create huge empty areas.
+ * Flatten them into compact flow content until the user explicitly enables the
+ * original HTML view.
+ */
+.safeMailBody {
+  max-width: 760px;
+  white-space: normal !important;
+  line-height: 1.46 !important;
+  word-break: normal;
+}
+
+.safeMailBody p,
+.safeMailBody div,
+.safeMailBody blockquote,
+.safeMailBody ul,
+.safeMailBody ol,
+.safeMailBody pre {
+  margin-top: 0;
+}
+
+.safeMailBody p,
+.safeMailBody div {
+  margin-bottom: .5em;
+}
+
+.safeMailBody p:empty,
+.safeMailBody div:empty,
+.safeMailBody span:empty,
+.safeMailBody td:empty,
+.safeMailBody th:empty,
+.safeMailBody tr:empty {
+  display: none !important;
+}
+
+.safeMailBody table,
+.safeMailBody thead,
+.safeMailBody tbody,
+.safeMailBody tfoot {
+  display: block !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+
+.safeMailBody tr {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: .2em .9em;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 0 .35em !important;
+  padding: 0 !important;
+}
+
+.safeMailBody td,
+.safeMailBody th {
+  display: block !important;
+  flex: 0 1 auto;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  vertical-align: top;
+}
+
+.safeMailBody blockquote {
+  margin-bottom: .65em;
+  margin-left: 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--mf-border);
+}
+
+.safeMailBody ul,
+.safeMailBody ol {
+  margin-bottom: .6em;
+  padding-left: 1.5em;
+}
+
+.safeMailBody br + br {
+  display: none;
+}
+
+.safeMailBody :is(p, div, td, th) > br:only-child {
+  display: none;
+}
+
+.plainMailBody {
+  max-width: 760px;
+  white-space: pre-wrap !important;
+  line-height: 1.55 !important;
+}
+
+.richMailFrame {
+  display: block;
+  width: 100%;
+  min-height: 680px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color-scheme: light;
+}
+
+@media (max-width: 900px) {
+  .remoteContentNotice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .remoteContentActions {
+    flex-wrap: wrap;
+  }
+}

@@ -1,14 +1,5 @@
-"use client";
-
-import { SettingsShell } from "@/components/settings-shell";
-import { MembersUi } from "./members-ui";
-import { useMembersPage } from "./use-members-page";
+import { redirect } from "next/navigation";
 
 export default function MembersPage() {
-  const controller = useMembersPage();
-  return (
-    <SettingsShell>
-      <MembersUi controller={controller} />
-    </SettingsShell>
-  );
+  redirect("/admin/org/members");
 }

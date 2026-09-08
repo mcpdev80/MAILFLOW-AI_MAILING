@@ -36,6 +36,46 @@ def _model_role(value: str) -> ModelRole:
     return cast(ModelRole, value)
 
 
+def _litellm_model_id(provider: object, model_id: str) -> str:
+    """Make instance-defined custom endpoints explicit to LiteLLM.
+
+    Role resolution may already return provider-qualified model IDs. Preserve
+    those unchanged. Otherwise MailFlow's ``custom`` provider type represents
+    an OpenAI-compatible endpoint (for example AgentGateway, vLLM, SGLang or
+    llama.cpp), so prefix arbitrary model names with ``openai/`` for LiteLLM.
+    """
+    value = model_id.strip()
+    if "/" in value:
+        return value
+    provider_type = (_provider_string(provider, "type") or "").lower()
+    if provider_type == "custom":
+        return f"openai/{value}"
+    return value
+
+
+def _optional_litellm_model_id(provider: object, value: object) -> str | None:
+    model_id = _optional_string(value)
+    if model_id is None:
+        return None
+    return _litellm_model_id(provider, model_id)
+
+
+def _custom_transport_api_key(provider: object, api_key: str | None) -> str | None:
+    """Satisfy LiteLLM/OpenAI transport for auth-free custom endpoints.
+
+    OpenAI-compatible self-hosted endpoints commonly do not require a token,
+    but LiteLLM's OpenAI transport refuses to construct a request without one.
+    Preserve configured credentials when present and otherwise provide a
+    non-secret placeholder only for MailFlow's ``custom`` provider type.
+    """
+    if api_key:
+        return api_key
+    provider_type = (_provider_string(provider, "type") or "").lower()
+    if provider_type == "custom":
+        return "mailflow-local"
+    return None
+
+
 def _scheduled(config: LLMConfig, account_id: object, priority: int) -> LLMClient:
     return ScheduledLLMClient(
         config,
@@ -62,29 +102,34 @@ def build_llm_client(
     if for_generation and effective_priority == PRIORITY_LIVE:
         effective_priority = PRIORITY_GENERATION
 
-    shared_api_key = _decrypt_llm_key(llm_provider.encrypted_api_key)
+    shared_api_key = _custom_transport_api_key(
+        llm_provider, _decrypt_llm_key(llm_provider.encrypted_api_key)
+    )
     common = {
         "path_failure_threshold": settings.LLM_CIRCUIT_FAILURE_THRESHOLD,
         "path_reset_timeout": settings.LLM_CIRCUIT_RESET_SECONDS,
     }
 
     if for_generation:
+        generation_model = (
+            _provider_string(llm_provider, "generation_model")
+            or llm_provider.default_generation_model
+        )
+        generation_api_key = _custom_transport_api_key(
+            llm_provider,
+            _decrypt_llm_key(
+                getattr(llm_provider, "encrypted_generation_api_key", None)
+            )
+            or shared_api_key,
+        )
         return _scheduled(
             LLMConfig(
-                model_id=(
-                    _provider_string(llm_provider, "generation_model")
-                    or llm_provider.default_generation_model
-                ),
+                model_id=_litellm_model_id(llm_provider, generation_model),
                 api_base=(
                     _provider_string(llm_provider, "generation_base_url")
                     or llm_provider.base_url
                 ),
-                api_key=(
-                    _decrypt_llm_key(
-                        getattr(llm_provider, "encrypted_generation_api_key", None)
-                    )
-                    or shared_api_key
-                ),
+                api_key=generation_api_key,
                 generation_timeout=settings.LLM_GENERATION_TIMEOUT_SECONDS,
                 generation_max_retries=settings.LLM_GENERATION_MAX_RETRIES,
                 **common,
@@ -93,29 +138,40 @@ def build_llm_client(
             effective_priority,
         )
 
+    fast_api_key = _custom_transport_api_key(
+        llm_provider,
+        _decrypt_llm_key(getattr(llm_provider, "encrypted_fast_api_key", None))
+        or shared_api_key,
+    )
+    deep_api_key = _custom_transport_api_key(
+        llm_provider,
+        _decrypt_llm_key(getattr(llm_provider, "encrypted_deep_api_key", None))
+        or shared_api_key,
+    )
+
     return _scheduled(
         LLMConfig(
-            model_id=llm_provider.default_classification_model,
+            model_id=_litellm_model_id(
+                llm_provider, llm_provider.default_classification_model
+            ),
             api_base=llm_provider.base_url,
             api_key=shared_api_key,
-            fast_model_id=_provider_string(llm_provider, "fast_classification_model"),
+            fast_model_id=_optional_litellm_model_id(
+                llm_provider, getattr(llm_provider, "fast_classification_model", None)
+            ),
             fast_api_base=_provider_string(
                 llm_provider, "fast_classification_base_url"
             ),
-            fast_api_key=(
-                _decrypt_llm_key(getattr(llm_provider, "encrypted_fast_api_key", None))
-                or shared_api_key
-            ),
+            fast_api_key=fast_api_key,
             fast_timeout=settings.LLM_FAST_TIMEOUT_SECONDS,
             fast_max_retries=settings.LLM_FAST_MAX_RETRIES,
-            deep_model_id=_provider_string(llm_provider, "deep_classification_model"),
+            deep_model_id=_optional_litellm_model_id(
+                llm_provider, getattr(llm_provider, "deep_classification_model", None)
+            ),
             deep_api_base=_provider_string(
                 llm_provider, "deep_classification_base_url"
             ),
-            deep_api_key=(
-                _decrypt_llm_key(getattr(llm_provider, "encrypted_deep_api_key", None))
-                or shared_api_key
-            ),
+            deep_api_key=deep_api_key,
             deep_timeout=settings.LLM_DEEP_TIMEOUT_SECONDS,
             deep_max_retries=settings.LLM_DEEP_MAX_RETRIES,
             stage_roles=(

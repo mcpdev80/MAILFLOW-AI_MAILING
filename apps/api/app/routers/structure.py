@@ -20,6 +20,21 @@ router = APIRouter(
 )
 
 
+@router.get("/current")
+async def current_mailbox_structure(
+    account_id: UUID,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    """Return the persisted mailbox structure without running discovery again."""
+    account = await get_account_for_management(account_id, identity, session)
+    config = dict(account.structure_config or {})
+    return {
+        "configured": bool(config),
+        "config": config,
+    }
+
+
 @router.get("/proposal")
 async def propose_mailbox_structure(
     account_id: UUID,

@@ -32,12 +32,17 @@ export const enStructure = {
   "structure.categoryMappingSubtitle":
     "Map Mailflow classification categories to the discovered folder structure.",
   "structure.noDraft":
-    "No discovery draft is available. Start with Folder Discovery.",
+    "No stored mailbox structure exists yet. Start with Folder Discovery.",
   "structure.openDiscovery": "Open Folder Discovery",
   "structure.noRoutes":
-    "The discovery proposal did not contain category routes. You can continue and review the folder/tag changes only.",
+    "No category routes are configured yet. You can add a new mapping.",
   "structure.classification": "Classification",
+  "structure.category": "Category",
+  "structure.subcategory": "Subcategory",
   "structure.targetFolder": "Target folder",
+  "structure.addCategory": "Add category",
+  "structure.remove": "Remove",
+  "structure.savedConfiguration": "Saved configuration",
   "structure.classificationRoutes": "classification route(s)",
   "structure.targetFolders": "target folder(s)",
   "structure.back": "Back",

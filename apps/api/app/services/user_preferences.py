@@ -34,11 +34,14 @@ def _view(row: UserPreference | None) -> UserPreferencesView:
     return UserPreferencesView(
         locale=row.locale,
         locale_configured=True,
+        timezone=row.timezone,
+        date_format=row.date_format,
         theme=row.theme,
         density=row.density,
         workspace_layout=row.workspace_layout,
         side_panel_alignment=row.side_panel_alignment,
         workspace_custom_config=row.workspace_custom_config,
+        remote_content_senders=list(row.remote_content_senders or []),
     )
 
 
@@ -52,7 +55,7 @@ async def get_user_preferences(
 def _apply(row: UserPreference, payload: UserPreferencesUpdate) -> None:
     values = payload.model_dump(mode="json", exclude_unset=True)
     for key, value in values.items():
-        if value is None and key != "workspace_custom_config":
+        if value is None and key not in {"workspace_custom_config", "remote_content_senders"}:
             continue
         setattr(row, key, value)
 
@@ -69,3 +72,40 @@ async def update_user_preferences(
     _apply(row, payload)
     await session.commit()
     return _view(row)
+
+
+async def remote_content_sender_allowed(
+    session: AsyncSession,
+    identity: RequestIdentity,
+    sender_email: str,
+) -> bool:
+    row = await _find_preference(session, identity)
+    if row is None:
+        return False
+    normalized = sender_email.strip().lower()
+    return normalized in set(row.remote_content_senders or [])
+
+
+async def set_remote_content_sender(
+    session: AsyncSession,
+    identity: RequestIdentity,
+    sender_email: str,
+    allowed: bool,
+) -> None:
+    normalized = sender_email.strip().lower()
+    if not normalized or "@" not in normalized or len(normalized) > 320:
+        raise ValueError("invalid_sender_email")
+    row = await _find_preference(session, identity)
+    if row is None:
+        row = UserPreference(org_id=identity.org.id, user_key=actor_key(identity))
+        session.add(row)
+        current: list[str] = []
+    else:
+        current = list(row.remote_content_senders or [])
+    values = {item.strip().lower() for item in current if item}
+    if allowed:
+        values.add(normalized)
+    else:
+        values.discard(normalized)
+    row.remote_content_senders = sorted(values)
+    await session.commit()

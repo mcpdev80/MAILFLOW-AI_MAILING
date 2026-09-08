@@ -1,8 +1,15 @@
 import { AppearanceProvider } from "@/lib/appearance-preferences";
 import { I18nProvider } from "@/lib/i18n";
 import type { Metadata } from "next";
+import { Geist } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
+
+const geist = Geist({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-geist",
+});
 
 export const metadata: Metadata = {
   title: "MailFlow",
@@ -14,7 +21,7 @@ export default function RootLayout({
 }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body className={`${geist.className} ${geist.variable}`}>
         <AppearanceProvider>
           <I18nProvider>
             <Suspense fallback={null}>{children}</Suspense>

@@ -125,24 +125,44 @@ async def _build_provider(account: EmailAccount) -> ImapMailClientProvider:
     )
 
 
+async def _processed_by_message_id(
+    session: AsyncSession,
+    account_id: UUID,
+    message_ids: list[str],
+) -> dict[str, ProcessedEmail]:
+    ids = [value for value in message_ids if value]
+    if not ids:
+        return {}
+    rows = list(
+        (
+            await session.execute(
+                select(ProcessedEmail)
+                .where(
+                    ProcessedEmail.account_id == account_id,
+                    ProcessedEmail.message_id.in_(ids),
+                )
+                .order_by(ProcessedEmail.processed_at.desc())
+            )
+        ).scalars()
+    )
+    result: dict[str, ProcessedEmail] = {}
+    for row in rows:
+        message_id = str(row.message_id or "")
+        if message_id and message_id not in result:
+            result[message_id] = row
+    return result
+
+
 async def _thread_ids(
     session: AsyncSession,
     account_id: UUID,
     message_ids: list[str],
 ) -> dict[str, str]:
-    ids = [value for value in message_ids if value]
-    if not ids:
-        return {}
-    rows = await session.execute(
-        select(ProcessedEmail.message_id, ProcessedEmail.thread_id).where(
-            ProcessedEmail.account_id == account_id,
-            ProcessedEmail.message_id.in_(ids),
-        )
-    )
+    rows = await _processed_by_message_id(session, account_id, message_ids)
     return {
-        str(message_id): str(thread_id)
-        for message_id, thread_id in rows
-        if message_id and thread_id
+        message_id: str(row.thread_id)
+        for message_id, row in rows.items()
+        if row.thread_id
     }
 
 
@@ -163,6 +183,7 @@ def _inbox_message(
     state: MailboxMessage,
     *,
     thread_id: str | None,
+    processed: ProcessedEmail | None = None,
 ) -> InboxMessage:
     return InboxMessage(
         account_id=account.id,
@@ -182,6 +203,14 @@ def _inbox_message(
         answered=state.answered,
         keywords=list(state.keywords),
         attachments=_attachments(state.attachments),
+        category=processed.category if processed is not None else None,
+        subcategory=processed.subcategory if processed is not None else None,
+        importance=processed.importance if processed is not None else None,
+        urgency=processed.urgency if processed is not None else None,
+        action_required=processed.action_required if processed is not None else None,
+        review_required=bool(processed.review_required) if processed is not None else False,
+        system_tags=list(processed.system_tags or []) if processed is not None else [],
+        user_tags=list(processed.user_tags or []) if processed is not None else [],
     )
 
 
@@ -246,9 +275,15 @@ def _message_detail(
     message: EmailData,
     *,
     thread_id: str | None,
+    processed: ProcessedEmail | None = None,
 ) -> MessageDetail:
     return MessageDetail(
-        **_inbox_message(account, state, thread_id=thread_id).model_dump(),
+        **_inbox_message(
+            account,
+            state,
+            thread_id=thread_id,
+            processed=processed,
+        ).model_dump(),
         body_text=message.body_text,
         safe_html=(
             sanitize_message_html(message.body_html) if message.body_html else None
@@ -322,7 +357,7 @@ async def list_authorized_inbox(
                 unread=unread,
             )
         )
-        thread_map = await _thread_ids(
+        processed_map = await _processed_by_message_id(
             session,
             account.id,
             [item.message_id for item in provider_messages],
@@ -331,7 +366,13 @@ async def list_authorized_inbox(
             _inbox_message(
                 account,
                 item,
-                thread_id=thread_map.get(item.message_id),
+                thread_id=(
+                    str(processed_map[item.message_id].thread_id)
+                    if item.message_id in processed_map
+                    and processed_map[item.message_id].thread_id
+                    else None
+                ),
+                processed=processed_map.get(item.message_id),
             )
             for item in provider_messages
         )
@@ -371,12 +412,14 @@ async def read_message(
             provider.disconnect()
 
     state, message = await asyncio.to_thread(fetch)
-    thread_map = await _thread_ids(session, account.id, [message.message_id])
+    processed_map = await _processed_by_message_id(session, account.id, [message.message_id])
+    processed = processed_map.get(message.message_id)
     return _message_detail(
         account,
         state,
         message,
-        thread_id=thread_map.get(message.message_id),
+        thread_id=str(processed.thread_id) if processed and processed.thread_id else None,
+        processed=processed,
     )
 
 
@@ -436,6 +479,7 @@ async def read_thread(
                         state,
                         message,
                         thread_id=thread_id,
+                        processed=row,
                     )
                 )
             result.sort(key=lambda item: _date_key(item.date))

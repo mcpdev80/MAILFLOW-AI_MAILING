@@ -14,14 +14,18 @@ import { type NextRequest, NextResponse } from "next/server";
 
 const ALLOWED_PREFIXES = new Set([
   "accounts",
+  "attachments",
   "attention",
   "bootstrap",
+  "dashboard",
+  "llm-catalog",
   "llm-providers",
   "mail",
   "mail-client",
   "oauth",
   "billing",
   "health",
+  "user",
 ]);
 
 function isPreAuthSetupRoute(method: string, targetPath: string): boolean {
@@ -32,6 +36,25 @@ function isPreAuthSetupRoute(method: string, targetPath: string): boolean {
   if (method === "POST" && targetPath === "/llm-providers/discover-models")
     return true;
   return false;
+}
+
+function requiresOrganizationAdmin(
+  method: string,
+  targetPath: string,
+): boolean {
+  if (targetPath === "/llm-catalog/assignments" && method.toUpperCase() === "PUT") {
+    return true;
+  }
+  if (!targetPath.startsWith("/llm-providers")) return false;
+  return !["GET", "HEAD"].includes(method.toUpperCase());
+}
+
+function legacyProviderRouteBlocked(
+  targetPath: string,
+  actor: Parameters<typeof actorHeaders>[2],
+): boolean {
+  if (!actor || !targetPath.startsWith("/llm-providers")) return false;
+  return true;
 }
 
 function buildForwardHeaders(
@@ -73,6 +96,25 @@ async function proxy(
     return NextResponse.json(
       { detail: resolution.error },
       { status: resolution.status },
+    );
+  }
+
+  if (legacyProviderRouteBlocked(targetPath, resolution.actor)) {
+    return NextResponse.json(
+      { detail: "llm_provider_management_is_instance_scoped" },
+      { status: 403 },
+    );
+  }
+
+  if (
+    requiresOrganizationAdmin(request.method, targetPath) &&
+    resolution.actor &&
+    resolution.actor.role !== "owner" &&
+    resolution.actor.role !== "admin"
+  ) {
+    return NextResponse.json(
+      { detail: "organization_admin_required" },
+      { status: 403 },
     );
   }
 

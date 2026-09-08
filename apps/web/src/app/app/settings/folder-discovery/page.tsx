@@ -9,7 +9,10 @@ import { useI18n } from "@/lib/i18n";
 import {
   type StructureDraft,
   type StructureProposal,
+  currentToDraft,
+  loadStructureCurrent,
   loadStructureProposal,
+  mergeStructureDraft,
   proposalToDraft,
   saveStructureDraft,
 } from "@/lib/structure-setup";
@@ -25,7 +28,9 @@ export default function FolderDiscoveryPage() {
   const [locale, setLocale] = useState<"de" | "en" | "es">(currentLocale);
   const [proposal, setProposal] = useState<StructureProposal | null>(null);
   const [draft, setDraft] = useState<StructureDraft | null>(null);
+  const [persisted, setPersisted] = useState<StructureDraft | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingCurrent, setLoadingCurrent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,13 +54,46 @@ export default function FolderDiscoveryPage() {
       );
   }, [t]);
 
+  useEffect(() => {
+    if (!accountId) {
+      setDraft(null);
+      setPersisted(null);
+      return;
+    }
+    let active = true;
+    setLoadingCurrent(true);
+    setError(null);
+    setProposal(null);
+    void loadStructureCurrent(accountId)
+      .then((current) => {
+        if (!active) return;
+        const saved = currentToDraft(accountId, current, currentLocale);
+        setPersisted(saved);
+        setDraft(saved);
+        if (saved) setLocale(saved.locale);
+      })
+      .catch((err) => {
+        if (active)
+          setError(
+            err instanceof Error ? err.message : t("structure.discoveryFailed"),
+          );
+      })
+      .finally(() => {
+        if (active) setLoadingCurrent(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [accountId, currentLocale, t]);
+
   async function discover() {
     if (!accountId) return;
     setLoading(true);
     setError(null);
     try {
       const result = await loadStructureProposal(accountId, locale);
-      const nextDraft = proposalToDraft(accountId, result);
+      const discovered = proposalToDraft(accountId, result);
+      const nextDraft = mergeStructureDraft(discovered, persisted);
       setProposal(result);
       setDraft(nextDraft);
     } catch (err) {
@@ -83,9 +121,25 @@ export default function FolderDiscoveryPage() {
     );
   }
 
+  function updateTag(
+    index: number,
+    patch: Partial<StructureDraft["tags"][number]>,
+  ) {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            tags: current.tags.map((item, itemIndex) =>
+              itemIndex === index ? { ...item, ...patch } : item,
+            ),
+          }
+        : current,
+    );
+  }
+
   function next() {
     if (!draft) return;
-    saveStructureDraft(draft);
+    saveStructureDraft({ ...draft, locale });
     router.push(
       `/app/settings/category-mapping?account=${encodeURIComponent(draft.account_id)}`,
     );
@@ -139,14 +193,7 @@ export default function FolderDiscoveryPage() {
         >
           <label className="field">
             {t("structure.mailbox")}
-            <select
-              value={accountId}
-              onChange={(event) => {
-                setAccountId(event.target.value);
-                setProposal(null);
-                setDraft(null);
-              }}
-            >
+            <select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
               {accounts.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.username}
@@ -158,11 +205,9 @@ export default function FolderDiscoveryPage() {
             {t("structure.language")}
             <select
               value={locale}
-              onChange={(event) => {
-                setLocale(event.target.value as "de" | "en" | "es");
-                setProposal(null);
-                setDraft(null);
-              }}
+              onChange={(event) =>
+                setLocale(event.target.value as "de" | "en" | "es")
+              }
             >
               <option value="de">Deutsch</option>
               <option value="en">English</option>
@@ -172,19 +217,21 @@ export default function FolderDiscoveryPage() {
           <button
             className="btn"
             type="button"
-            disabled={!accountId || loading}
+            disabled={!accountId || loading || loadingCurrent}
             onClick={() => void discover()}
           >
             {loading
               ? t("structure.scanning")
-              : proposal
+              : draft
                 ? t("structure.scanAgain")
                 : t("structure.discoverFolders")}
           </button>
         </div>
 
         {error && <div className="alert error">{error}</div>}
-        {!proposal || !draft ? (
+        {loadingCurrent ? (
+          <div className="empty">{t("common.loading")}</div>
+        ) : !draft ? (
           <div className="empty">{t("structure.startDiscovery")}</div>
         ) : (
           <>
@@ -214,11 +261,13 @@ export default function FolderDiscoveryPage() {
                 <span>{t("structure.mailboxName")}</span>
                 <span>{t("structure.action")}</span>
               </div>
-              {proposal.folders.map((item, index) => {
-                const selected = draft.folders[index];
+              {draft.folders.map((selected, index) => {
+                const suggested = proposal?.folders.find(
+                  (item) => item.internal_id === selected.internal_id,
+                );
                 return (
                   <div
-                    key={item.internal_id}
+                    key={selected.internal_id}
                     style={{
                       display: "grid",
                       gridTemplateColumns:
@@ -231,23 +280,20 @@ export default function FolderDiscoveryPage() {
                   >
                     <div>
                       <strong style={{ fontSize: 13 }}>
-                        {item.proposed_name}
+                        {suggested?.proposed_name ?? selected.internal_id}
                       </strong>
-                      <div
-                        className="muted"
-                        style={{ marginTop: 3, fontSize: 11 }}
-                      >
-                        {item.existing_match
-                          ? `${item.match_kind} ${t("structure.match")} · ${Math.round(item.match_confidence * 100)}% ${t("structure.confidence")}`
-                          : t("structure.noExistingMatch")}
+                      <div className="muted" style={{ marginTop: 3, fontSize: 11 }}>
+                        {suggested
+                          ? suggested.existing_match
+                            ? `${suggested.match_kind} ${t("structure.match")} · ${Math.round(suggested.match_confidence * 100)}% ${t("structure.confidence")}`
+                            : t("structure.noExistingMatch")
+                          : t("structure.activeMapping")}
                       </div>
                     </div>
                     <input
                       value={selected.mailbox_name}
                       onChange={(event) =>
-                        updateFolder(index, {
-                          mailbox_name: event.target.value,
-                        })
+                        updateFolder(index, { mailbox_name: event.target.value })
                       }
                     />
                     <select
@@ -258,9 +304,7 @@ export default function FolderDiscoveryPage() {
                         })
                       }
                     >
-                      <option value="reuse" disabled={!item.existing_match}>
-                        {t("structure.reuseExisting")}
-                      </option>
+                      <option value="reuse">{t("structure.reuseExisting")}</option>
                       <option value="create">{t("structure.createNew")}</option>
                     </select>
                   </div>
@@ -268,23 +312,51 @@ export default function FolderDiscoveryPage() {
               })}
             </div>
 
-            {proposal.tags.length > 0 && (
+            {draft.tags.length > 0 && (
               <div
                 style={{
                   marginTop: 18,
                   border: "1px solid var(--mf-border)",
                   borderRadius: 8,
-                  padding: 16,
+                  overflow: "hidden",
                   background: "var(--mf-surface)",
                 }}
               >
-                <strong>{t("structure.tagSuggestions")}</strong>
-                <p
-                  className="muted"
-                  style={{ margin: "5px 0 0", fontSize: 12 }}
-                >
-                  {proposal.tags.length} {t("structure.tagMappingsDiscovered")}
-                </p>
+                <div style={{ padding: "13px 16px", background: "var(--mf-surface-muted)" }}>
+                  <strong>{t("structure.tagMappings")}</strong>
+                </div>
+                {draft.tags.map((tag, index) => (
+                  <div
+                    key={tag.internal_id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(180px,1fr) minmax(220px,1.3fr) 150px",
+                      gap: 16,
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      borderTop: "1px solid var(--mf-border)",
+                    }}
+                  >
+                    <strong>{tag.internal_id}</strong>
+                    <input
+                      value={tag.mailbox_name}
+                      onChange={(event) =>
+                        updateTag(index, { mailbox_name: event.target.value })
+                      }
+                    />
+                    <select
+                      value={tag.action}
+                      onChange={(event) =>
+                        updateTag(index, {
+                          action: event.target.value as "reuse" | "create",
+                        })
+                      }
+                    >
+                      <option value="reuse">{t("structure.reuseExisting")}</option>
+                      <option value="create">{t("structure.createNew")}</option>
+                    </select>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -297,9 +369,8 @@ export default function FolderDiscoveryPage() {
               }}
             >
               <span className="muted" style={{ fontSize: 13 }}>
-                {proposal.existing_folders.length}{" "}
-                {t("structure.existingFoldersFound")} ·{" "}
-                {proposal.folders.length} {t("structure.proposedMappings")}
+                {draft.folders.length} {t("structure.proposedMappings")} · {draft.tags.length}{" "}
+                {t("structure.tagMappings")}
               </span>
               <button className="btn" type="button" onClick={next}>
                 {t("structure.nextCategoryMapping")}

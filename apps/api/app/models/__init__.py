@@ -21,6 +21,7 @@ from app.models.organization import Organization
 from app.models.outbound_draft import OutboundDraft, OutboundDraftAttachment
 from app.models.processed_email import ProcessedEmail
 from app.models.rules import DomainRule, InternalDomain, KeywordRule
+from app.models.sender_brand import SenderBrandCache
 from app.models.stripe_event import StripeEvent
 from app.models.thread_summary import ThreadSummary
 from app.models.user_preference import UserPreference
@@ -51,6 +52,7 @@ __all__ = [
     "OutboundDraft",
     "OutboundDraftAttachment",
     "ProcessedEmail",
+    "SenderBrandCache",
     "StripeEvent",
     "ThreadSummary",
     "UserPreference",

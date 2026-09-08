@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
+from email.header import decode_header, make_header
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+def decode_mime_header(value: str | None) -> str:
+    """Decode RFC 2047 encoded words while preserving already-decoded headers."""
+    if not value:
+        return ""
+    try:
+        return str(make_header(decode_header(value)))
+    except (LookupError, UnicodeError, ValueError):
+        return value
 
 
 class MailAttachment(BaseModel):
@@ -59,6 +70,26 @@ class InboxMessage(BaseModel):
     answered: bool
     keywords: list[str] = Field(default_factory=list)
     attachments: list[MailAttachment] = Field(default_factory=list)
+    category: str | None = None
+    subcategory: str | None = None
+    importance: str | None = None
+    urgency: str | None = None
+    action_required: str | None = None
+    review_required: bool = False
+    system_tags: list[str] = Field(default_factory=list)
+    user_tags: list[str] = Field(default_factory=list)
+
+    @field_validator("subject", "from_email", mode="before")
+    @classmethod
+    def decode_display_header(cls, value: object) -> object:
+        return decode_mime_header(value) if isinstance(value, str) else value
+
+    @field_validator("to_emails", "cc_emails", mode="before")
+    @classmethod
+    def decode_address_headers(cls, value: object) -> object:
+        if not isinstance(value, (list, tuple)):
+            return value
+        return [decode_mime_header(item) if isinstance(item, str) else item for item in value]
 
 
 class UnifiedInbox(BaseModel):
@@ -71,8 +102,16 @@ class UnifiedInbox(BaseModel):
 class MessageDetail(InboxMessage):
     body_text: str
     safe_html: str | None = None
+    rich_html: str | None = None
+    has_html: bool = False
+    remote_content_trusted: bool = False
     in_reply_to: str | None = None
     references: list[str] = Field(default_factory=list)
+
+
+class RemoteContentPreference(BaseModel):
+    sender_email: str = Field(min_length=3, max_length=320)
+    allowed: bool
 
 
 class ThreadInsights(BaseModel):

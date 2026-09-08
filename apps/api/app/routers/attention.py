@@ -19,12 +19,12 @@ from app.auth import RequestIdentity, require_identity
 from app.database import get_session
 from app.services.attention import (
     build_daily_summary,
-    correct_review_item,
     get_preferences,
     list_notifications,
     mark_notification_read,
     update_preferences,
 )
+from app.services.attention_confirmation import correct_or_confirm_review_item
 from app.services.attention_jobs import materialize_operational_notifications
 from app.services.attention_review import build_review_inbox
 from app.services.attention_visibility import (
@@ -74,7 +74,7 @@ async def update_review_item(
             return Response(status_code=status.HTTP_204_NO_CONTENT)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    item = await correct_review_item(session, identity, item_id, payload)
+    item = await correct_or_confirm_review_item(session, identity, item_id, payload)
     if item is None:
         # Resolved and inaccessible/missing UUIDs both disappear without exposing
         # whether another user's review item exists.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -17,7 +18,7 @@ from app.repositories.account import AccountRepository
 from app.repositories.backfill import BackfillRepository, BackfillStateError
 from app.repositories.bulk import BulkRepository
 from app.secrets import redact_text
-from app.services.bulk_preview import classify_preview
+from app.services.bulk_preview import BulkPreview, classify_preview
 from app.services.cycle import (
     _build_attachment_config,
     _build_llm_client,
@@ -38,6 +39,21 @@ class BulkBackfillResult:
     requeue: bool
     yielded_for_retry: bool = False
     inference_health: dict[str, dict[str, object]] = field(default_factory=dict)
+
+
+class _SerializedBodyProvider:
+    """Serialize IMAP body fetches while allowing LLM classification in parallel."""
+
+    def __init__(self, provider: ImapGenericProvider) -> None:
+        self._provider = provider
+        self._lock = threading.Lock()
+
+    def fetch_body(self, uid: int, max_chars: int | None = None):
+        with self._lock:
+            return self._provider.fetch_body(uid, max_chars)
+
+    def __getattr__(self, name: str):
+        return getattr(self._provider, name)
 
 
 class BulkBackfillService:
@@ -89,10 +105,12 @@ class BulkBackfillService:
             attachment_config=_build_attachment_config(),
         )
         provider.set_source_folder(folder)
+        preview_provider = _SerializedBodyProvider(provider)
         parser = EmailParser()
         rule_engine = RuleEngine(account_config)
         classify_client = _build_llm_client(llm_provider, for_generation=False)
         yielded_for_retry = False
+        stopped = False
 
         try:
             await asyncio.to_thread(provider.connect)
@@ -116,6 +134,7 @@ class BulkBackfillService:
                     raise
                 await session.commit()
 
+            pending = []
             for email_data in batch.messages:
                 async with self._sf() as session:
                     backfill_repo = BackfillRepository(session)
@@ -123,6 +142,7 @@ class BulkBackfillService:
                     if current is None:
                         raise KeyError(str(job_id))
                     if current.state != "running":
+                        stopped = True
                         break
                     existing = await BulkRepository(session).proposal_for_position(
                         job_id,
@@ -144,75 +164,103 @@ class BulkBackfillService:
                         )
                         await session.commit()
                         continue
+                pending.append(email_data)
 
+            concurrency = min(settings.BACKFILL_CONCURRENCY, max(1, len(pending)))
+
+            async def classify_one(email_data):
                 try:
                     preview = await classify_preview(
                         account=account,
                         source_folder=folder,
                         email_data=email_data,
-                        provider=provider,
+                        provider=preview_provider,
                         parser=parser,
                         rule_engine=rule_engine,
                         classify_client=classify_client,
                         session_factory=self._sf,
                     )
+                    return email_data, preview, None
                 except Exception as exc:  # noqa: BLE001
-                    safe_error = (redact_text(str(exc)) or type(exc).__name__)[:500]
-                    async with self._sf() as session:
-                        repo = BackfillRepository(session)
-                        failure = await repo.record_failure(
-                            job_id,
-                            uidvalidity=batch.uidvalidity,
-                            uid=email_data.uid,
-                            classification_stage=None,
-                            error=safe_error,
-                        )
-                        if failure.attempts < settings.BACKFILL_MAX_ATTEMPTS:
-                            await session.commit()
-                            yielded_for_retry = True
-                            break
-                        await repo.checkpoint(
-                            job_id,
-                            cursor_uid=email_data.uid,
-                            processed_delta=1,
-                            failed_delta=1,
-                            last_error=safe_error,
-                        )
-                        await session.commit()
-                    continue
+                    return email_data, None, exc
 
-                review = bool(preview.snapshot.get("review_required"))
-                async with self._sf() as session:
-                    bulk_repo = BulkRepository(session)
-                    await bulk_repo.create_proposal(
-                        job_id=job_id,
-                        account_id=account_id,
-                        source_folder=folder,
-                        uidvalidity=batch.uidvalidity,
-                        uid=email_data.uid,
-                        snapshot=dict(preview.snapshot),
+            if not stopped:
+                for offset in range(0, len(pending), concurrency):
+                    chunk = pending[offset : offset + concurrency]
+                    outcomes = await asyncio.gather(
+                        *(classify_one(email_data) for email_data in chunk)
                     )
-                    backfill_repo = BackfillRepository(session)
-                    await backfill_repo.resolve_failure(
-                        job_id,
-                        uidvalidity=batch.uidvalidity,
-                        uid=email_data.uid,
-                    )
-                    await backfill_repo.checkpoint(
-                        job_id,
-                        cursor_uid=email_data.uid,
-                        processed_delta=1,
-                        successful_delta=1,
-                        review_delta=1 if review else 0,
-                    )
-                    await session.commit()
+
+                    for email_data, preview, error in outcomes:
+                        async with self._sf() as session:
+                            backfill_repo = BackfillRepository(session)
+                            current = await backfill_repo.get(job_id)
+                            if current is None:
+                                raise KeyError(str(job_id))
+                            if current.state != "running":
+                                stopped = True
+                                break
+
+                            if error is not None:
+                                safe_error = (
+                                    redact_text(str(error)) or type(error).__name__
+                                )[:500]
+                                failure = await backfill_repo.record_failure(
+                                    job_id,
+                                    uidvalidity=batch.uidvalidity,
+                                    uid=email_data.uid,
+                                    classification_stage=None,
+                                    error=safe_error,
+                                )
+                                if failure.attempts < settings.BACKFILL_MAX_ATTEMPTS:
+                                    await session.commit()
+                                    yielded_for_retry = True
+                                    break
+                                await backfill_repo.checkpoint(
+                                    job_id,
+                                    cursor_uid=email_data.uid,
+                                    processed_delta=1,
+                                    failed_delta=1,
+                                    last_error=safe_error,
+                                )
+                                await session.commit()
+                                continue
+
+                            typed_preview = preview
+                            if not isinstance(typed_preview, BulkPreview):
+                                raise TypeError("bulk_preview_result_invalid")
+                            review = bool(typed_preview.snapshot.get("review_required"))
+                            await BulkRepository(session).create_proposal(
+                                job_id=job_id,
+                                account_id=account_id,
+                                source_folder=folder,
+                                uidvalidity=batch.uidvalidity,
+                                uid=email_data.uid,
+                                snapshot=dict(typed_preview.snapshot),
+                            )
+                            await backfill_repo.resolve_failure(
+                                job_id,
+                                uidvalidity=batch.uidvalidity,
+                                uid=email_data.uid,
+                            )
+                            await backfill_repo.checkpoint(
+                                job_id,
+                                cursor_uid=email_data.uid,
+                                processed_delta=1,
+                                successful_delta=1,
+                                review_delta=1 if review else 0,
+                            )
+                            await session.commit()
+
+                    if yielded_for_retry or stopped:
+                        break
 
             async with self._sf() as session:
                 repo = BackfillRepository(session)
                 current = await repo.get(job_id, for_update=True)
                 if current is None:
                     raise KeyError(str(job_id))
-                if current.state == "running" and not yielded_for_retry:
+                if current.state == "running" and not yielded_for_retry and not stopped:
                     if batch.scan_cursor > (current.cursor_uid or 0):
                         await repo.checkpoint(job_id, cursor_uid=batch.scan_cursor)
                         current = await repo.get(job_id, for_update=True)

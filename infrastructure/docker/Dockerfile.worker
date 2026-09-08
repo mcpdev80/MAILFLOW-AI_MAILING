@@ -21,6 +21,11 @@ RUN uv sync --no-dev
 
 # Worker code and shared dependencies already receive their final ownership.
 COPY --chown=appuser:appuser apps/api/app/ apps/api/app/
+# The worker imports restore_validation from the API package. That module derives
+# the supported database revision from the shipped Alembic migration graph, so
+# the worker image must carry the same Alembic metadata as the API image.
+COPY --chown=appuser:appuser apps/api/alembic/ apps/api/alembic/
+COPY --chown=appuser:appuser apps/api/alembic.ini apps/api/alembic.ini
 COPY --chown=appuser:appuser apps/worker/worker/ apps/worker/worker/
 COPY --chown=appuser:appuser packages/core/mailflow_core/ packages/core/mailflow_core/
 

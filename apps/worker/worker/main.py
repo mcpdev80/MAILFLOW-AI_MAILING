@@ -41,6 +41,7 @@ async def on_startup(ctx: dict) -> None:
     async with async_session_factory() as session:
         revision = await validate_schema_revision(session)
         validated = await validate_stored_secrets(session)
+        running_backfills = await BackfillRepository(session).list_running()
     log.info(
         "Validated database schema revision %s and %d encrypted application secrets",
         revision,
@@ -48,6 +49,22 @@ async def on_startup(ctx: dict) -> None:
     )
     if settings.WORKER_PAUSED:
         log.warning("Worker processing is paused by WORKER_PAUSED; mailbox mutations are disabled")
+        return
+
+    recovered = 0
+    for job in running_backfills:
+        queued = await enqueue_backfill_batch(
+            ctx["redis"],
+            job_id=job.id,
+            cursor_uid=job.cursor_uid,
+            unique_retry=True,
+        )
+        if queued:
+            recovered += 1
+        else:
+            log.warning("Could not recover running backfill %s", job.id)
+    if recovered:
+        log.info("Recovered %d running backfill job(s) after worker startup", recovered)
 
 
 async def process_account_cycle(ctx: dict, account_id: str) -> dict:

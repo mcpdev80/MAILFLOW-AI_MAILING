@@ -1,4 +1,4 @@
-"""Organization-scoped LLM provider configuration."""
+"""Instance-scoped LLM provider configuration."""
 
 from __future__ import annotations
 
@@ -15,21 +15,22 @@ class LLMProvider(Base):
     __tablename__ = "llm_providers"
 
     id: Mapped[UUID] = uuid_pk()
-    org_id: Mapped[UUID] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE")
+    # Kept nullable for rolling compatibility with pre-029 databases and old
+    # backups. New providers are instance-scoped and therefore use NULL here.
+    org_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True
     )
     label: Mapped[str] = mapped_column(String(100))
     type: Mapped[str] = mapped_column(String(50))
 
-    # Legacy shared endpoint and credentials. Role-specific values fall back to these.
+    # Provider endpoint and credential are instance-control-plane secrets.
     base_url: Mapped[str] = mapped_column(String(500))
     encrypted_api_key: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    # Compatibility fields kept for existing installations and old API clients.
+    # Compatibility defaults retained for existing runtime paths.
     default_classification_model: Mapped[str] = mapped_column(String(200))
     default_generation_model: Mapped[str] = mapped_column(String(200))
 
-    # Explicit model roles. Null means use the compatibility value above.
     fast_classification_model: Mapped[str | None] = mapped_column(
         String(200), nullable=True
     )
@@ -38,9 +39,6 @@ class LLMProvider(Base):
     )
     generation_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
-    # Optional per-role OpenAI-compatible endpoints and credentials. This allows
-    # fast/deep/generation roles to live on different inference servers while one
-    # provider profile remains the organization-level default configuration.
     fast_classification_base_url: Mapped[str | None] = mapped_column(
         String(500), nullable=True
     )

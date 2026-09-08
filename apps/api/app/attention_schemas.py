@@ -101,6 +101,7 @@ class ReviewCorrection(BaseModel):
     system_tags: list[SystemTag] | None = None
     user_tags: list[str] | None = None
     routing_decision: Literal["approve", "reject"] | None = None
+    confirm: bool = False
     dismiss: bool = False
     remember: bool = True
 

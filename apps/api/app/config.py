@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     LIFECYCLE_CLEANUP_BATCH_SIZE: int = 500
 
     BACKFILL_BATCH_SIZE: int = Field(default=10, ge=1, le=100)
+    BACKFILL_CONCURRENCY: int = Field(default=2, ge=1, le=16)
     BACKFILL_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=20)
     BACKFILL_REQUEUE_DELAY_SECONDS: float = Field(default=1.0, ge=0.0, le=60.0)
 
@@ -76,7 +77,7 @@ class Settings(BaseSettings):
     WORKLOAD_FAST_CONCURRENCY: int = Field(default=2, ge=1, le=128)
     WORKLOAD_DEEP_CONCURRENCY: int = Field(default=1, ge=1, le=128)
     WORKLOAD_GENERATION_CONCURRENCY: int = Field(default=1, ge=1, le=128)
-    WORKLOAD_PER_ACCOUNT_CONCURRENCY: int = Field(default=1, ge=1, le=128)
+    WORKLOAD_PER_ACCOUNT_CONCURRENCY: int = Field(default=2, ge=1, le=128)
     WORKLOAD_LIVE_RESERVED_SLOTS: int = Field(default=1, ge=0, le=127)
     WORKLOAD_QUEUE_MAX: int = Field(default=500, ge=1, le=100_000)
     WORKLOAD_WAIT_TIMEOUT_SECONDS: float = Field(default=300.0, gt=0)

@@ -21,6 +21,15 @@ show_diagnostics() {
 get_env() {
   awk -F= -v k="$1" '$1==k {sub(/^[^=]*=/, ""); print; exit}' "$2"
 }
+set_env() {
+  local key="$1" value="$2" file="$3"
+  if grep -q "^${key}=" "$file"; then
+    awk -v k="$key" -v v="$value" 'BEGIN{FS=OFS="="} $1==k{$0=k"="v} {print}' "$file" > "$file.tmp"
+    mv "$file.tmp" "$file"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$file"
+  fi
+}
 public_host() {
   local value="$1" authority
   authority="${value#*://}"
@@ -112,7 +121,16 @@ if [ "${MAILFLOW_SKIP_SELF_UPDATE:-0}" != "1" ]; then
   git pull --ff-only origin "$BRANCH"
 fi
 
+chmod +x "$INSTALL_DIR/mailflow" "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 ENV_FILE="$INSTALL_DIR/.env"
+
+if [ "$(get_env MAILFLOW_DEPLOYMENT_SOURCE "$ENV_FILE")" = "cli" ] \
+  && [ "$(get_env WEB_AUTH "$ENV_FILE")" = "on" ] \
+  && [ "$(get_env AUTH_MODE "$ENV_FILE")" = "single" ]; then
+  printf '==> Repairing guided-install authentication mode: single -> multi\n'
+  set_env AUTH_MODE "multi" "$ENV_FILE"
+fi
+
 TLS_MODE="$(get_env MAILFLOW_TLS_MODE "$ENV_FILE")"
 PUBLIC_URL="$(get_env MAILFLOW_PUBLIC_URL "$ENV_FILE")"
 COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")

@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
+WORKER_QUEUE_NAME = "mailflow:default"
+
 
 def backfill_batch_job_id(
     job_id: UUID | str,
@@ -39,6 +41,7 @@ async def enqueue_backfill_batch(
             cursor_uid,
             unique_retry=unique_retry,
         ),
+        "_queue_name": WORKER_QUEUE_NAME,
     }
     if defer_seconds > 0:
         kwargs["_defer_by"] = defer_seconds
@@ -59,7 +62,8 @@ async def enqueue_backfill_failure_retry(
 ) -> bool:
     """Queue one explicit retry without restarting or rewinding the whole job."""
     kwargs: dict[str, object] = {
-        "_job_id": f"backfill-retry-{failure_id}-{uuid4().hex[:10]}"
+        "_job_id": f"backfill-retry-{failure_id}-{uuid4().hex[:10]}",
+        "_queue_name": WORKER_QUEUE_NAME,
     }
     if defer_seconds > 0:
         kwargs["_defer_by"] = defer_seconds
