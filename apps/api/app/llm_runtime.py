@@ -10,7 +10,12 @@ from app.config import settings
 from app.crypto import decrypt_secret
 from app.models.llm_provider import LLMProvider
 from app.scheduled_llm import ScheduledLLMClient
-from app.workload import PRIORITY_GENERATION, PRIORITY_LIVE, get_workload_controller
+from app.workload import (
+    PRIORITY_BACKFILL,
+    PRIORITY_GENERATION,
+    PRIORITY_LIVE,
+    get_workload_controller,
+)
 from app.workload_context import current_workload_context
 
 
@@ -138,6 +143,19 @@ def build_llm_client(
             effective_priority,
         )
 
+    default_model = _litellm_model_id(
+        llm_provider, llm_provider.default_classification_model
+    )
+    fast_model = (
+        _optional_litellm_model_id(
+            llm_provider, getattr(llm_provider, "fast_classification_model", None)
+        )
+        or default_model
+    )
+    fast_base = (
+        _provider_string(llm_provider, "fast_classification_base_url")
+        or llm_provider.base_url
+    )
     fast_api_key = _custom_transport_api_key(
         llm_provider,
         _decrypt_llm_key(getattr(llm_provider, "encrypted_fast_api_key", None))
@@ -149,31 +167,41 @@ def build_llm_client(
         or shared_api_key,
     )
 
+    # Historical dry-run/review work deliberately stays on the fast path. The
+    # core client skips fallback when fast/deep path configs are identical, so a
+    # slow or open fast circuit yields the batch instead of waking the deep model.
+    fast_only = effective_priority == PRIORITY_BACKFILL
+    if fast_only:
+        deep_model = fast_model
+        deep_base = fast_base
+        deep_api_key = fast_api_key
+        deep_timeout = settings.LLM_FAST_TIMEOUT_SECONDS
+        deep_max_retries = settings.LLM_FAST_MAX_RETRIES
+    else:
+        deep_model = _optional_litellm_model_id(
+            llm_provider, getattr(llm_provider, "deep_classification_model", None)
+        )
+        deep_base = _provider_string(
+            llm_provider, "deep_classification_base_url"
+        )
+        deep_timeout = settings.LLM_DEEP_TIMEOUT_SECONDS
+        deep_max_retries = settings.LLM_DEEP_MAX_RETRIES
+
     return _scheduled(
         LLMConfig(
-            model_id=_litellm_model_id(
-                llm_provider, llm_provider.default_classification_model
-            ),
+            model_id=default_model,
             api_base=llm_provider.base_url,
             api_key=shared_api_key,
-            fast_model_id=_optional_litellm_model_id(
-                llm_provider, getattr(llm_provider, "fast_classification_model", None)
-            ),
-            fast_api_base=_provider_string(
-                llm_provider, "fast_classification_base_url"
-            ),
+            fast_model_id=fast_model,
+            fast_api_base=fast_base,
             fast_api_key=fast_api_key,
             fast_timeout=settings.LLM_FAST_TIMEOUT_SECONDS,
             fast_max_retries=settings.LLM_FAST_MAX_RETRIES,
-            deep_model_id=_optional_litellm_model_id(
-                llm_provider, getattr(llm_provider, "deep_classification_model", None)
-            ),
-            deep_api_base=_provider_string(
-                llm_provider, "deep_classification_base_url"
-            ),
+            deep_model_id=deep_model,
+            deep_api_base=deep_base,
             deep_api_key=deep_api_key,
-            deep_timeout=settings.LLM_DEEP_TIMEOUT_SECONDS,
-            deep_max_retries=settings.LLM_DEEP_MAX_RETRIES,
+            deep_timeout=deep_timeout,
+            deep_max_retries=deep_max_retries,
             stage_roles=(
                 _model_role(settings.CLASSIFICATION_STAGE_0_ROLE),
                 _model_role(settings.CLASSIFICATION_STAGE_1_ROLE),
