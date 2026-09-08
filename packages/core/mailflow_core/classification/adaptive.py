@@ -43,12 +43,16 @@ class AdaptiveClassificationConfig:
     confidence_threshold: float = 0.85
     stage_1_chars: int = 1_000
     stage_2_chars: int = 4_000
+    max_stage: int = 3
+    allow_supporting_signal_bypass: bool = False
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.confidence_threshold <= 1.0:
             raise ValueError("confidence_threshold must be between 0.0 and 1.0")
         if self.stage_1_chars <= 0 or self.stage_2_chars <= self.stage_1_chars:
             raise ValueError("stage body limits must be positive and increasing")
+        if self.max_stage not in {0, 1, 2, 3}:
+            raise ValueError("max_stage must be 0, 1, 2 or 3")
 
 
 @dataclass(frozen=True)
@@ -99,6 +103,17 @@ class AdaptiveClassifier:
                     decision_memory_hit=True,
                 )
 
+        if (
+            self._config.allow_supporting_signal_bypass
+            and supporting_signal is not None
+            and self._is_reliable(supporting_signal)
+        ):
+            return AdaptiveClassificationOutcome(
+                result=supporting_signal,
+                email=headers_only,
+                stage=None,
+            )
+
         stages: tuple[tuple[int, int | None], ...] = (
             (0, 0),
             (1, self._config.stage_1_chars),
@@ -110,7 +125,7 @@ class AdaptiveClassifier:
         )
         current = headers_only
 
-        for stage, body_limit in stages:
+        for stage, body_limit in stages[: self._config.max_stage + 1]:
             if stage > 0:
                 current = body_loader(body_limit)
             result = self._llm.classify(
@@ -146,6 +161,16 @@ class AdaptiveClassifier:
             )
             if reliable and not strong_attachment_signal:
                 return AdaptiveClassificationOutcome(result=result, email=current, stage=stage)
+
+            if (
+                stage == self._config.max_stage
+                and self._config.max_stage < 3
+            ):
+                return AdaptiveClassificationOutcome(
+                    result=replace(result, review_required=True),
+                    email=current,
+                    stage=stage,
+                )
 
             if attachment_loader is not None and should_inspect_attachments(
                 confidence=result.confidence,
