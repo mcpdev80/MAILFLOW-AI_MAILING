@@ -271,6 +271,39 @@ function folderDisplayName(folder: Pick<MailboxFolder, "name" | "role">): string
   return technical ?? folder.name;
 }
 
+function decodeMimeHeader(value: string): string {
+  if (!value || !value.includes("=?")) return value;
+  return value.replace(
+    /=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g,
+    (_match, charset: string, encoding: string, encoded: string) => {
+      try {
+        let bytes: Uint8Array;
+        if (encoding.toUpperCase() === "B") {
+          const binary = atob(encoded);
+          bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+        } else {
+          const qp = encoded.replace(/_/g, " ");
+          const data: number[] = [];
+          for (let index = 0; index < qp.length; index += 1) {
+            if (qp[index] === "=" && /^[0-9A-Fa-f]{2}$/.test(qp.slice(index + 1, index + 3))) {
+              data.push(Number.parseInt(qp.slice(index + 1, index + 3), 16));
+              index += 2;
+            } else {
+              data.push(qp.charCodeAt(index));
+            }
+          }
+          bytes = Uint8Array.from(data);
+        }
+        const normalizedCharset = charset.trim().toLowerCase();
+        const decoderCharset = normalizedCharset === "utf8" ? "utf-8" : normalizedCharset;
+        return new TextDecoder(decoderCharset, { fatal: false }).decode(bytes);
+      } catch {
+        return encoded;
+      }
+    },
+  ).replace(/\?=\s+=\?/g, "?==?");
+}
+
 const mailboxFolderCache = new Map<string, Promise<MailboxFolder[]>>();
 const folderWireNames = new Map<string, Map<string, string>>();
 const reviewAccountIds = new Map<string, string>();
@@ -313,6 +346,7 @@ function localizeReviewInbox(inbox: ReviewInbox): ReviewInbox {
       const technicalDestination = TECHNICAL_FOLDER_LABELS[locale][destination.toLowerCase()];
       return {
         ...item,
+        subject: decodeMimeHeader(item.subject),
         destination_folder:
           destination.toUpperCase() === "INBOX"
             ? FOLDER_ROLE_LABELS[locale].inbox
