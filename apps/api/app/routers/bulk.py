@@ -16,6 +16,7 @@ from app.bulk_schemas import (
     BulkApplyJobOut,
     BulkApproveAllOut,
     BulkClusterApproveOut,
+    BulkClusterEditOut,
     BulkCountsOut,
     BulkProposalEdit,
     BulkProposalOut,
@@ -154,6 +155,51 @@ async def edit_bulk_proposal(
         await session.rollback()
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return BulkProposalOut.model_validate(proposal)
+
+
+@router.patch(
+    "/{job_id}/clusters/{cluster_id}",
+    response_model=BulkClusterEditOut,
+)
+async def edit_bulk_cluster(
+    account_id: UUID,
+    job_id: UUID,
+    cluster_id: str,
+    payload: BulkProposalEdit,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> BulkClusterEditOut:
+    await _owned_source_job(account_id, job_id, identity, session)
+    if identity.user_id is None:
+        raise HTTPException(status_code=403, detail="user_identity_required")
+    changes = payload.changes()
+    if not changes:
+        raise HTTPException(status_code=422, detail="no_changes")
+
+    repo = BulkRepository(session)
+    proposals = await repo.list_proposals(job_id, limit=100000)
+    selected = select_cluster_proposals(proposals, cluster_id)
+    if not selected:
+        raise HTTPException(status_code=404, detail="bulk_cluster_not_found")
+
+    edited = 0
+    skipped = 0
+    try:
+        for proposal in selected:
+            if proposal.status != "proposed":
+                skipped += 1
+                continue
+            await repo.edit_proposal(
+                proposal.id,
+                actor_user_id=identity.user_id,
+                changes=changes,
+            )
+            edited += 1
+        await session.commit()
+    except (BulkStateError, ValueError) as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return BulkClusterEditOut(edited=edited, skipped=skipped)
 
 
 @router.post(
