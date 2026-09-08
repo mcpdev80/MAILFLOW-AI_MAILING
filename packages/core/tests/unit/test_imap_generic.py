@@ -114,6 +114,17 @@ class TestFetchUnprocessedEmails:
             provider.fetch_unprocessed_emails()
 
 
+class TestFetchBody:
+    def test_full_body_uses_peek_and_preserves_unread_state(self, provider, mock_imap):
+        mock_imap.fetch.return_value = {42: {b"BODY[]": RAW_EMAIL}}
+
+        body_text, body_html = provider.fetch_body(42, None)
+
+        assert "This is the reply body." in body_text
+        assert body_html == ""
+        mock_imap.fetch.assert_called_once_with([42], ["BODY.PEEK[]"])
+
+
 class TestMoveEmail:
     def test_success_returns_true(self, provider, mock_imap):
         result = provider.move_email(1, "Archive")
