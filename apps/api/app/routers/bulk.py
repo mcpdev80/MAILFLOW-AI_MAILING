@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -30,6 +31,7 @@ from app.repositories.bulk import BulkRepository, BulkStateError
 from app.services.bulk_review import build_review_summary, select_cluster_proposals
 
 router = APIRouter(prefix="/accounts/{account_id}/bulk", tags=["bulk"])
+log = logging.getLogger("mailflow.bulk")
 
 
 async def _owned_source_job(
@@ -68,16 +70,28 @@ async def _owned_proposal(
 
 
 async def _enqueue_apply(apply_job_id: UUID) -> bool:
-    redis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+    redis = None
     try:
+        redis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
         result = await redis.enqueue_job(
             "process_bulk_apply",
             str(apply_job_id),
             _job_id=f"bulk-apply-{apply_job_id}",
         )
         return result is not None
+    except Exception as exc:  # noqa: BLE001 - enqueue failure must not become an HTML 500
+        log.exception("Could not enqueue bulk apply %s: %s", apply_job_id, type(exc).__name__)
+        return False
     finally:
-        await redis.close()
+        if redis is not None:
+            try:
+                await redis.aclose()
+            except Exception as exc:  # noqa: BLE001 - closing must not mask the response
+                log.warning(
+                    "Could not close bulk apply Redis connection for %s: %s",
+                    apply_job_id,
+                    type(exc).__name__,
+                )
 
 
 @router.get("/{job_id}/proposals", response_model=list[BulkProposalOut])
@@ -334,22 +348,42 @@ async def start_bulk_apply(
         raise HTTPException(status_code=409, detail="source_job_not_completed")
     if identity.user_id is None:
         raise HTTPException(status_code=403, detail="user_identity_required")
-    try:
-        apply_job = await BulkRepository(session).create_apply_job(
-            source_job_id=job_id,
-            account_id=account_id,
-            batch_size=payload.batch_size,
-            actor_user_id=identity.user_id,
+
+    repo = BulkRepository(session)
+    apply_job = await repo.apply_job_for_source(job_id)
+    if apply_job is not None and apply_job.state in {"running", "completed"}:
+        return BulkApplyControlOut(
+            job=BulkApplyJobOut.model_validate(apply_job), enqueued=False
         )
-        await session.commit()
-    except BulkStateError as exc:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if apply_job is not None:
+        if apply_job.state == "paused" and apply_job.last_error == "apply_enqueue_failed":
+            apply_job.state = "running"
+            apply_job.last_error = None
+            apply_job.updated_at = datetime.now(tz=UTC)
+            await session.commit()
+        else:
+            return BulkApplyControlOut(
+                job=BulkApplyJobOut.model_validate(apply_job), enqueued=False
+            )
+    else:
+        try:
+            apply_job = await repo.create_apply_job(
+                source_job_id=job_id,
+                account_id=account_id,
+                batch_size=payload.batch_size,
+                actor_user_id=identity.user_id,
+            )
+            await session.commit()
+        except BulkStateError as exc:
+            await session.rollback()
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     enqueued = await _enqueue_apply(apply_job.id)
     if not enqueued:
         apply_job.state = "paused"
         apply_job.last_error = "apply_enqueue_failed"
+        apply_job.updated_at = datetime.now(tz=UTC)
         await session.commit()
     return BulkApplyControlOut(
         job=BulkApplyJobOut.model_validate(apply_job), enqueued=enqueued
