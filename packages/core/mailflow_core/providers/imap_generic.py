@@ -328,11 +328,11 @@ class ImapGenericProvider(EmailProvider):
         )
 
     def fetch_body(self, uid: int, max_chars: int | None = None) -> tuple[str, str]:
-        """Fetch bounded body text; final-stage fetch may add bounded attachment context."""
+        """Fetch bounded body text without changing the message's read/unread state."""
         self._client.select_folder(self._source_folder)
         if max_chars is None:
-            data = self._client.fetch([uid], ["RFC822"])[uid]
-            raw = data.get(b"RFC822", b"")
+            data = self._client.fetch([uid], ["BODY.PEEK[]"])[uid]
+            raw = _first_fetch_bytes(data)
             body_text, body_html = _extract_body(email.message_from_bytes(raw))
             extracted = self._extract_relevant_attachments(uid)
             used = tuple(item for item in extracted if item.status == "used" and item.text)
