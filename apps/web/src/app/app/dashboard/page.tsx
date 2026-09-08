@@ -2,22 +2,18 @@
 
 import { useI18n } from "@/lib/i18n";
 import {
+  AttentionCard,
+  AutomationCard,
   CategoryCard,
-  KpiCard,
   MailboxCard,
-  MiniCard,
   ReviewCard,
+  StatCard,
   TrendCard,
 } from "./dashboard-ui";
 import styles from "./dashboard.module.css";
 import { useDashboard } from "./use-dashboard";
 
 type DashboardState = ReturnType<typeof useDashboard>;
-
-function classificationRate(processed: number, classified: number): string {
-  if (processed <= 0) return "0%";
-  return `${Math.min(100, Math.round((classified / processed) * 100))}%`;
-}
 
 export default function DashboardPage() {
   const state = useDashboard();
@@ -38,7 +34,7 @@ function DashboardHeader({ state }: { state: DashboardState }) {
         <h1>{t("nav.dashboard")}</h1>
         <p>{t("dashboard.overview")}</p>
       </div>
-      <div className={styles.range}>
+      <div className={styles.range} aria-label={t("dashboard.trend")}>
         {[1, 7, 30].map((days) => (
           <button
             type="button"
@@ -46,9 +42,7 @@ function DashboardHeader({ state }: { state: DashboardState }) {
             className={state.rangeDays === days ? styles.rangeActive : ""}
             onClick={() => state.setRangeDays(days)}
           >
-            {days === 1
-              ? t("dashboard.today")
-              : `${days} ${t("dashboard.days")}`}
+            {days === 1 ? t("dashboard.today") : `${days} ${t("dashboard.days")}`}
           </button>
         ))}
       </div>
@@ -62,9 +56,7 @@ function DashboardNotices({ state }: { state: DashboardState }) {
     <>
       {state.error && <div className={styles.error}>{state.error}</div>}
       {state.notice && (
-        <div
-          className={state.notice === "queued" ? styles.notice : styles.error}
-        >
+        <div className={state.notice === "queued" ? styles.notice : styles.error}>
           {state.notice === "queued"
             ? t("dashboard.cycleEnqueued")
             : t("dashboard.cycleFailed")}
@@ -73,98 +65,58 @@ function DashboardNotices({ state }: { state: DashboardState }) {
       {!state.overview && !state.error && (
         <div className={styles.empty}>{t("common.loading")}</div>
       )}
-      {state.overview?.inference_warning && (
-        <div className={styles.error}>{state.overview.inference_warning}</div>
-      )}
     </>
   );
 }
 
 function DashboardContent({ state }: { state: DashboardState }) {
-  if (!state.overview) return null;
+  const { t } = useI18n();
+  const overview = state.overview;
+  if (!overview) return null;
+  const counters = overview.counters;
+  const processedLabel =
+    state.rangeDays === 1
+      ? t("dashboard.processedToday")
+      : t("dashboard.processedPeriod");
+
   return (
     <>
-      <DashboardKpis state={state} />
-      <DashboardMiniStats state={state} />
-      <DashboardGrid state={state} />
-    </>
-  );
-}
+      <AttentionCard overview={overview} t={t} />
 
-function DashboardKpis({ state }: { state: DashboardState }) {
-  const { t } = useI18n();
-  const overview = state.overview;
-  if (!overview) return null;
-  const counters = overview.counters;
-  return (
-    <section className={styles.kpiRow}>
-      <KpiCard
-        label={t("dashboard.processedToday")}
-        value={counters.processed_today}
-      />
-      <KpiCard
-        label={t("dashboard.waiting")}
-        value={counters.pending_or_queued}
-      />
-      <KpiCard
-        label={t("dashboard.reviewRequired")}
-        value={counters.review_required}
-        href="/app/search?review_required=true"
-        accent
-      />
-      <KpiCard
-        label={t("dashboard.actionRequired")}
-        value={counters.action_required}
-        href="/app/search?action_required=yes"
-      />
-    </section>
-  );
-}
-
-function DashboardMiniStats({ state }: { state: DashboardState }) {
-  const { t } = useI18n();
-  const overview = state.overview;
-  if (!overview) return null;
-  const counters = overview.counters;
-  const classified =
-    counters.decision_memory + counters.fast_model + counters.deep_model;
-  return (
-    <section className={styles.miniRow}>
-      <MiniCard
-        label={t("dashboard.failedDeferred")}
-        value={counters.failed_or_deferred}
-      />
-      <MiniCard
-        label={t("dashboard.autoMoved")}
-        value={counters.automated_actions}
-      />
-      <MiniCard
-        label={t("dashboard.autoClassified")}
-        value={classificationRate(counters.processed_range, classified)}
-      />
-    </section>
-  );
-}
-
-function DashboardGrid({ state }: { state: DashboardState }) {
-  const { t } = useI18n();
-  const overview = state.overview;
-  if (!overview) return null;
-  return (
-    <section className={styles.split}>
-      <div className={styles.column}>
-        <TrendCard points={overview.trend} t={t} />
-        <CategoryCard items={overview.categories} t={t} />
-      </div>
-      <div className={styles.column}>
-        <ReviewCard
-          items={state.review?.items ?? []}
-          overview={overview}
-          t={t}
+      <section className={styles.statGrid}>
+        <StatCard label={processedLabel} value={counters.processed_range} />
+        <StatCard
+          label={t("dashboard.reviewRequired")}
+          value={counters.review_required}
+          href="/app/review"
+          tone={counters.review_required > 0 ? "attention" : "default"}
         />
-        <MailboxSection state={state} />
-      </div>
-    </section>
+        <StatCard
+          label={t("dashboard.actionRequired")}
+          value={counters.action_required}
+          href="/app/search?action_required=yes"
+          tone={counters.action_required > 0 ? "attention" : "default"}
+        />
+        <StatCard
+          label={t("dashboard.waiting")}
+          value={counters.pending_or_queued}
+          tone={counters.pending_or_queued > 0 ? "attention" : "default"}
+        />
+      </section>
+
+      <section className={styles.mainGrid}>
+        <div className={styles.primaryColumn}>
+          <TrendCard points={overview.trend} t={t} />
+          <CategoryCard items={overview.categories} t={t} />
+        </div>
+        <div className={styles.secondaryColumn}>
+          <AutomationCard overview={overview} t={t} />
+          <ReviewCard items={state.review?.items ?? []} t={t} />
+        </div>
+      </section>
+
+      <MailboxSection state={state} />
+    </>
   );
 }
 
@@ -172,17 +124,22 @@ function MailboxSection({ state }: { state: DashboardState }) {
   const { t } = useI18n();
   const overview = state.overview;
   if (!overview) return null;
-  const mailboxes = overview.mailboxes;
+
   return (
     <section className={styles.mailboxSection}>
-      <h2>{t("dashboard.mailboxConnections")}</h2>
-      <div className={styles.mailboxList}>
-        {mailboxes.length === 0 && (
-          <div className={styles.empty}>
-            {t("dashboard.noMailboxesConnected")}
-          </div>
+      <div className={styles.sectionHeader}>
+        <h2>{t("dashboard.mailboxConnections")}</h2>
+        {overview.counters.active_backfills > 0 && (
+          <span className={styles.sectionMeta}>
+            {overview.counters.active_backfills} {t("dashboard.activeBackfills")}
+          </span>
         )}
-        {mailboxes.map((mailbox) => (
+      </div>
+      <div className={styles.mailboxGrid}>
+        {overview.mailboxes.length === 0 && (
+          <div className={styles.empty}>{t("dashboard.noMailboxesConnected")}</div>
+        )}
+        {overview.mailboxes.map((mailbox) => (
           <MailboxCard
             key={mailbox.account_id}
             mailbox={mailbox}
