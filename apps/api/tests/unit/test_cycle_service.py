@@ -321,7 +321,7 @@ async def test_existing_thread_summary_is_context_not_inherited_classification(
 @patch("app.services.cycle.ImapGenericProvider")
 @patch("app.services.cycle.decrypt_secret", return_value={"password": "pw"})
 @patch("app.services.cycle._build_llm_client")
-async def test_run_draft_bytes_passed_to_save_draft(
+async def test_run_never_generates_or_saves_automatic_draft(
     mock_build,
     mock_decrypt,
     MockProvider,
@@ -331,48 +331,40 @@ async def test_run_draft_bytes_passed_to_save_draft(
     MockDecisionMemoryRepo,
 ):
     from app.services.cycle import CycleService
-    from mailflow_core.classification.rule_engine import DomainRule as CoreDomainRule
 
     configure_thread_repo(MockThreadRepo)
     configure_memory_repo(MockDecisionMemoryRepo)
     account = make_account()
-    config = AccountConfig(
-        account_id=str(ACCOUNT_ID),
-        client_domain_rules=[
-            CoreDomainRule(domain="external.com", label="Clients/Ext", rule_id="r1")
-        ],
-    )
-
+    llm_provider = MagicMock()
     MockAccountRepo.return_value.claim_cycle = AsyncMock(return_value=True)
     MockAccountRepo.return_value.get_full_config = AsyncMock(
-        return_value=(account, config, None)
+        return_value=(account, AccountConfig(account_id=str(ACCOUNT_ID)), llm_provider)
     )
     MockCycleRepo.return_value.create_audit_log = AsyncMock()
     MockCycleRepo.return_value.finalize_audit_log = AsyncMock()
     MockProvider.return_value.fetch_unprocessed_emails.return_value = [
         make_email(uid=55)
     ]
+    MockProvider.return_value.move_email.return_value = True
     MockCycleRepo.return_value.insert_processed = AsyncMock()
 
-    mock_generate_client = MagicMock()
-    mock_generate_client.generate_draft.return_value = (
-        "Estimado cliente, gracias por su consulta."
+    classify_client = MagicMock()
+    classify_client.classify.return_value = safe_classification()
+    classify_client.update_thread_summary.return_value = ThreadSummaryUpdate(
+        summary="No open action.",
+        changed=True,
+        open_action_required=False,
     )
-    mock_build.side_effect = [None, mock_generate_client]
+    mock_build.return_value = classify_client
 
-    saved_bytes: list = []
-    MockProvider.return_value.save_draft.side_effect = lambda b: (
-        saved_bytes.append(b) or True
-    )
+    result = await CycleService(make_sf()).run(ACCOUNT_ID)
 
-    await CycleService(make_sf()).run(ACCOUNT_ID)
-
-    assert len(saved_bytes) == 1
-    assert isinstance(saved_bytes[0], bytes)
-    import email as email_module
-
-    msg = email_module.message_from_bytes(saved_bytes[0])
-    assert "Re:" in msg["Subject"]
+    mock_build.assert_called_once_with(llm_provider, for_generation=False)
+    classify_client.generate_draft.assert_not_called()
+    MockProvider.return_value.save_draft.assert_not_called()
+    inserted = MockCycleRepo.return_value.insert_processed.call_args.kwargs
+    assert inserted["draft_saved"] is False
+    assert result.drafts_saved == 0
 
 
 @patch("app.services.cycle.DecisionMemoryRepository")
