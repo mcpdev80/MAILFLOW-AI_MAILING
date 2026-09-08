@@ -31,14 +31,17 @@ def _human_language_instruction(output_locale: str | None) -> str:
     language = _LANGUAGE_NAMES.get(configured)
     if language:
         return (
-            f"Write all human-facing explanatory text, especially the `reason` field, in {language}. "
-            "Keep category, importance, urgency, action_required, tag and other machine-readable "
-            "enum values exactly as required by the JSON contract."
+            f"Write ALL human-facing classification text in {language}, including `reason`, "
+            "`subcategory`, `suggested_subcategory`, and human-facing free-text suggestions. "
+            "Do not translate category, importance, urgency, action_required, system_tags, "
+            "user_tags, or any other machine-readable enum/code values; keep those exactly as "
+            "required by the JSON contract."
         )
     return (
-        "Write all human-facing explanatory text, especially the `reason` field, in the natural "
-        "language of the current email. Keep category, importance, urgency, action_required, tag "
-        "and other machine-readable enum values exactly as required by the JSON contract."
+        "Write ALL human-facing classification text in the natural language of the current email, "
+        "including `reason`, `subcategory`, `suggested_subcategory`, and human-facing free-text "
+        "suggestions. Do not translate category, importance, urgency, action_required, system_tags, "
+        "user_tags, or other machine-readable enum/code values."
     )
 
 
