@@ -195,6 +195,7 @@ export default function ProcessingPage() {
                     <th>{t("processing.status")}</th>
                     <th>{t("processing.started")}</th>
                     <th>{t("processing.remaining")}</th>
+                    <th style={{ textAlign: "right" }}>{t("processing.action")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -231,21 +232,13 @@ function JobRow({ job, t }: { job: JobWithMailbox; t: (key: TranslationKey) => s
   const tone = job.state === "completed" ? page.success : job.state === "failed" ? page.danger : job.state === "paused" ? page.warning : job.state === "running" ? page.info : page.neutral;
   const etaMinutes = job.ratePerMinute && job.ratePerMinute > 0 ? job.remaining / job.ratePerMinute : null;
   const canReview = (job.mode === "dry_run" || job.mode === "review") && job.processed > 0;
+  const needsReview = canReview && job.review_required > 0;
 
   return (
     <tr>
       <td>
         <strong>{t("processing.historicalAnalysis")}</strong>
         <div style={{ marginTop: 3, color: "var(--mf-text-muted)", fontSize: 11 }}>{job.mode === "dry_run" ? t("processing.safeDryRun") : job.mode}</div>
-        {canReview && (
-          <Link
-            className="btn secondary"
-            style={{ display: "inline-flex", marginTop: 8, minHeight: 28, padding: "4px 8px", fontSize: 11 }}
-            href={`/app/processing/review?account=${encodeURIComponent(job.account_id)}&job=${encodeURIComponent(job.id)}`}
-          >
-            Review-Gruppen
-          </Link>
-        )}
       </td>
       <td>{job.mailbox}</td>
       <td>
@@ -260,6 +253,28 @@ function JobRow({ job, t }: { job: JobWithMailbox; t: (key: TranslationKey) => s
       <td><span className={`${page.badge} ${tone}`}>{statusLabel(job.state, t)}</span></td>
       <td>{formatTime(job.created_at)}</td>
       <td>{job.remaining.toLocaleString()}</td>
+      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+        {canReview ? (
+          <Link
+            className={needsReview ? "btn" : "btn secondary"}
+            style={needsReview ? {
+              display: "inline-flex",
+              minHeight: 34,
+              padding: "7px 14px",
+              fontWeight: 700,
+              background: "var(--mf-primary)",
+              borderColor: "var(--mf-primary)",
+              color: "var(--mf-primary-contrast)",
+              boxShadow: "0 0 0 1px color-mix(in srgb, var(--mf-primary) 35%, transparent), 0 4px 14px color-mix(in srgb, var(--mf-primary) 25%, transparent)",
+            } : { display: "inline-flex", minHeight: 32, padding: "6px 12px" }}
+            href={`/app/processing/review?account=${encodeURIComponent(job.account_id)}&job=${encodeURIComponent(job.id)}`}
+          >
+            {needsReview ? t("processing.reviewNow") : t("processing.viewReview")}
+          </Link>
+        ) : (
+          <span className="muted">—</span>
+        )}
+      </td>
     </tr>
   );
 }
@@ -277,8 +292,8 @@ function formatTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function formatDurationMinutes(value: number): string {
-  const minutes = Math.max(0, Math.round(value));
+function formatDurationMinutes(value: string | number): string {
+  const minutes = Math.max(0, Math.round(Number(value)));
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
