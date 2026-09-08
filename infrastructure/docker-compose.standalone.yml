@@ -1,0 +1,226 @@
+# MailFlow standalone self-host stack.
+# This file preserves the all-in-one deployment path without BaseHarbor.
+
+services:
+  edge:
+    image: caddy:2-alpine
+    environment:
+      MAILFLOW_PUBLIC_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      MAILFLOW_CADDY_ADDRESS: ${MAILFLOW_CADDY_ADDRESS:-https://localhost}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+    networks:
+      - edge
+      - backend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mailflow}
+      POSTGRES_USER: ${POSTGRES_USER:-mailflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mailflow}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mailflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - database
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - queue
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - see README}
+      SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
+      AUTH_MODE: ${AUTH_MODE:-single}
+      SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-compose}
+      MAILFLOW_BOOTSTRAP_LANGUAGE: ${MAILFLOW_BOOTSTRAP_LANGUAGE:-}
+      MAILFLOW_TLS_MODE: ${MAILFLOW_TLS_MODE:-}
+      MAILFLOW_PUBLIC_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      TLS_CERT_FILE: ${TLS_CERT_FILE:-}
+      TLS_KEY_FILE: ${TLS_KEY_FILE:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      OAUTH_REDIRECT_BASE: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      OAUTH_SUCCESS_REDIRECT: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/dashboard
+      ATTACHMENT_LIBRARY_ENABLED: ${ATTACHMENT_LIBRARY_ENABLED:-true}
+      ATTACHMENT_LIBRARY_STORAGE_PATH: /data/attachments
+      ATTACHMENT_LIBRARY_MAX_BYTES: ${ATTACHMENT_LIBRARY_MAX_BYTES:-26214400}
+      ATTACHMENT_LIBRARY_MAX_EXTRACTED_CHARS: ${ATTACHMENT_LIBRARY_MAX_EXTRACTED_CHARS:-32000}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
+      STRIPE_PRICE_TEAM: ${STRIPE_PRICE_TEAM:-}
+      BILLING_SUCCESS_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/billing?status=success
+      BILLING_CANCEL_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}/app/billing?status=cancel
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.0}
+    volumes:
+      - attachment_data:/data/attachments:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend
+      - database
+      - queue
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - see README}
+      SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      ATTACHMENT_LIBRARY_ENABLED: ${ATTACHMENT_LIBRARY_ENABLED:-true}
+      ATTACHMENT_LIBRARY_STORAGE_PATH: /data/attachments
+      ATTACHMENT_LIBRARY_MAX_BYTES: ${ATTACHMENT_LIBRARY_MAX_BYTES:-26214400}
+      ATTACHMENT_LIBRARY_MAX_EXTRACTED_CHARS: ${ATTACHMENT_LIBRARY_MAX_EXTRACTED_CHARS:-32000}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.0}
+    volumes:
+      - attachment_data:/data/attachments
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - backend
+      - database
+      - queue
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile.web
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
+      WEB_AUTH: ${WEB_AUTH:-off}
+      SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+      BETTER_AUTH_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      PASSKEY_RP_NAME: ${PASSKEY_RP_NAME:-MailFlow}
+      PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
+      PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}
+      WEB_SECRET_KEY: ${WEB_SECRET_KEY:-}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      MAILFLOW_PUBLIC_URL: ${MAILFLOW_PUBLIC_URL:-https://localhost}
+      MAILFLOW_TLS_MODE: ${MAILFLOW_TLS_MODE:-}
+      MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-compose}
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+      - database
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  web-migrate:
+    profiles: ["migrate"]
+    image: pgvector/pgvector:pg17
+    entrypoint: ["sh", "-c", "psql \"$$DATABASE_URL\" -v ON_ERROR_STOP=1 -f /schema/better-auth-schema.sql"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mailflow}:${POSTGRES_PASSWORD:-mailflow}@postgres:5432/${POSTGRES_DB:-mailflow}
+    volumes:
+      - ../apps/web/better-auth-schema.sql:/schema/better-auth-schema.sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - database
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  edge:
+  backend:
+  database:
+    internal: true
+  queue:
+    internal: true
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+  attachment_data:
