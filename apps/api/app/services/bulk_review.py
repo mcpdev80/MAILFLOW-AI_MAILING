@@ -66,20 +66,30 @@ def proposal_child_cluster_id(proposal: BulkProposal) -> str:
     return ChildKey(_cluster_key(snapshot), _domain(snapshot.get("from_email"))).id
 
 
-def _aggregate(proposals: list[BulkProposal], *, key: ClusterKey, sender_domain: str | None = None) -> dict:
+def _aggregate(
+    proposals: list[BulkProposal],
+    *,
+    key: ClusterKey,
+    sender_domain: str | None = None,
+) -> dict:
     confidences: list[float] = []
     review = 0
     suspicious = 0
+    safe = 0
     statuses: dict[str, int] = defaultdict(int)
     samples: list[dict[str, object]] = []
     for proposal in proposals:
         snapshot = BulkRepository.effective_snapshot(proposal)
         try:
-            confidences.append(float(snapshot.get("confidence") or 0.0))
+            confidence = float(snapshot.get("confidence") or 0.0)
         except (TypeError, ValueError):
-            confidences.append(0.0)
-        review += int(bool(snapshot.get("review_required")))
-        suspicious += int(bool(snapshot.get("suspicious_content")))
+            confidence = 0.0
+        confidences.append(confidence)
+        needs_review = bool(snapshot.get("review_required"))
+        is_suspicious = bool(snapshot.get("suspicious_content"))
+        review += int(needs_review)
+        suspicious += int(is_suspicious)
+        safe += int(not needs_review and not is_suspicious)
         statuses[proposal.status] += 1
         if len(samples) < 3:
             samples.append(
@@ -87,7 +97,7 @@ def _aggregate(proposals: list[BulkProposal], *, key: ClusterKey, sender_domain:
                     "proposal_id": str(proposal.id),
                     "from_email": str(snapshot.get("from_email") or ""),
                     "subject": str(snapshot.get("subject") or ""),
-                    "confidence": float(snapshot.get("confidence") or 0.0),
+                    "confidence": confidence,
                     "reason": snapshot.get("reason"),
                 }
             )
@@ -101,7 +111,7 @@ def _aggregate(proposals: list[BulkProposal], *, key: ClusterKey, sender_domain:
         "count": count,
         "review_required": review,
         "suspicious": suspicious,
-        "safe": max(0, count - review - suspicious),
+        "safe": safe,
         "confidence_avg": avg,
         "confidence_min": min(confidences, default=0.0),
         "confidence_max": max(confidences, default=0.0),
@@ -115,13 +125,17 @@ def build_review_summary(proposals: list[BulkProposal]) -> dict:
     status_counts: dict[str, int] = defaultdict(int)
     review = 0
     suspicious = 0
+    safe = 0
 
     for proposal in proposals:
         snapshot = BulkRepository.effective_snapshot(proposal)
         parents[_cluster_key(snapshot)].append(proposal)
         status_counts[proposal.status] += 1
-        review += int(bool(snapshot.get("review_required")))
-        suspicious += int(bool(snapshot.get("suspicious_content")))
+        needs_review = bool(snapshot.get("review_required"))
+        is_suspicious = bool(snapshot.get("suspicious_content"))
+        review += int(needs_review)
+        suspicious += int(is_suspicious)
+        safe += int(not needs_review and not is_suspicious)
 
     clusters: list[dict] = []
     for key, rows in parents.items():
@@ -145,17 +159,17 @@ def build_review_summary(proposals: list[BulkProposal]) -> dict:
     clusters.sort(
         key=lambda item: (
             -int(item["review_required"]),
+            -int(item["suspicious"]),
             -int(item["count"]),
             str(item["category"]),
             str(item["destination"]),
         )
     )
-    total = len(proposals)
     return {
-        "total": total,
+        "total": len(proposals),
         "review_required": review,
         "suspicious": suspicious,
-        "safe": max(0, total - review - suspicious),
+        "safe": safe,
         "status_counts": dict(status_counts),
         "decision_count": len(clusters),
         "clusters": clusters,
