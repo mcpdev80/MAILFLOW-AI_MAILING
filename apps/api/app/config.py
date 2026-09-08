@@ -12,6 +12,22 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://mailflow:mailflow@localhost:5432/mailflow"
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Optional open-protocol platform integrations. Empty values keep the current
+    # standalone behavior and do not create a BaseHarbor dependency.
+    PLATFORM_BACKEND: str = "standalone"
+    OPENBAO_ADDR: str = ""
+    OIDC_ISSUER: str = ""
+    OIDC_CLIENT_ID: str = ""
+    OIDC_AUDIENCE: str = ""
+    S3_ENDPOINT: str = ""
+    S3_BUCKET: str = ""
+    S3_REGION: str = ""
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = ""
+    ASSISTANT_RUNTIME: str = "disabled"
+    OPENAI_BASE_URL: str = ""
+    MCP_ENDPOINT: str = ""
+
     SECRET_KEY: str
     SECRET_ENCRYPTION_KEYS: str = ""
 
@@ -104,7 +120,7 @@ class Settings(BaseSettings):
     BILLING_SUCCESS_URL: str = "http://localhost:3000/app/billing?status=success"
     BILLING_CANCEL_URL: str = "http://localhost:3000/app/billing?status=cancel"
 
-    @field_validator("AUTH_MODE", "ENVIRONMENT", mode="before")
+    @field_validator("AUTH_MODE", "ENVIRONMENT", "PLATFORM_BACKEND", "ASSISTANT_RUNTIME", mode="before")
     @classmethod
     def _normalize_lowercase(cls, value: object) -> object:
         if isinstance(value, str):
@@ -137,6 +153,19 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_security_and_limits(self) -> "Settings":
+        if self.PLATFORM_BACKEND not in {"standalone", "baseharbor", "external"}:
+            raise ValueError("PLATFORM_BACKEND must be standalone, baseharbor or external")
+        if self.ASSISTANT_RUNTIME not in {"disabled", "openai_compatible", "mcp"}:
+            raise ValueError(
+                "ASSISTANT_RUNTIME must be disabled, openai_compatible or mcp"
+            )
+        if self.ASSISTANT_RUNTIME == "openai_compatible" and not self.OPENAI_BASE_URL:
+            raise ValueError(
+                "OPENAI_BASE_URL is required when ASSISTANT_RUNTIME=openai_compatible"
+            )
+        if self.ASSISTANT_RUNTIME == "mcp" and not self.MCP_ENDPOINT:
+            raise ValueError("MCP_ENDPOINT is required when ASSISTANT_RUNTIME=mcp")
+
         if self.ENVIRONMENT == "production":
             if "*" in self.CORS_ORIGINS:
                 raise ValueError(
