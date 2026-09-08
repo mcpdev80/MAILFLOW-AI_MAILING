@@ -252,6 +252,84 @@ const TECHNICAL_FOLDER_LABELS: Record<UiLocale, Record<string, string>> = {
   },
 };
 
+const SUBCATEGORY_LABELS: Record<UiLocale, Record<string, string>> = {
+  de: {
+    fundraising: "Spendenaufruf",
+    donation: "Spende",
+    donations: "Spenden",
+    billing: "Abrechnung",
+    invoice: "Rechnung",
+    invoices: "Rechnungen",
+    shipping: "Versand",
+    delivery: "Lieferung",
+    reminder: "Erinnerung",
+    account: "Konto",
+    security: "Sicherheit",
+    marketing: "Marketing",
+  },
+  en: {
+    fundraising: "Fundraising",
+    donation: "Donation",
+    donations: "Donations",
+    billing: "Billing",
+    invoice: "Invoice",
+    invoices: "Invoices",
+    shipping: "Shipping",
+    delivery: "Delivery",
+    reminder: "Reminder",
+    account: "Account",
+    security: "Security",
+    marketing: "Marketing",
+  },
+  es: {
+    fundraising: "Recaudación de fondos",
+    donation: "Donación",
+    donations: "Donaciones",
+    billing: "Facturación",
+    invoice: "Factura",
+    invoices: "Facturas",
+    shipping: "Envío",
+    delivery: "Entrega",
+    reminder: "Recordatorio",
+    account: "Cuenta",
+    security: "Seguridad",
+    marketing: "Marketing",
+  },
+};
+
+const REVIEW_REASON_LABELS: Record<UiLocale, Record<string, string>> = {
+  de: {
+    confidence_below_action_threshold:
+      "Die Klassifizierung liegt unter der erforderlichen Sicherheit für automatische Postfachaktionen. Bitte prüfe das vorgeschlagene Ziel.",
+    review_required:
+      "Die Nachricht benötigt eine menschliche Prüfung, bevor Mailflow die vorgeschlagene Aktion ausführt.",
+    mailbox_action_failed:
+      "Die vorgeschlagene Postfachaktion konnte nicht ausgeführt werden.",
+    mailbox_action_blocked:
+      "Die vorgeschlagene Postfachaktion wurde aus Sicherheitsgründen blockiert.",
+  },
+  en: {
+    confidence_below_action_threshold:
+      "The classification is below the confidence required for automatic mailbox actions. Please review the proposed destination.",
+    review_required:
+      "The message requires human review before Mailflow executes the proposed action.",
+    mailbox_action_failed:
+      "The proposed mailbox action could not be completed.",
+    mailbox_action_blocked:
+      "The proposed mailbox action was blocked for safety reasons.",
+  },
+  es: {
+    confidence_below_action_threshold:
+      "La clasificación está por debajo de la confianza necesaria para acciones automáticas del buzón. Revisa el destino propuesto.",
+    review_required:
+      "El mensaje requiere revisión humana antes de que Mailflow ejecute la acción propuesta.",
+    mailbox_action_failed:
+      "No se pudo completar la acción propuesta del buzón.",
+    mailbox_action_blocked:
+      "La acción propuesta del buzón se bloqueó por motivos de seguridad.",
+  },
+};
+
 function currentLocale(): UiLocale {
   if (typeof document === "undefined") return "en";
   const locale = document.documentElement.lang.toLowerCase().split("-")[0];
@@ -269,6 +347,17 @@ function folderDisplayName(folder: Pick<MailboxFolder, "name" | "role">): string
   }
   const technical = TECHNICAL_FOLDER_LABELS[locale][folder.name.trim().toLowerCase()];
   return technical ?? folder.name;
+}
+
+function localizeSubcategory(value: string | null, locale: UiLocale): string | null {
+  if (!value) return value;
+  const key = value.trim().toLowerCase();
+  return SUBCATEGORY_LABELS[locale][key] ?? value;
+}
+
+function localizeReviewReason(value: string, locale: UiLocale): string {
+  const key = value.trim().toLowerCase();
+  return REVIEW_REASON_LABELS[locale][key] ?? value;
 }
 
 function decodeMimeHeader(value: string): string {
@@ -347,6 +436,8 @@ function localizeReviewInbox(inbox: ReviewInbox): ReviewInbox {
       return {
         ...item,
         subject: decodeMimeHeader(item.subject),
+        subcategory: localizeSubcategory(item.subcategory, locale),
+        reason: localizeReviewReason(item.reason, locale),
         destination_folder:
           destination.toUpperCase() === "INBOX"
             ? FOLDER_ROLE_LABELS[locale].inbox
