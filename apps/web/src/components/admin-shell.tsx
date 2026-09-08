@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { type UiIconName, UiIcon } from "./ui-icon";
 import styles from "./admin-shell.module.css";
 
 type Plane = "instance" | "organization";
@@ -26,6 +27,8 @@ type Copy = {
   mail: string;
   loading: string;
 };
+
+type AdminNavItem = { href: string; label: string; icon: UiIconName };
 
 const COPY: Record<"de" | "en" | "es", Copy> = {
   de: {
@@ -135,33 +138,33 @@ export function AdminShell({
     return <div className={styles.loading}>{copy.loading}</div>;
   }
 
-  const items =
+  const items: AdminNavItem[] =
     plane === "instance"
       ? [
-          { href: "/admin/instance", label: copy.overview, glyph: "▦" },
+          { href: "/admin/instance", label: copy.overview, icon: "dashboard" },
           {
             href: "/admin/instance/organizations",
             label: copy.organizations,
-            glyph: "□",
+            icon: "organization",
           },
           {
             href: "/admin/instance/models",
             label: copy.instanceModels,
-            glyph: "◇",
+            icon: "models",
           },
-          { href: "/admin/instance/system", label: copy.system, glyph: "◉" },
-          { href: "/admin/instance/updates", label: copy.updates, glyph: "↻" },
-          { href: "/admin/instance/backups", label: copy.backups, glyph: "▣" },
+          { href: "/admin/instance/system", label: copy.system, icon: "system" },
+          { href: "/admin/instance/updates", label: copy.updates, icon: "refresh" },
+          { href: "/admin/instance/backups", label: copy.backups, icon: "backup" },
           {
             href: "/admin/instance/certificates",
             label: copy.certificates,
-            glyph: "◇",
+            icon: "certificate",
           },
         ]
       : [
-          { href: "/admin/org", label: copy.overview, glyph: "▦" },
-          { href: "/admin/org/members", label: copy.members, glyph: "○" },
-          { href: "/admin/org/models", label: copy.orgModels, glyph: "◇" },
+          { href: "/admin/org", label: copy.overview, icon: "dashboard" },
+          { href: "/admin/org/members", label: copy.members, icon: "members" },
+          { href: "/admin/org/models", label: copy.orgModels, icon: "models" },
         ];
 
   async function switchArea(value: string) {
@@ -219,7 +222,7 @@ export function AdminShell({
                   className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
                 >
                   <span className={styles.glyph} aria-hidden="true">
-                    {item.glyph}
+                    <UiIcon name={item.icon} size={18} />
                   </span>
                   {item.label}
                 </Link>
