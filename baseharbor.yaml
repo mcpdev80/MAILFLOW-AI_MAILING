@@ -1,0 +1,14 @@
+# Optional BaseHarbor backend manifest for MailFlow.
+# MailFlow remains fully standalone; this file only declares backend resources
+# when the application is provisioned through BaseHarbor.
+version: 1
+app:
+  name: mailflow
+  environment: production
+services:
+  postgres:
+    enabled: true
+  redis:
+    enabled: true
+  secrets:
+    enabled: true
