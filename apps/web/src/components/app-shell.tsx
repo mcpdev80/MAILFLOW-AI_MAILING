@@ -9,13 +9,14 @@ import { type TranslationKey, useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { type UiIconName, UiIcon } from "./ui-icon";
 import styles from "./app-shell.module.css";
 
 type NavItem = {
   href: string;
   label: TranslationKey;
   fallback: string;
-  glyph: string;
+  icon: UiIconName;
   badge?: number | null;
 };
 type ShellState = {
@@ -170,51 +171,51 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
         href: "/app/dashboard",
         label: "nav.dashboard",
         fallback: "Dashboard",
-        glyph: "▦",
+        icon: "dashboard",
       },
-      { href: "/app/mail", label: "nav.mail", fallback: "Mail", glyph: "■" },
+      { href: "/app/mail", label: "nav.mail", fallback: "Mail", icon: "mail" },
       {
         href: "/app/review",
         label: "nav.review",
         fallback: "Review",
-        glyph: "●",
+        icon: "review",
         badge: reviewCount,
       },
       {
         href: "/app/search",
         label: "nav.search",
         fallback: "Search",
-        glyph: "●",
+        icon: "search",
       },
       {
         href: "/app/processing",
         label: "nav.processing",
         fallback: "Processing",
-        glyph: "■",
+        icon: "processing",
       },
       {
         href: "/app/attachments",
         label: "nav.attachments",
         fallback: "Attachments",
-        glyph: "□",
+        icon: "attachment",
       },
       {
         href: "/app/accounts",
         label: "nav.mailboxes",
         fallback: "Mailboxes",
-        glyph: "■",
+        icon: "mailbox",
       },
       {
         href: "/app/learning",
         label: "nav.learning",
         fallback: "Learning",
-        glyph: "■",
+        icon: "learning",
       },
       {
         href: "/app/settings/preferences",
         label: "nav.settings",
         fallback: "Settings",
-        glyph: "•",
+        icon: "settings",
       },
     ],
     [reviewCount],
@@ -244,7 +245,7 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
                   title={label}
                 >
                   <span className={styles.navGlyph} aria-hidden="true">
-                    {item.glyph}
+                    <UiIcon name={item.icon} size={18} />
                   </span>
                   <span className={styles.navLabel}>{label}</span>
                   {item.badge != null && item.badge > 0 && (
@@ -271,7 +272,7 @@ function Sidebar({ reviewCount }: { reviewCount: number | null }) {
             )}
           </span>
           <span className={styles.profileChevron} aria-hidden="true">
-            ⌄
+            <UiIcon name="chevronDown" size={14} />
           </span>
         </Link>
       </div>
@@ -329,7 +330,7 @@ function Header({
           className={styles.notificationLink}
           aria-label={t("shell.notifications")}
         >
-          <span aria-hidden="true">●</span>
+          <UiIcon name="bell" size={18} />
           {state.notificationCount != null && state.notificationCount > 0 && (
             <span className={styles.notificationDot} />
           )}
