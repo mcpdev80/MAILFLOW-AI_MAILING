@@ -61,6 +61,11 @@ type Copy = {
   pendingConfirmation: string;
   applyStarted: string;
   applyExisting: string;
+  applyReadyTitle: string;
+  applyReadyBody: string;
+  applyMoveCount: string;
+  applyKeepCount: string;
+  applyNow: string;
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -107,6 +112,11 @@ const COPY: Record<Locale, Copy> = {
     pendingConfirmation: "Ziel geändert · Bestätigung noch offen",
     applyStarted: "Anwendung wurde gestartet.",
     applyExisting: "Für diesen Testlauf existiert bereits ein Apply-Lauf.",
+    applyReadyTitle: "Freigaben sind bereit – noch wurde nichts im Postfach geändert",
+    applyReadyBody: "Bestätigen gibt die Entscheidungen nur frei. Das tatsächliche Verschieben startet erst mit dem Anwenden-Schritt.",
+    applyMoveCount: "werden verschoben",
+    applyKeepCount: "bleiben im aktuellen Ordner",
+    applyNow: "Änderungen jetzt anwenden",
   },
   en: {
     title: "Review historical decisions",
@@ -151,6 +161,11 @@ const COPY: Record<Locale, Copy> = {
     pendingConfirmation: "Target changed · confirmation still pending",
     applyStarted: "Apply job started.",
     applyExisting: "An apply job already exists for this dry run.",
+    applyReadyTitle: "Approved changes are ready – nothing has changed in the mailbox yet",
+    applyReadyBody: "Confirming only approves decisions. Moving messages starts with the separate apply step.",
+    applyMoveCount: "will be moved",
+    applyKeepCount: "will stay in the current folder",
+    applyNow: "Apply changes now",
   },
   es: {
     title: "Revisar decisiones históricas",
@@ -195,6 +210,11 @@ const COPY: Record<Locale, Copy> = {
     pendingConfirmation: "Destino cambiado · confirmación pendiente",
     applyStarted: "La aplicación se ha iniciado.",
     applyExisting: "Ya existe una aplicación para esta prueba.",
+    applyReadyTitle: "Los cambios aprobados están listos – todavía no se ha cambiado el buzón",
+    applyReadyBody: "Confirmar solo aprueba las decisiones. El movimiento real empieza con el paso de aplicación.",
+    applyMoveCount: "se moverán",
+    applyKeepCount: "permanecerán en la carpeta actual",
+    applyNow: "Aplicar cambios ahora",
   },
 };
 
@@ -328,6 +348,11 @@ export default function BulkReviewPage() {
   }
 
   const approved = summary?.status_counts.approved ?? 0;
+  const approvedMoves = summary?.clusters.reduce(
+    (sum, cluster) => sum + (cluster.action === "move" ? (cluster.statuses.approved ?? 0) : 0),
+    0,
+  ) ?? 0;
+  const approvedKeeps = Math.max(0, approved - approvedMoves);
   const canApply = job?.state === "completed" && approved > 0;
 
   return (
@@ -351,6 +376,32 @@ export default function BulkReviewPage() {
       {job?.state === "running" && <div className={styles.notice}>{copy.runningHint}</div>}
       {notice && <div className={styles.notice}>{notice}</div>}
       {error && <div className={styles.error}>{error}</div>}
+
+      {canApply && (
+        <section
+          className={styles.notice}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 18,
+            textAlign: "left",
+          }}
+        >
+          <div style={{ display: "grid", gap: 5 }}>
+            <strong style={{ color: "var(--mf-text)" }}>{copy.applyReadyTitle}</strong>
+            <span>{copy.applyReadyBody}</span>
+            <span style={{ color: "var(--mf-text-secondary)" }}>
+              <strong>{approvedMoves.toLocaleString()}</strong> {copy.applyMoveCount}
+              {" · "}
+              <strong>{approvedKeeps.toLocaleString()}</strong> {copy.applyKeepCount}
+            </span>
+          </div>
+          <button className="btn" type="button" disabled={busy !== null} onClick={() => void startApply()}>
+            {busy === "apply" ? copy.applying : copy.applyNow}
+          </button>
+        </section>
+      )}
 
       {!summary ? (
         <div className={styles.empty}>{copy.loading}</div>
