@@ -126,7 +126,9 @@ async def classify_preview(
         adaptive = AdaptiveClassifier(
             classify_client,
             config=AdaptiveClassificationConfig(
-                confidence_threshold=settings.CLASSIFICATION_CONFIDENCE_THRESHOLD
+                confidence_threshold=settings.CLASSIFICATION_CONFIDENCE_THRESHOLD,
+                max_stage=settings.BACKFILL_MAX_CLASSIFICATION_STAGE,
+                allow_supporting_signal_bypass=True,
             ),
             decision_memory=memory_lookup,
         )
