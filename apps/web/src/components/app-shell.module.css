@@ -27,13 +27,14 @@
 .brandMark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 6px; background: var(--mf-primary); color: #fff; font-size: 16px; font-weight: 700; }
 .brandText { line-height: 1; }
 .nav { display: flex; flex-direction: column; gap: 4px; }
-.navItem { display: flex; min-height: 34px; align-items: center; gap: 12px; border-radius: 6px; padding: 8px 12px; color: var(--mf-text-secondary); font-size: 14px; font-weight: 500; text-decoration: none; transition: background-color 120ms ease, color 120ms ease; }
-.navItem:hover { background: var(--mf-surface-muted); }
+.navItem { display: flex; min-height: 38px; align-items: center; gap: 12px; border-radius: 7px; padding: 9px 12px; color: var(--mf-text-secondary); font-size: 14px; font-weight: 500; text-decoration: none; transition: background-color 120ms ease, color 120ms ease; }
+.navItem:hover { background: var(--mf-surface-muted); color: var(--mf-text); }
 .navItemActive { background: var(--mf-primary-soft); color: var(--mf-primary); font-weight: 600; }
-.navGlyph { display: grid; width: 16px; height: 16px; flex: 0 0 16px; place-items: center; color: currentColor; font-size: 10px; line-height: 1; }
+.navGlyph { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; color: currentColor; line-height: 1; }
+.navGlyph svg { display: block; }
 .navLabel { min-width: 0; flex: 1; }
 .badge { display: inline-flex; min-width: 20px; height: 18px; align-items: center; justify-content: center; border-radius: 10px; background: var(--mf-surface-muted); color: var(--mf-text); padding: 0 6px; font-size: 11px; font-weight: 600; }
-.separator { height: 1px; margin: 4px 0; background: var(--mf-border-subtle); }
+.separator { height: 1px; margin: 6px 0; background: var(--mf-border-subtle); }
 .areaSwitcher { display: grid; gap: 5px; }
 .areaSwitcher label { color: var(--mf-text-muted); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .areaSwitcher select { min-height: 32px; border-radius: var(--mf-radius-md); padding: 5px 8px; font-size: 11px; }
@@ -44,7 +45,8 @@
 .profileName, .profileEmail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profileName { font-size: 13px; font-weight: 600; }
 .profileEmail { color: var(--mf-text-muted); font-size: 11px; }
-.profileChevron { color: var(--mf-text-muted); font-size: 13px; }
+.profileChevron { display: grid; place-items: center; color: var(--mf-text-muted); }
+.profileChevron svg { display: block; }
 .content { min-width: 0; display: flex; min-height: 100vh; flex-direction: column; }
 .header { position: sticky; top: 0; z-index: 20; min-height: 57px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--mf-border); background: var(--mf-surface); padding: 12px 24px; }
 .statusWrap, .headerActions { display: flex; align-items: center; gap: 8px; }
@@ -54,9 +56,10 @@
 .statusDot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .headerActions { gap: 16px; }
 .headerDivider { width: 1px; height: 16px; background: var(--mf-border); }
-.notificationLink { position: relative; display: grid; width: 28px; height: 28px; place-items: center; border-radius: 6px; color: var(--mf-text-secondary); font-size: 10px; text-decoration: none; }
-.notificationLink:hover { background: var(--mf-surface-muted); }
-.notificationDot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border: 2px solid var(--mf-surface); border-radius: 50%; background: var(--mf-primary); }
+.notificationLink { position: relative; display: grid; width: 32px; height: 32px; place-items: center; border-radius: 7px; color: var(--mf-text-secondary); text-decoration: none; }
+.notificationLink:hover { background: var(--mf-surface-muted); color: var(--mf-text); }
+.notificationLink svg { display: block; }
+.notificationDot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border: 2px solid var(--mf-surface); border-radius: 50%; background: var(--mf-primary); }
 .headerAvatar { width: 28px; height: 28px; font-size: 10px; text-decoration: none; }
 .main { min-width: 0; flex: 1; background: var(--mf-bg); }
 .statusFooter { position: sticky; bottom: 0; z-index: 20; display: flex; min-height: 44px; align-items: center; border-top: 1px solid var(--mf-border); background: var(--mf-surface); padding: 8px 24px; }
