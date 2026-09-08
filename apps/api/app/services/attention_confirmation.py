@@ -19,11 +19,8 @@ from app.auth import RequestIdentity
 from app.mailbox_access import get_accessible_account
 from app.models.processed_email import ProcessedEmail
 from app.repositories.decision_memory import DecisionMemoryRepository
-from app.services.attention import (
-    _needs_attention,
-    _review_item,
-    correct_review_item,
-)
+from app.services.attention import _review_item, correct_review_item
+from app.services.attention_visibility import message_requires_review
 
 
 async def correct_or_confirm_review_item(
@@ -46,6 +43,8 @@ async def correct_or_confirm_review_item(
 
     # A human confirmation supersedes model uncertainty. Security flags and
     # routing reviews are deliberately independent and are not cleared here.
+    # Urgency/action-required stay intact as attention signals, but no longer
+    # keep the message in Review after the classification has been confirmed.
     row.review_required = False
     row.needs_more_context = False
     row.confidence = 1.0
@@ -82,6 +81,6 @@ async def correct_or_confirm_review_item(
         row.decision_memory_hint_used = False
 
     await session.commit()
-    if not _needs_attention(row):
+    if not message_requires_review(row):
         return None
     return _review_item(row, account)
