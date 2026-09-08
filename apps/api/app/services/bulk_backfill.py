@@ -9,6 +9,7 @@ from uuid import UUID
 
 from mailflow_core.classification.rule_engine import RuleEngine
 from mailflow_core.email_parser import EmailParser
+from mailflow_core.exceptions import LLMError
 from mailflow_core.providers.imap_generic import ImapGenericProvider
 from mailflow_core.resilience import CircuitOpenError
 
@@ -40,6 +41,23 @@ class BulkBackfillResult:
     requeue: bool
     yielded_for_retry: bool = False
     inference_health: dict[str, dict[str, object]] = field(default_factory=dict)
+
+
+def _is_transient_inference_error(error: Exception | None) -> bool:
+    """Return True for temporary LLM availability problems that should not fail a UID."""
+    if isinstance(error, CircuitOpenError):
+        return True
+    if not isinstance(error, LLMError):
+        return False
+    text = str(error).lower()
+    return any(
+        marker in text
+        for marker in (
+            "timeout",
+            "timed out",
+            "apitimeouterror",
+        )
+    )
 
 
 class _SerializedBodyProvider:
@@ -202,11 +220,11 @@ class BulkBackfillService:
                                 stopped = True
                                 break
 
-                            if isinstance(error, CircuitOpenError):
-                                # Circuit-open is a transient model-health state, not
-                                # a message failure. Yield the batch without consuming
-                                # a per-UID retry attempt; the worker requeues after the
-                                # configured circuit reset window.
+                            if _is_transient_inference_error(error):
+                                # A temporary model timeout/open circuit is not a
+                                # message defect. Yield without consuming a UID
+                                # attempt; the worker requeues after the circuit
+                                # reset window and retries the same position.
                                 await session.commit()
                                 yielded_for_retry = True
                                 break
