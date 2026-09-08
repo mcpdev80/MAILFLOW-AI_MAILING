@@ -94,6 +94,11 @@ class BulkClusterApproveOut(BaseModel):
     blocked_suspicious: int = 0
 
 
+class BulkClusterEditOut(BaseModel):
+    edited: int
+    skipped: int = 0
+
+
 class BulkApplyCreate(BaseModel):
     batch_size: int = Field(default=50, ge=1, le=100)
 
