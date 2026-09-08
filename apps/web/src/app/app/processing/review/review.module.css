@@ -54,6 +54,24 @@
 .empty, .error, .notice { border: 1px solid var(--mf-border); border-radius: 8px; background: var(--mf-surface); padding: 18px; color: var(--mf-text-muted); text-align: center; }
 .error { border-color: color-mix(in srgb, var(--mf-danger) 35%, var(--mf-border)); background: color-mix(in srgb, var(--mf-danger) 18%, var(--mf-surface)); color: var(--mf-text); }
 .notice { border-color: color-mix(in srgb, var(--mf-success) 35%, var(--mf-border)); background: var(--mf-success-soft); color: var(--mf-success); text-align: left; }
+.applyReady, .applyStatus { display: flex; align-items: center; justify-content: space-between; gap: 18px; border: 1px solid color-mix(in srgb, var(--mf-primary) 22%, var(--mf-border)); border-radius: 8px; background: color-mix(in srgb, var(--mf-primary) 6%, var(--mf-surface)); padding: 18px; }
+.applyReady > div, .applyStatusHeader > div { display: grid; gap: 5px; }
+.applyReady strong, .applyStatus strong { color: var(--mf-text); }
+.applyReady span, .applyStatus span { color: var(--mf-text-secondary); font-size: 12px; }
+.applyReadyCounts { color: var(--mf-text-secondary); }
+.applyStatus { display: grid; gap: 12px; }
+.applyStatusDone { border-color: color-mix(in srgb, var(--mf-success) 30%, var(--mf-border)); background: color-mix(in srgb, var(--mf-success) 8%, var(--mf-surface)); }
+.applyStatusHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.applyPercent { color: var(--mf-text) !important; font-size: 20px !important; font-weight: 700; }
+.progressTrack { width: 100%; height: 10px; overflow: hidden; border-radius: 999px; background: var(--mf-surface-muted); box-shadow: inset 0 0 0 1px var(--mf-border-subtle); }
+.progressBar { height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--mf-primary) 72%, var(--mf-text)); transition: width 220ms ease; }
+.applyStatusDone .progressBar { background: var(--mf-success); }
+.applyProgressMeta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.applyCounters { display: flex; flex-wrap: wrap; gap: 8px 18px; padding-top: 2px; }
+.applyCounters span { color: var(--mf-text-secondary); }
+.applyCounterDanger { color: var(--mf-danger) !important; }
+.applyCounterWarning { color: var(--mf-warning) !important; }
+.applyStatus > button { justify-self: end; }
 @media (max-width: 1200px) { .clusterHeader { grid-template-columns: 1fr; } .clusterActions { justify-content: flex-start; } .child { grid-template-columns: 1fr; align-items: stretch; } .targetEditor, .targetEditorCompact { min-width: 0; } }
-@media (max-width: 1000px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .page { padding: 14px; } .header, .toolbar { align-items: stretch; flex-direction: column; } .tabs { flex-wrap: wrap; } .summary { grid-template-columns: 1fr; } .targetEditor { flex-direction: column; align-items: stretch; } .targetEditor label { min-width: 0; width: 100%; } .sample { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (max-width: 700px) { .page { padding: 14px; } .header, .toolbar, .applyReady, .applyStatusHeader, .applyProgressMeta { align-items: stretch; flex-direction: column; } .tabs { flex-wrap: wrap; } .summary { grid-template-columns: 1fr; } .targetEditor { flex-direction: column; align-items: stretch; } .targetEditor label { min-width: 0; width: 100%; } .sample { grid-template-columns: 1fr; } .applyStatus > button { justify-self: stretch; } }
