@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from email.utils import parseaddr
 from uuid import UUID
 
 from mailflow_core.decision_memory import DecisionMemoryCandidate
@@ -87,10 +88,10 @@ class DecisionMemoryRepository:
     ) -> DecisionMemoryEntry:
         entry = DecisionMemoryEntry(
             account_id=account_id,
-            sender_email=_clean_lower(sender_email),
-            sender_domain=_clean_lower(sender_domain),
-            subject_pattern=_clean(subject_pattern),
-            thread_id=_clean(thread_id),
+            sender_email=_clean_sender_email(sender_email),
+            sender_domain=_clean_sender_domain(sender_domain, sender_email),
+            subject_pattern=_clean_limited(subject_pattern, 500),
+            thread_id=_clean_limited(thread_id, 500),
             category=classification.category,
             subcategory=classification.subcategory,
             importance=classification.importance,
@@ -98,7 +99,7 @@ class DecisionMemoryRepository:
             action_required=classification.action_required,
             system_tags=list(classification.system_tags),
             user_tags=list(classification.user_tags),
-            routing_target=_clean(routing_target),
+            routing_target=_clean_limited(routing_target, 255),
             source=source,
             trust_score=trust_score,
             enabled=True,
@@ -122,10 +123,10 @@ class DecisionMemoryRepository:
         trust_score: float,
         enabled: bool,
     ) -> DecisionMemoryEntry:
-        entry.sender_email = _clean_lower(sender_email)
-        entry.sender_domain = _clean_lower(sender_domain)
-        entry.subject_pattern = _clean(subject_pattern)
-        entry.thread_id = _clean(thread_id)
+        entry.sender_email = _clean_sender_email(sender_email)
+        entry.sender_domain = _clean_sender_domain(sender_domain, sender_email)
+        entry.subject_pattern = _clean_limited(subject_pattern, 500)
+        entry.thread_id = _clean_limited(thread_id, 500)
         entry.category = classification.category
         entry.subcategory = classification.subcategory
         entry.importance = classification.importance
@@ -133,7 +134,7 @@ class DecisionMemoryRepository:
         entry.action_required = classification.action_required
         entry.system_tags = list(classification.system_tags)
         entry.user_tags = list(classification.user_tags)
-        entry.routing_target = _clean(routing_target)
+        entry.routing_target = _clean_limited(routing_target, 255)
         entry.source = source
         entry.trust_score = trust_score
         entry.enabled = enabled
@@ -231,6 +232,31 @@ def _clean(value: str | None) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+def _clean_limited(value: str | None, max_length: int) -> str | None:
+    cleaned = _clean(value)
+    return cleaned[:max_length] if cleaned else None
+
+
+def _clean_sender_email(value: str | None) -> str | None:
+    cleaned = _clean(value)
+    if not cleaned:
+        return None
+    _display_name, parsed = parseaddr(cleaned)
+    candidate = parsed.strip().lower() if parsed else cleaned.lower()
+    return candidate[:500]
+
+
+def _clean_sender_domain(domain: str | None, sender_email: str | None = None) -> str | None:
+    cleaned = _clean(domain)
+    candidate = cleaned.lower() if cleaned else ""
+    if sender_email:
+        parsed_sender = _clean_sender_email(sender_email) or ""
+        if "@" in parsed_sender:
+            candidate = parsed_sender.rsplit("@", 1)[1]
+    candidate = candidate.strip().strip("<>").rstrip(".")
+    return candidate[:255] or None
 
 
 def _clean_lower(value: str | None) -> str | None:

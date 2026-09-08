@@ -53,8 +53,55 @@ class BulkApproveAllOut(BaseModel):
     approved: int
 
 
+class BulkReviewSampleOut(BaseModel):
+    proposal_id: UUID
+    from_email: str
+    subject: str
+    confidence: float
+    reason: str | None = None
+
+
+class BulkReviewClusterOut(BaseModel):
+    id: str
+    category: str
+    destination: str
+    action: str
+    sender_domain: str | None = None
+    count: int
+    review_required: int
+    suspicious: int
+    safe: int
+    edited: int = 0
+    confidence_avg: float
+    confidence_min: float
+    confidence_max: float
+    statuses: dict[str, int]
+    samples: list[BulkReviewSampleOut]
+    children: list["BulkReviewClusterOut"] = Field(default_factory=list)
+
+
+class BulkReviewSummaryOut(BaseModel):
+    total: int
+    review_required: int
+    suspicious: int
+    safe: int
+    status_counts: dict[str, int]
+    decision_count: int
+    clusters: list[BulkReviewClusterOut]
+
+
+class BulkClusterApproveOut(BaseModel):
+    approved: int
+    blocked_suspicious: int = 0
+
+
+class BulkClusterEditOut(BaseModel):
+    edited: int
+    skipped: int = 0
+
+
 class BulkApplyCreate(BaseModel):
-    batch_size: int = Field(default=10, ge=1, le=100)
+    batch_size: int = Field(default=50, ge=1, le=100)
 
 
 class BulkApplyJobOut(BaseModel):

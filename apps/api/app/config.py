@@ -12,6 +12,11 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://mailflow:mailflow@localhost:5432/mailflow"
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    ASSISTANT_RUNTIME: str = "disabled"
+    OPENAI_BASE_URL: str = ""
+    MCP_ENDPOINT: str = ""
+
     SECRET_KEY: str
     SECRET_ENCRYPTION_KEYS: str = ""
 
@@ -40,6 +45,7 @@ class Settings(BaseSettings):
     BACKFILL_CONCURRENCY: int = Field(default=2, ge=1, le=16)
     BACKFILL_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=20)
     BACKFILL_REQUEUE_DELAY_SECONDS: float = Field(default=1.0, ge=0.0, le=60.0)
+    BACKFILL_MAX_CLASSIFICATION_STAGE: int = Field(default=1, ge=0, le=3)
 
     CLASSIFICATION_CONFIDENCE_THRESHOLD: float = Field(default=0.85, ge=0.0, le=1.0)
 
@@ -103,7 +109,7 @@ class Settings(BaseSettings):
     BILLING_SUCCESS_URL: str = "http://localhost:3000/app/billing?status=success"
     BILLING_CANCEL_URL: str = "http://localhost:3000/app/billing?status=cancel"
 
-    @field_validator("AUTH_MODE", "ENVIRONMENT", mode="before")
+    @field_validator("AUTH_MODE", "ENVIRONMENT", "ASSISTANT_RUNTIME", mode="before")
     @classmethod
     def _normalize_lowercase(cls, value: object) -> object:
         if isinstance(value, str):
@@ -136,6 +142,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_security_and_limits(self) -> "Settings":
+        if self.ASSISTANT_RUNTIME not in {"disabled", "openai_compatible", "mcp"}:
+            raise ValueError(
+                "ASSISTANT_RUNTIME must be disabled, openai_compatible or mcp"
+            )
+        if self.ASSISTANT_RUNTIME == "openai_compatible" and not self.OPENAI_BASE_URL:
+            raise ValueError(
+                "OPENAI_BASE_URL is required when ASSISTANT_RUNTIME=openai_compatible"
+            )
+        if self.ASSISTANT_RUNTIME == "mcp" and not self.MCP_ENDPOINT:
+            raise ValueError("MCP_ENDPOINT is required when ASSISTANT_RUNTIME=mcp")
+
         if self.ENVIRONMENT == "production":
             if "*" in self.CORS_ORIGINS:
                 raise ValueError(

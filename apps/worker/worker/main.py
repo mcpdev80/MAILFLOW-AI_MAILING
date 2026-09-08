@@ -7,7 +7,11 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
-from app.backfill_queue import enqueue_backfill_batch, enqueue_backfill_failure_retry
+from app.backfill_queue import (
+    WORKER_QUEUE_NAME,
+    enqueue_backfill_batch,
+    enqueue_backfill_failure_retry,
+)
 from app.config import settings
 from app.database import async_session_factory
 from app.inference_health import inference_health_key, publish_inference_health
@@ -357,6 +361,7 @@ async def process_bulk_apply(ctx: dict, apply_job_id: str) -> dict:
                 "process_bulk_apply",
                 apply_job_id,
                 _defer_by=settings.BACKFILL_REQUEUE_DELAY_SECONDS,
+                _queue_name=WORKER_QUEUE_NAME,
             )
             requeued = queued is not None
             if not requeued:
@@ -417,7 +422,7 @@ async def cleanup_lifecycle_history(ctx: dict) -> None:
         )
         await session.commit()
     if deleted:
-        log.info("Purged %d expired lifecycle events", deleted)
+        log.info("Purged %d lifecycle events", deleted)
 
 
 class WorkerSettings:

@@ -2,29 +2,37 @@
 
 from __future__ import annotations
 
-from uuid import UUID
+import logging
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 from arq.connections import RedisSettings, create_pool
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import RequestIdentity, require_identity
+from app.backfill_queue import WORKER_QUEUE_NAME
 from app.bulk_schemas import (
     BulkApplyControlOut,
     BulkApplyCreate,
     BulkApplyJobOut,
     BulkApproveAllOut,
+    BulkClusterApproveOut,
+    BulkClusterEditOut,
     BulkCountsOut,
     BulkProposalEdit,
     BulkProposalOut,
+    BulkReviewSummaryOut,
 )
 from app.config import settings
 from app.database import get_session
 from app.mailbox_access import get_account_for_management
 from app.repositories.backfill import BackfillRepository
 from app.repositories.bulk import BulkRepository, BulkStateError
+from app.services.bulk_review import build_review_summary, select_cluster_proposals
 
 router = APIRouter(prefix="/accounts/{account_id}/bulk", tags=["bulk"])
+log = logging.getLogger("mailflow.bulk")
 
 
 async def _owned_source_job(
@@ -63,16 +71,29 @@ async def _owned_proposal(
 
 
 async def _enqueue_apply(apply_job_id: UUID) -> bool:
-    redis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+    redis = None
     try:
+        redis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
         result = await redis.enqueue_job(
             "process_bulk_apply",
             str(apply_job_id),
-            _job_id=f"bulk-apply-{apply_job_id}",
+            _job_id=f"bulk-apply-{apply_job_id}-{uuid4().hex[:10]}",
+            _queue_name=WORKER_QUEUE_NAME,
         )
         return result is not None
+    except Exception as exc:  # noqa: BLE001 - enqueue failure must not become an HTML 500
+        log.exception("Could not enqueue bulk apply %s: %s", apply_job_id, type(exc).__name__)
+        return False
     finally:
-        await redis.close()
+        if redis is not None:
+            try:
+                await redis.aclose()
+            except Exception as exc:  # noqa: BLE001 - closing must not mask the response
+                log.warning(
+                    "Could not close bulk apply Redis connection for %s: %s",
+                    apply_job_id,
+                    type(exc).__name__,
+                )
 
 
 @router.get("/{job_id}/proposals", response_model=list[BulkProposalOut])
@@ -112,6 +133,18 @@ async def bulk_counts(
     return BulkCountsOut(counts=await BulkRepository(session).counts(job_id))
 
 
+@router.get("/{job_id}/review-summary", response_model=BulkReviewSummaryOut)
+async def bulk_review_summary(
+    account_id: UUID,
+    job_id: UUID,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> BulkReviewSummaryOut:
+    await _owned_source_job(account_id, job_id, identity, session)
+    rows = await BulkRepository(session).list_proposals(job_id, limit=100000)
+    return BulkReviewSummaryOut.model_validate(build_review_summary(rows))
+
+
 @router.patch("/{job_id}/proposals/{proposal_id}", response_model=BulkProposalOut)
 async def edit_bulk_proposal(
     account_id: UUID,
@@ -138,6 +171,51 @@ async def edit_bulk_proposal(
         await session.rollback()
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return BulkProposalOut.model_validate(proposal)
+
+
+@router.patch(
+    "/{job_id}/clusters/{cluster_id}",
+    response_model=BulkClusterEditOut,
+)
+async def edit_bulk_cluster(
+    account_id: UUID,
+    job_id: UUID,
+    cluster_id: str,
+    payload: BulkProposalEdit,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> BulkClusterEditOut:
+    await _owned_source_job(account_id, job_id, identity, session)
+    if identity.user_id is None:
+        raise HTTPException(status_code=403, detail="user_identity_required")
+    changes = payload.changes()
+    if not changes:
+        raise HTTPException(status_code=422, detail="no_changes")
+
+    repo = BulkRepository(session)
+    proposals = await repo.list_proposals(job_id, limit=100000)
+    selected = select_cluster_proposals(proposals, cluster_id)
+    if not selected:
+        raise HTTPException(status_code=404, detail="bulk_cluster_not_found")
+
+    edited = 0
+    skipped = 0
+    try:
+        for proposal in selected:
+            if proposal.status != "proposed":
+                skipped += 1
+                continue
+            await repo.edit_proposal(
+                proposal.id,
+                actor_user_id=identity.user_id,
+                changes=changes,
+            )
+            edited += 1
+        await session.commit()
+    except (BulkStateError, ValueError) as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return BulkClusterEditOut(edited=edited, skipped=skipped)
 
 
 @router.post(
@@ -206,6 +284,56 @@ async def approve_all_safe_bulk_proposals(
 
 
 @router.post(
+    "/{job_id}/clusters/{cluster_id}/approve",
+    response_model=BulkClusterApproveOut,
+)
+async def approve_bulk_cluster(
+    account_id: UUID,
+    job_id: UUID,
+    cluster_id: str,
+    identity: RequestIdentity = Depends(require_identity),
+    session: AsyncSession = Depends(get_session),
+) -> BulkClusterApproveOut:
+    await _owned_source_job(account_id, job_id, identity, session)
+    if identity.user_id is None:
+        raise HTTPException(status_code=403, detail="user_identity_required")
+
+    repo = BulkRepository(session)
+    proposals = await repo.list_proposals(job_id, limit=100000)
+    selected = select_cluster_proposals(proposals, cluster_id)
+    if not selected:
+        raise HTTPException(status_code=404, detail="bulk_cluster_not_found")
+
+    approved = 0
+    blocked = 0
+    try:
+        for proposal in selected:
+            if proposal.status != "proposed":
+                continue
+            snapshot = repo.effective_snapshot(proposal)
+            if bool(snapshot.get("suspicious_content")):
+                blocked += 1
+                continue
+            if bool(snapshot.get("review_required")):
+                confirmed = dict(snapshot)
+                confirmed["review_required"] = False
+                confirmed["human_confirmed"] = True
+                proposal.edited_snapshot = confirmed
+                proposal.updated_at = datetime.now(tz=UTC)
+                await session.flush()
+            await repo.approve_proposal(
+                proposal.id,
+                actor_user_id=identity.user_id,
+            )
+            approved += 1
+        await session.commit()
+    except BulkStateError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return BulkClusterApproveOut(approved=approved, blocked_suspicious=blocked)
+
+
+@router.post(
     "/{job_id}/apply",
     response_model=BulkApplyControlOut,
     status_code=status.HTTP_202_ACCEPTED,
@@ -222,22 +350,42 @@ async def start_bulk_apply(
         raise HTTPException(status_code=409, detail="source_job_not_completed")
     if identity.user_id is None:
         raise HTTPException(status_code=403, detail="user_identity_required")
-    try:
-        apply_job = await BulkRepository(session).create_apply_job(
-            source_job_id=job_id,
-            account_id=account_id,
-            batch_size=payload.batch_size,
-            actor_user_id=identity.user_id,
+
+    repo = BulkRepository(session)
+    apply_job = await repo.apply_job_for_source(job_id)
+    if apply_job is not None and apply_job.state in {"running", "completed"}:
+        return BulkApplyControlOut(
+            job=BulkApplyJobOut.model_validate(apply_job), enqueued=False
         )
-        await session.commit()
-    except BulkStateError as exc:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if apply_job is not None:
+        if apply_job.state == "paused" and apply_job.last_error == "apply_enqueue_failed":
+            apply_job.state = "running"
+            apply_job.last_error = None
+            apply_job.updated_at = datetime.now(tz=UTC)
+            await session.commit()
+        else:
+            return BulkApplyControlOut(
+                job=BulkApplyJobOut.model_validate(apply_job), enqueued=False
+            )
+    else:
+        try:
+            apply_job = await repo.create_apply_job(
+                source_job_id=job_id,
+                account_id=account_id,
+                batch_size=payload.batch_size,
+                actor_user_id=identity.user_id,
+            )
+            await session.commit()
+        except BulkStateError as exc:
+            await session.rollback()
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     enqueued = await _enqueue_apply(apply_job.id)
     if not enqueued:
         apply_job.state = "paused"
         apply_job.last_error = "apply_enqueue_failed"
+        apply_job.updated_at = datetime.now(tz=UTC)
         await session.commit()
     return BulkApplyControlOut(
         job=BulkApplyJobOut.model_validate(apply_job), enqueued=enqueued

@@ -23,6 +23,7 @@ from app.models.email_account import EmailAccount
 from app.repositories.decision_memory import DecisionMemoryRepository
 from app.repositories.thread import ThreadRepository
 from app.routing import destination_for_classification
+from app.services.backfill_error_policy import is_context_overflow_error
 from app.services.cycle import _build_action_policy, _build_memory_config
 
 
@@ -78,6 +79,22 @@ def _snapshot(
     }
 
 
+def _context_overflow_review_result() -> ClassificationResult:
+    """Safe terminal fallback when even minimal historical context exceeds the model."""
+    return ClassificationResult(
+        label="unclassified",
+        category="other",
+        importance="unknown",
+        urgency="unknown",
+        action_required="unknown",
+        confidence=0.0,
+        method="fallback",
+        review_required=True,
+        reason="context_window_exceeded; manual review required",
+        classification_stage=0,
+    )
+
+
 async def classify_preview(
     *,
     account: EmailAccount,
@@ -126,19 +143,55 @@ async def classify_preview(
         adaptive = AdaptiveClassifier(
             classify_client,
             config=AdaptiveClassificationConfig(
-                confidence_threshold=settings.CLASSIFICATION_CONFIDENCE_THRESHOLD
+                confidence_threshold=settings.CLASSIFICATION_CONFIDENCE_THRESHOLD,
+                max_stage=settings.BACKFILL_MAX_CLASSIFICATION_STAGE,
+                allow_supporting_signal_bypass=True,
             ),
             decision_memory=memory_lookup,
         )
-        outcome = await asyncio.to_thread(
-            adaptive.classify,
-            headers_only,
-            thread_summary=previous_summary,
-            body_loader=load_body,
-            supporting_signal=supporting_signal,
-        )
-        result = outcome.result
-        parsed = outcome.email
+        try:
+            outcome = await asyncio.to_thread(
+                adaptive.classify,
+                headers_only,
+                thread_summary=previous_summary,
+                body_loader=load_body,
+                supporting_signal=supporting_signal,
+            )
+        except Exception as exc:  # noqa: BLE001
+            if not is_context_overflow_error(exc):
+                raise
+
+            # A historical thread/memory/body context can be larger than a model's
+            # configured window. Retry once with the smallest possible request:
+            # headers only, no thread summary, no memory hint and no body escalation.
+            minimal = AdaptiveClassifier(
+                classify_client,
+                config=AdaptiveClassificationConfig(
+                    confidence_threshold=settings.CLASSIFICATION_CONFIDENCE_THRESHOLD,
+                    max_stage=0,
+                    allow_supporting_signal_bypass=True,
+                ),
+                decision_memory=None,
+            )
+            try:
+                outcome = await asyncio.to_thread(
+                    minimal.classify,
+                    headers_only,
+                    thread_summary=None,
+                    body_loader=load_body,
+                    supporting_signal=supporting_signal,
+                )
+            except Exception as minimal_exc:  # noqa: BLE001
+                if not is_context_overflow_error(minimal_exc):
+                    raise
+                result = _context_overflow_review_result()
+                parsed = headers_only
+            else:
+                result = outcome.result
+                parsed = outcome.email
+        else:
+            result = outcome.result
+            parsed = outcome.email
     else:
         result = supporting_signal or ClassificationResult(
             label="unclassified",

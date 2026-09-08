@@ -26,15 +26,19 @@ def _failure(row: ProcessedEmail) -> bool:
     return row.mailbox_action_status in {"blocked", "failed", "error"}
 
 
-def _review(row: ProcessedEmail) -> bool:
+def message_requires_review(row: ProcessedEmail) -> bool:
+    """Return only states that require an explicit human review decision.
+
+    Urgency and action-required are attention signals, but they are not review
+    states by themselves. They remain visible through notifications and the
+    daily summary without keeping an already-confirmed message in Review.
+    """
     return bool(
         row.suspicious_content
         or row.review_required
         or row.action_review_required
         or row.needs_more_context
         or row.confidence < 0.75
-        or row.urgency in {"immediate", "today"}
-        or row.action_required == "yes"
         or _failure(row)
     )
 
@@ -63,7 +67,7 @@ async def active_counters(
     return AttentionCounters(
         urgent=sum(1 for row in rows if row.urgency in {"immediate", "today"}),
         action_required=sum(1 for row in rows if row.action_required == "yes"),
-        review_needed=sum(1 for row in rows if _review(row)),
+        review_needed=sum(1 for row in rows if message_requires_review(row)),
         failures=sum(1 for row in rows if _failure(row)),
         security=sum(1 for row in rows if row.suspicious_content),
         unread_notifications=unread_notifications,

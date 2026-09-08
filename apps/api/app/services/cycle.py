@@ -1,4 +1,4 @@
-"""CycleService orchestration for classification and draft generation."""
+"""CycleService orchestration for classification and mailbox processing."""
 
 from __future__ import annotations
 
@@ -31,10 +31,9 @@ from mailflow_core.decision_memory import (
 from mailflow_core.email_parser import EmailParser
 from mailflow_core.providers.base import EmailData
 from mailflow_core.providers.imap_generic import ImapGenericProvider
-from mailflow_core.resilience import CircuitOpenError, RetryPolicy, retry_with_backoff
+from mailflow_core.resilience import RetryPolicy, retry_with_backoff
 from mailflow_core.types import (
     ClassificationResult,
-    DraftRequest,
     ParsedEmail,
     ThreadSummaryUpdate,
 )
@@ -142,6 +141,7 @@ def _build_draft_bytes(
     body_text: str,
     in_reply_to: str | None = None,
 ) -> bytes:
+    """Build RFC2822 draft bytes for explicit user-requested draft workflows."""
     msg = MIMEMultipart("alternative")
     reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
     msg["Subject"] = reply_subject
@@ -220,7 +220,6 @@ class CycleService:
         )
         parser = EmailParser()
         classify_client = _build_llm_client(llm_provider, for_generation=False)
-        generate_client = _build_llm_client(llm_provider, for_generation=True)
         rule_engine = RuleEngine(account_config)
 
         emails: list[EmailData] = []
@@ -262,7 +261,6 @@ class CycleService:
                         parser,
                         rule_engine,
                         classify_client,
-                        generate_client,
                         stats,
                         self._sf,
                     )
@@ -297,7 +295,7 @@ class CycleService:
             stats["errors"],
             inference_health=_collect_inference_health(
                 classify_client,
-                generate_client,
+                None,
             ),
         )
 
@@ -310,7 +308,6 @@ async def _process_one(
     parser: EmailParser,
     rule_engine: RuleEngine,
     classify_client: LLMClient | None,
-    generate_client: LLMClient | None,
     stats: dict,
     sf: async_sessionmaker,
 ) -> None:
@@ -427,51 +424,9 @@ async def _process_one(
         if not moved:
             raise RuntimeError("mailbox_move_failed")
 
+    # The normal processing cycle must never generate or persist reply drafts.
+    # Draft generation belongs exclusively to explicit user-triggered writing flows.
     draft_saved = False
-    if (
-        result.method != "domain_internal"
-        and result.label != "unclassified"
-        and generate_client
-    ):
-        draft_email = parsed
-        if not draft_email.body_text:
-            draft_email = await asyncio.to_thread(load_body, None)
-        draft_request = DraftRequest(
-            in_reply_to_uid=str(email_data.uid),
-            folder=provider._drafts_folder,
-            subject=draft_email.subject_normalized,
-            body_text=draft_email.body_text,
-            body_html=draft_email.body_html or None,
-            classification=result,
-        )
-
-        try:
-            draft_text = await asyncio.to_thread(
-                generate_client.generate_draft,
-                draft_email,
-                draft_request,
-            )
-        except CircuitOpenError:
-            log.warning(
-                "LLM generation circuit open; skipping draft for uid=%s", email_data.uid
-            )
-            draft_text = ""
-        except Exception as exc:
-            log.warning(
-                "LLM draft generation failed for uid=%s: %s",
-                email_data.uid,
-                redact_text(str(exc)),
-            )
-            draft_text = ""
-        if draft_text:
-            draft_bytes = _build_draft_bytes(
-                subject=draft_email.subject_normalized,
-                from_email=account.username,
-                to_email=email_data.from_email,
-                body_text=draft_text,
-                in_reply_to=email_data.message_id,
-            )
-            draft_saved = await asyncio.to_thread(provider.save_draft, draft_bytes)
 
     async with sf() as session:
         thread_repo = ThreadRepository(session)
@@ -503,5 +458,3 @@ async def _process_one(
         await session.commit()
 
     stats["emails"] += 1
-    if draft_saved:
-        stats["drafts"] += 1

@@ -1,14 +1,16 @@
 "use client";
 
-import type {
-  OperationalReviewItem,
-  ReviewCorrection,
-  ReviewInbox,
-  ReviewItem,
+import {
+  attentionApi,
+  type MailboxFolder,
+  type OperationalReviewItem,
+  type ReviewCorrection,
+  type ReviewInbox,
+  type ReviewItem,
 } from "@/lib/attention-api";
 import { enumLabel, useI18n } from "@/lib/i18n";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const categories = [
   "work",
@@ -23,6 +25,17 @@ const categories = [
 const importanceValues = ["critical", "high", "normal", "low", "unknown"];
 const urgencyValues = ["immediate", "today", "this_week", "none", "unknown"];
 const actionValues = ["yes", "no", "unknown"];
+
+const reviewTypeKeys = {
+  security: "review.type.security",
+  urgent: "review.type.urgent",
+  action_required: "review.type.action_required",
+  action_failure: "review.type.action_failure",
+  routing_review: "review.type.routing_review",
+  unresolved: "review.type.unresolved",
+  classification_review: "review.type.classification_review",
+  attention: "review.type.attention",
+} as const;
 
 type ReviewUiProps = {
   data: ReviewInbox | null;
@@ -118,11 +131,11 @@ export function ReviewUi(props: ReviewUiProps) {
               textTransform: "uppercase",
             }}
           >
-            <span>Sender / Subject</span>
-            <span>Proposed category</span>
-            <span>Confidence</span>
-            <span>Reason for review</span>
-            <span style={{ textAlign: "right" }}>Time</span>
+            <span>{t("review.senderSubject")}</span>
+            <span>{t("review.proposedCategory")}</span>
+            <span>{t("review.confidence")}</span>
+            <span>{t("review.reasonForReview")}</span>
+            <span style={{ textAlign: "right" }}>{t("review.time")}</span>
           </div>
           {props.data.items.map((item) => (
             <ReviewRow
@@ -228,6 +241,7 @@ function ReviewRow({
         ? "var(--mf-warning)"
         : "var(--mf-danger)";
   const category = `${enumLabel(t, "category", item.category)}${item.subcategory ? ` / ${item.subcategory}` : ""}`;
+  const reviewType = reviewTypeKeys[item.review_type as keyof typeof reviewTypeKeys];
   return (
     <article
       style={{
@@ -317,7 +331,11 @@ function ReviewRow({
                 : undefined
             }
           >
-            {item.suspicious_content ? t("review.security") : item.review_type}
+            {item.suspicious_content
+              ? t("review.security")
+              : reviewType
+                ? t(reviewType)
+                : item.review_type}
           </span>
         </span>
         <span className="muted" style={{ textAlign: "right", fontSize: 12 }}>
@@ -347,7 +365,7 @@ function ReviewRow({
                 marginBottom: 7,
               }}
             >
-              Reason for review
+              {t("review.reasonForReview")}
             </div>
             <div style={{ fontSize: 13, lineHeight: 1.5 }}>
               {item.reason || "—"}
@@ -524,8 +542,8 @@ function ReviewEditor({
             setDraft({ ...draft, action_required })
           }
         />
-        <TextField
-          label={t("review.destination")}
+        <DestinationFolderField
+          accountId={item.account_id}
           value={draft.destination_folder ?? ""}
           onChange={(destination_folder) =>
             setDraft({ ...draft, destination_folder })
@@ -564,7 +582,7 @@ function ReviewEditor({
             type="button"
             onClick={() => setOpen(false)}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             className="btn"
@@ -608,7 +626,7 @@ function ReviewActions({
           })
         }
       >
-        Confirm Classification
+        {t("review.confirmClassification")}
       </button>
       {item.action_review_required && (
         <button
@@ -652,6 +670,64 @@ function ReviewActions({
   );
 }
 
+function DestinationFolderField({
+  accountId,
+  value,
+  onChange,
+}: {
+  accountId: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  const [folders, setFolders] = useState<MailboxFolder[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setFolders(null);
+    setFailed(false);
+    void attentionApi.mailboxFolders(accountId).then(
+      (next) => {
+        if (active) setFolders(next);
+      },
+      () => {
+        if (active) setFailed(true);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [accountId]);
+
+  const options = folders ? [...folders] : [];
+  if (value && !options.some((folder) => folder.name === value)) {
+    options.unshift({ name: value, role: null, selectable: true });
+  }
+
+  return (
+    <label className="field">
+      <span>{t("review.destination")}</span>
+      <select
+        value={value}
+        disabled={!folders || failed}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {!folders && !failed && (
+          <option value={value}>{t("review.loadingFolders")}</option>
+        )}
+        {failed && <option value={value}>{t("review.folderLoadFailed")}</option>}
+        {folders &&
+          options.map((folder) => (
+            <option key={folder.name} value={folder.name}>
+              {folder.name}
+            </option>
+          ))}
+      </select>
+    </label>
+  );
+}
+
 function SelectField({
   label,
   value,
@@ -678,11 +754,16 @@ function SelectField({
     </label>
   );
 }
+
 function TextField({
   label,
   value,
   onChange,
-}: { label: string; value: string; onChange: (value: string) => void }) {
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <label className="field">
       <span>{label}</span>
@@ -694,6 +775,7 @@ function TextField({
     </label>
   );
 }
+
 function correctionFrom(item: ReviewItem): ReviewCorrection {
   return {
     category: item.category,

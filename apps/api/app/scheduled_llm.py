@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -14,6 +15,35 @@ from app.workload import RedisWorkloadController
 
 T = TypeVar("T")
 
+_LANGUAGE_NAMES = {
+    "de": "German",
+    "en": "English",
+    "es": "Spanish",
+}
+
+
+def _human_language_instruction(output_locale: str | None) -> str:
+    configured = (
+        (output_locale or "").strip().lower()
+        or os.getenv("MAILFLOW_AI_LANGUAGE", "").strip().lower()
+        or os.getenv("MAILFLOW_BOOTSTRAP_LANGUAGE", "").strip().lower()
+    )
+    language = _LANGUAGE_NAMES.get(configured)
+    if language:
+        return (
+            f"Write ALL human-facing classification text in {language}, including `reason`, "
+            "`subcategory`, `suggested_subcategory`, and human-facing free-text suggestions. "
+            "Do not translate category, importance, urgency, action_required, system_tags, "
+            "user_tags, or any other machine-readable enum/code values; keep those exactly as "
+            "required by the JSON contract."
+        )
+    return (
+        "Write ALL human-facing classification text in the natural language of the current email, "
+        "including `reason`, `subcategory`, `suggested_subcategory`, and human-facing free-text "
+        "suggestions. Do not translate category, importance, urgency, action_required, system_tags, "
+        "user_tags, or other machine-readable enum/code values."
+    )
+
 
 class ScheduledLLMClient(LLMClient):
     """Preserve core resilience semantics while adding distributed admission control."""
@@ -25,11 +55,13 @@ class ScheduledLLMClient(LLMClient):
         controller: RedisWorkloadController,
         account_id: str | None,
         priority: int,
+        output_locale: str | None = None,
     ) -> None:
         super().__init__(config)
         self._workload_controller = controller
         self._workload_account_id = account_id
         self._workload_priority = priority
+        self._output_locale = output_locale
 
     def _scheduled_call_path(self, messages: list[dict], path, role: str) -> str:
         with self._workload_controller.acquire(
@@ -60,6 +92,18 @@ class ScheduledLLMClient(LLMClient):
         primary_role: ModelRole,
         parser: Callable[[str, str], T],
     ) -> tuple[T, ModelRole]:
+        localized_messages = [dict(message) for message in messages]
+        instruction = _human_language_instruction(self._output_locale)
+        if localized_messages and localized_messages[0].get("role") == "system":
+            localized_messages[0]["content"] = (
+                f"{localized_messages[0].get('content', '')}\n\n{instruction}"
+            )
+        else:
+            localized_messages.insert(
+                0,
+                {"role": "system", "content": instruction},
+            )
+
         roles: tuple[ModelRole, ModelRole] = (
             primary_role,
             "deep" if primary_role == "fast" else "fast",
@@ -77,7 +121,7 @@ class ScheduledLLMClient(LLMClient):
                     first_error = error
                 continue
             try:
-                raw = self._scheduled_call_path(messages, path, role)
+                raw = self._scheduled_call_path(localized_messages, path, role)
                 parsed = parser(raw, path.model_id)
             except Exception as exc:
                 breaker.record_failure(exc)

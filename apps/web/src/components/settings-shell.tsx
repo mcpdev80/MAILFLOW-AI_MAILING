@@ -4,24 +4,25 @@ import { type Locale, useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { type UiIconName, UiIcon } from "./ui-icon";
 import styles from "./settings-shell.module.css";
 
 const itemDefs = [
-  ["/app/settings/profile", "profile"],
-  ["/app/settings/preferences", "appearance"],
-  ["/app/settings/workspace", "workspace"],
-  ["/app/settings/mailboxes", "mailboxes"],
-  ["/app/settings/rules", "rules"],
-  ["/app/settings/security", "security"],
-  ["/app/settings/retention", "retention"],
-] as const;
+  ["/app/settings/profile", "profile", "profile"],
+  ["/app/settings/preferences", "appearance", "appearance"],
+  ["/app/settings/workspace", "workspace", "layout"],
+  ["/app/settings/mailboxes", "mailboxes", "mailbox"],
+  ["/app/settings/rules", "rules", "rules"],
+  ["/app/settings/security", "security", "security"],
+  ["/app/settings/retention", "retention", "retention"],
+] as const satisfies readonly (readonly [string, string, UiIconName])[];
 
 const mailboxToolDefs = [
-  ["/app/settings/folders", "folders"],
-  ["/app/settings/folder-discovery", "discovery"],
-  ["/app/settings/category-mapping", "mapping"],
-  ["/app/settings/structure-review", "review"],
-] as const;
+  ["/app/settings/folders", "folders", "folder"],
+  ["/app/settings/folder-discovery", "discovery", "discovery"],
+  ["/app/settings/category-mapping", "mapping", "mapping"],
+  ["/app/settings/structure-review", "review", "check"],
+] as const satisfies readonly (readonly [string, string, UiIconName])[];
 
 const copy = {
   de: {
@@ -92,20 +93,22 @@ export function SettingsShell({ children }: { children: ReactNode }) {
       </div>
       <div className={styles.split}>
         <nav className={styles.nav} aria-label={text.nav}>
-          {itemDefs.map(([href, key]) => (
+          {itemDefs.map(([href, key, icon]) => (
             <SettingsLink
               key={href}
               href={href}
               label={text[key]}
+              icon={icon}
               pathname={pathname}
             />
           ))}
           <span className={styles.navGroupLabel}>{text.intelligence}</span>
-          {mailboxToolDefs.map(([href, key]) => (
+          {mailboxToolDefs.map(([href, key, icon]) => (
             <SettingsLink
               key={href}
               href={href}
               label={text[key]}
+              icon={icon}
               pathname={pathname}
             />
           ))}
@@ -119,15 +122,19 @@ export function SettingsShell({ children }: { children: ReactNode }) {
 function SettingsLink({
   href,
   label,
+  icon,
   pathname,
-}: { href: string; label: string; pathname: string }) {
+}: { href: string; label: string; icon: UiIconName; pathname: string }) {
   const active = pathname === href || pathname.startsWith(`${href}/`);
   return (
     <Link
       href={href}
       className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
     >
-      {label}
+      <span className={styles.navIcon} aria-hidden="true">
+        <UiIcon name={icon} size={17} />
+      </span>
+      <span>{label}</span>
     </Link>
   );
 }

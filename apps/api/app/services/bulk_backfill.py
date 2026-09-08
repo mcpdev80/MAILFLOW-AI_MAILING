@@ -18,6 +18,10 @@ from app.repositories.account import AccountRepository
 from app.repositories.backfill import BackfillRepository, BackfillStateError
 from app.repositories.bulk import BulkRepository
 from app.secrets import redact_text
+from app.services.backfill_error_policy import (
+    is_recoverable_persisted_failure,
+    is_transient_inference_error,
+)
 from app.services.bulk_preview import BulkPreview, classify_preview
 from app.services.cycle import (
     _build_attachment_config,
@@ -41,6 +45,11 @@ class BulkBackfillResult:
     inference_health: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
+def _is_transient_inference_error(error: Exception | None) -> bool:
+    """Backward-compatible private hook used by tests and callers."""
+    return is_transient_inference_error(error)
+
+
 class _SerializedBodyProvider:
     """Serialize IMAP body fetches while allowing LLM classification in parallel."""
 
@@ -62,6 +71,83 @@ class BulkBackfillService:
     def __init__(self, session_factory) -> None:
         self._sf = session_factory
 
+    async def _recover_persisted_failures(
+        self,
+        *,
+        job_id: UUID,
+        account_id: UUID,
+        folder: str,
+        provider: ImapGenericProvider,
+        preview_provider: _SerializedBodyProvider,
+        parser: EmailParser,
+        rule_engine: RuleEngine,
+        classify_client,
+        limit: int = 5,
+    ) -> None:
+        """Revisit old timeout/circuit/context failures after newer recovery code ships.
+
+        These rows can otherwise remain visible forever after the main cursor has
+        already advanced beyond the affected UID. Recovery is bounded so it cannot
+        dominate normal backfill progress.
+        """
+        async with self._sf() as session:
+            failures = await BackfillRepository(session).unresolved_failures(job_id)
+        recoverable = [
+            item
+            for item in failures
+            if is_recoverable_persisted_failure(item.last_error)
+        ][:limit]
+
+        for failure in recoverable:
+            try:
+                single = await asyncio.to_thread(
+                    provider.fetch_historical_batch,
+                    folder,
+                    after_uid=max(failure.uid - 1, 0),
+                    max_count=1,
+                    uid_window=1,
+                )
+                if single.uidvalidity != failure.uidvalidity:
+                    continue
+                if not single.messages or single.messages[0].uid != failure.uid:
+                    continue
+                preview = await classify_preview(
+                    account=(await self._load_account(account_id))[0],
+                    source_folder=folder,
+                    email_data=single.messages[0],
+                    provider=preview_provider,
+                    parser=parser,
+                    rule_engine=rule_engine,
+                    classify_client=classify_client,
+                    session_factory=self._sf,
+                )
+            except Exception as exc:  # noqa: BLE001
+                if is_transient_inference_error(exc):
+                    break
+                continue
+
+            review = bool(preview.snapshot.get("review_required"))
+            async with self._sf() as session:
+                bulk_repo = BulkRepository(session)
+                await bulk_repo.create_proposal(
+                    job_id=job_id,
+                    account_id=account_id,
+                    source_folder=folder,
+                    uidvalidity=failure.uidvalidity,
+                    uid=failure.uid,
+                    snapshot=dict(preview.snapshot),
+                )
+                await BackfillRepository(session).apply_retry_success(
+                    job_id,
+                    failure.id,
+                    review_required=review,
+                )
+                await session.commit()
+
+    async def _load_account(self, account_id: UUID):
+        async with self._sf() as session:
+            return await AccountRepository(session).get_full_config(account_id)
+
     async def run_batch(self, job_id: UUID) -> BulkBackfillResult:
         async with self._sf() as session:
             job = await BackfillRepository(session).get(job_id)
@@ -76,10 +162,7 @@ class BulkBackfillService:
             batch_size = job.batch_size
             cursor_uid = job.cursor_uid
 
-        async with self._sf() as session:
-            account, account_config, llm_provider = await AccountRepository(
-                session
-            ).get_full_config(account_id)
+        account, account_config, llm_provider = await self._load_account(account_id)
 
         password: str | None = None
         access_token: str | None = None
@@ -114,6 +197,16 @@ class BulkBackfillService:
 
         try:
             await asyncio.to_thread(provider.connect)
+            await self._recover_persisted_failures(
+                job_id=job_id,
+                account_id=account_id,
+                folder=folder,
+                provider=provider,
+                preview_provider=preview_provider,
+                parser=parser,
+                rule_engine=rule_engine,
+                classify_client=classify_client,
+            )
             batch = await asyncio.to_thread(
                 provider.fetch_historical_batch,
                 folder,
@@ -199,6 +292,11 @@ class BulkBackfillService:
                                 raise KeyError(str(job_id))
                             if current.state != "running":
                                 stopped = True
+                                break
+
+                            if _is_transient_inference_error(error):
+                                await session.commit()
+                                yielded_for_retry = True
                                 break
 
                             if error is not None:

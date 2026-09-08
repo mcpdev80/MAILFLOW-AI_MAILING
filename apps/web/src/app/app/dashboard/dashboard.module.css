@@ -1,18 +1,19 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   padding: 24px;
 }
 
 .header,
 .range,
-.kpiRow,
-.miniRow,
-.split,
 .cardHeader,
 .mailboxHeader,
-.mailboxMeta {
+.sectionHeader,
+.attentionCard,
+.attentionLead,
+.attentionLinks,
+.mailboxIdentity {
   display: flex;
   align-items: center;
 }
@@ -20,60 +21,571 @@
 .header,
 .cardHeader,
 .mailboxHeader,
-.mailboxMeta {
+.sectionHeader,
+.attentionCard {
   justify-content: space-between;
+  gap: 16px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.header p,
+.cardHeader p,
+.attentionLead p {
+  margin: 4px 0 0;
+  color: var(--mf-text-muted);
+  font-size: 13px;
+}
+
+.range {
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--mf-border);
+  border-radius: 8px;
+  background: var(--mf-surface-muted);
+}
+
+.range button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mf-text-secondary);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.range .rangeActive {
+  background: var(--mf-surface);
+  color: var(--mf-primary);
+  font-weight: 700;
+  box-shadow: var(--mf-shadow-card);
+}
+
+.attentionCard,
+.statCard,
+.card,
+.mailboxCard {
+  border: 1px solid var(--mf-border);
+  border-radius: 10px;
+  background: var(--mf-surface);
+  box-shadow: var(--mf-shadow-card);
+}
+
+.attentionCard {
+  padding: 18px 20px;
+}
+
+.attentionClear {
+  border-color: color-mix(in srgb, var(--mf-success) 24%, var(--mf-border));
+  background: color-mix(in srgb, var(--mf-success-soft) 42%, var(--mf-surface));
+}
+
+.attentionOpen {
+  border-color: color-mix(in srgb, var(--mf-warning) 30%, var(--mf-border));
+  background: color-mix(in srgb, var(--mf-surface-selected) 45%, var(--mf-surface));
+}
+
+.attentionLead {
+  min-width: 0;
   gap: 12px;
 }
 
-.header h1 { margin: 0; font-size: 24px; }
-.header p { margin: 4px 0 0; color: var(--mf-text-muted); }
-.range { gap: 6px; }
-.range button { min-height: 30px; border: 1px solid var(--mf-border); border-radius: 6px; background: var(--mf-surface); color: var(--mf-text-secondary); padding: 5px 10px; font-size: 12px; }
-.range .rangeActive { border-color: var(--mf-primary); background: var(--mf-surface-selected); color: var(--mf-primary); font-weight: 600; }
-.kpiRow, .miniRow, .split { align-items: stretch; gap: 16px; }
-.kpiCard, .miniCard, .card, .mailboxCard { border: 1px solid var(--mf-border); border-radius: 8px; background: var(--mf-surface); }
-.kpiCard { min-width: 0; flex: 1 1 0; display: flex; flex-direction: column; gap: 12px; padding: 20px; color: inherit; text-decoration: none; box-shadow: var(--mf-shadow-card); }
-.kpiCardAccent { border: 1.5px solid var(--mf-primary); }
-.kpiLabel, .miniLabel { color: var(--mf-text-muted); font-size: 13px; font-weight: 500; }
-.kpiValue { font-size: 28px; font-weight: 700; }
-.miniCard { min-width: 0; flex: 1 1 0; display: flex; align-items: center; gap: 12px; padding: 16px; }
-.miniIcon { width: 32px; height: 32px; border-radius: 6px; background: var(--mf-surface-muted); }
-.miniValue { margin-top: 2px; font-size: 16px; font-weight: 700; }
-.split > * { min-width: 0; flex: 1 1 0; }
-.column { display: flex; flex-direction: column; gap: 16px; }
-.card { display: flex; flex-direction: column; gap: 16px; padding: 20px; }
-.cardHeader h2, .mailboxSection h2 { margin: 0; font-size: 14px; }
-.trend { width: 100%; height: 100px; overflow: visible; }
-.trendLine { fill: none; stroke: var(--mf-primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.trendLabels { display: flex; justify-content: space-between; color: var(--mf-text-muted); font-size: 11px; }
-.distribution { display: flex; flex-direction: column; gap: 10px; }
-.distributionRow { display: flex; flex-direction: column; gap: 6px; color: inherit; text-decoration: none; }
-.distributionMeta { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
-.distributionMeta span { color: var(--mf-text-secondary); }
-.barTrack { height: 6px; overflow: hidden; border-radius: 3px; background: var(--mf-surface-muted); }
-.bar { height: 100%; border-radius: 3px; background: var(--mf-primary); }
-.reviewRate { color: var(--mf-success); font-size: 12px; font-weight: 600; }
-.reviewList, .mailboxList { display: flex; flex-direction: column; gap: 4px; }
-.reviewRow { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--mf-border); padding: 10px 0; color: inherit; text-decoration: none; }
-.reviewRow:last-child { border-bottom: 0; }
-.reviewSubject { overflow: hidden; color: var(--mf-text); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.reviewInfo { min-width: 0; }
-.reviewMeta { display: flex; gap: 8px; margin-top: 4px; color: var(--mf-text-muted); font-size: 11px; }
-.confidence { flex: 0 0 auto; color: var(--mf-warning); font-size: 12px; font-weight: 700; }
-.mailboxSection { display: flex; flex-direction: column; gap: 10px; }
-.mailboxCard { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
-.mailboxName { min-width: 0; overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.healthDot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--mf-success); }
-.healthDotWarn { background: var(--mf-warning); }
-.mailboxNameWrap { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.mailboxMeta { color: var(--mf-text-muted); font-size: 12px; }
-.counts { display: flex; gap: 8px; }
-.countPill { border-radius: 4px; background: var(--mf-surface-muted); padding: 2px 6px; font-size: 11px; }
-.empty { padding: 20px 0; color: var(--mf-text-muted); text-align: center; }
-.error { border: 1px solid color-mix(in srgb, var(--mf-danger) 35%, var(--mf-border)); border-radius: 6px; background: var(--mf-danger-soft); color: var(--mf-danger); padding: 10px 12px; }
-.notice { border: 1px solid color-mix(in srgb, var(--mf-success) 35%, var(--mf-border)); border-radius: 6px; background: var(--mf-success-soft); color: var(--mf-success); padding: 10px 12px; }
+.attentionLead h2 {
+  margin: 0;
+  font-size: 15px;
+}
 
-@media (max-width: 1200px) {
-  .kpiRow, .miniRow, .split { flex-wrap: wrap; }
-  .kpiCard, .miniCard, .split > * { flex-basis: calc(50% - 8px); }
+.statusIcon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--mf-surface);
+  color: var(--mf-primary);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.attentionClear .statusIcon {
+  color: var(--mf-success);
+}
+
+.attentionLinks {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.attentionLinks a {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 108px;
+  border-radius: 7px;
+  background: var(--mf-surface);
+  padding: 8px 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.attentionLinks strong {
+  font-size: 16px;
+}
+
+.attentionLinks span {
+  color: var(--mf-text-muted);
+  font-size: 11px;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.statCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px 18px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.statAttention {
+  border-color: color-mix(in srgb, var(--mf-warning) 30%, var(--mf-border));
+}
+
+.statDanger {
+  border-color: color-mix(in srgb, var(--mf-danger) 35%, var(--mf-border));
+}
+
+.statLabel,
+.statDetail {
+  color: var(--mf-text-muted);
+  font-size: 12px;
+}
+
+.statValue {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.primaryColumn,
+.secondaryColumn {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+}
+
+.cardHeader h2,
+.mailboxSection h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.cardHeader > div {
+  min-width: 0;
+}
+
+.activityChart {
+  display: flex;
+  min-height: 170px;
+  align-items: end;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.activityColumn {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.activityTrack {
+  position: relative;
+  width: 100%;
+  height: 138px;
+  overflow: hidden;
+  border-radius: 6px 6px 3px 3px;
+  background: var(--mf-surface-muted);
+}
+
+.activityBar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 5px 5px 2px 2px;
+  background: var(--mf-primary);
+}
+
+.activityColumn span {
+  color: var(--mf-text-muted);
+  font-size: 10px;
+}
+
+.distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.distributionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.distributionMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--mf-text-secondary);
+  font-size: 12px;
+}
+
+.distributionMeta strong {
+  color: var(--mf-text);
+}
+
+.barTrack,
+.automationTrack {
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--mf-surface-muted);
+}
+
+.barTrack {
+  height: 6px;
+}
+
+.bar,
+.automationFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mf-primary);
+}
+
+.automationRate {
+  color: var(--mf-primary);
+  font-size: 24px;
+}
+
+.automationTrack {
+  height: 8px;
+}
+
+.automationGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.automationGrid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 7px;
+  background: var(--mf-surface-muted);
+  padding: 9px 10px;
+}
+
+.automationGrid span {
+  color: var(--mf-text-muted);
+  font-size: 11px;
+}
+
+.automationGrid strong {
+  font-size: 12px;
+}
+
+.textLink {
+  color: var(--mf-primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.reviewList {
+  display: flex;
+  flex-direction: column;
+}
+
+.reviewRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--mf-border);
+  padding: 10px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.reviewRow:last-child {
+  border-bottom: 0;
+}
+
+.reviewInfo {
+  min-width: 0;
+}
+
+.reviewSubject {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewMeta {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--mf-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.reviewMeta span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.confidence {
+  flex: 0 0 auto;
+  color: var(--mf-warning);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.compactEmpty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mf-text-muted);
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.compactEmpty span {
+  color: var(--mf-success);
+  font-weight: 800;
+}
+
+.mailboxSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionMeta {
+  color: var(--mf-text-muted);
+  font-size: 12px;
+}
+
+.mailboxGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mailboxCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.mailboxIdentity {
+  min-width: 0;
+  gap: 9px;
+}
+
+.mailboxName {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--mf-text);
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.mailboxHealth {
+  margin-top: 2px;
+  color: var(--mf-text-muted);
+  font-size: 11px;
+}
+
+.healthDot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--mf-success);
+}
+
+.healthDotWarn {
+  background: var(--mf-warning);
+}
+
+.runButton {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border: 1px solid var(--mf-border);
+  border-radius: 7px;
+  background: var(--mf-surface);
+  color: var(--mf-text-secondary);
+  cursor: pointer;
+}
+
+.runButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mailboxStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mailboxStats > div {
+  min-width: 0;
+}
+
+.mailboxStats span,
+.mailboxStats strong {
+  display: block;
+}
+
+.mailboxStats span {
+  margin-bottom: 3px;
+  color: var(--mf-text-muted);
+  font-size: 10px;
+}
+
+.mailboxStats strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mailboxError {
+  border-radius: 6px;
+  background: var(--mf-danger-soft);
+  color: var(--mf-danger);
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.empty {
+  padding: 20px 0;
+  color: var(--mf-text-muted);
+  text-align: center;
+}
+
+.error,
+.notice {
+  border-radius: 7px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.error {
+  border: 1px solid color-mix(in srgb, var(--mf-danger) 35%, var(--mf-border));
+  background: var(--mf-danger-soft);
+  color: var(--mf-danger);
+}
+
+.notice {
+  border: 1px solid color-mix(in srgb, var(--mf-success) 35%, var(--mf-border));
+  background: var(--mf-success-soft);
+  color: var(--mf-success);
+}
+
+@media (max-width: 1180px) {
+  .statGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mailboxGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .attentionCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 16px;
+  }
+
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .statGrid,
+  .automationGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .attentionLinks {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .attentionLinks a {
+    width: 100%;
+  }
+
+  .mailboxStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
