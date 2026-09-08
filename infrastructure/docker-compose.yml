@@ -29,6 +29,7 @@ services:
       context: ..
       dockerfile: infrastructure/docker/Dockerfile.api
     environment:
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - managed by BaseHarbor/OpenBao}
       SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
       AUTH_MODE: ${AUTH_MODE:-single}
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
@@ -82,6 +83,7 @@ services:
       context: ..
       dockerfile: infrastructure/docker/Dockerfile.worker
     environment:
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - managed by BaseHarbor/OpenBao}
       SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
