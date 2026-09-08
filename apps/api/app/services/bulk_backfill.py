@@ -9,9 +9,7 @@ from uuid import UUID
 
 from mailflow_core.classification.rule_engine import RuleEngine
 from mailflow_core.email_parser import EmailParser
-from mailflow_core.exceptions import LLMError
 from mailflow_core.providers.imap_generic import ImapGenericProvider
-from mailflow_core.resilience import CircuitOpenError
 
 from app import oauth
 from app.config import settings
@@ -20,6 +18,7 @@ from app.repositories.account import AccountRepository
 from app.repositories.backfill import BackfillRepository, BackfillStateError
 from app.repositories.bulk import BulkRepository
 from app.secrets import redact_text
+from app.services.backfill_error_policy import is_transient_inference_error
 from app.services.bulk_preview import BulkPreview, classify_preview
 from app.services.cycle import (
     _build_attachment_config,
@@ -44,20 +43,8 @@ class BulkBackfillResult:
 
 
 def _is_transient_inference_error(error: Exception | None) -> bool:
-    """Return True for temporary LLM availability problems that should not fail a UID."""
-    if isinstance(error, CircuitOpenError):
-        return True
-    if not isinstance(error, LLMError):
-        return False
-    text = str(error).lower()
-    return any(
-        marker in text
-        for marker in (
-            "timeout",
-            "timed out",
-            "apitimeouterror",
-        )
-    )
+    """Backward-compatible private hook used by tests and callers."""
+    return is_transient_inference_error(error)
 
 
 class _SerializedBodyProvider:
@@ -221,10 +208,6 @@ class BulkBackfillService:
                                 break
 
                             if _is_transient_inference_error(error):
-                                # A temporary model timeout/open circuit is not a
-                                # message defect. Yield without consuming a UID
-                                # attempt; the worker requeues after the circuit
-                                # reset window and retries the same position.
                                 await session.commit()
                                 yielded_for_retry = True
                                 break
