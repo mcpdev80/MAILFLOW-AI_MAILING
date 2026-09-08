@@ -21,6 +21,7 @@ export const esOperations = {
   "processing.status": "Estado",
   "processing.started": "Iniciado",
   "processing.remaining": "Restante",
+  "processing.action": "Acción",
   "processing.successful": "Correctos",
   "processing.reviewRequired": "Revisión",
   "processing.rate": "Ritmo",
@@ -38,6 +39,8 @@ export const esOperations = {
   "processing.deferred": "Diferido",
   "processing.failed": "Fallido",
   "processing.cancelled": "Cancelado",
+  "processing.reviewNow": "Revisar ahora",
+  "processing.viewReview": "Ver revisión",
   "processing.unableLoad":
     "No se pudieron cargar los trabajos de procesamiento",
   "processing.unablePause": "No se pudieron pausar los trabajos",
