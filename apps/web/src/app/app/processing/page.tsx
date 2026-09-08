@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { type BackfillJob, backfillApi } from "@/lib/backfill-api";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 import type { EmailAccount } from "@/lib/types";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type JobWithMailbox = BackfillJob & {
@@ -167,52 +168,16 @@ export default function ProcessingPage() {
         <p className={page.subtitle}>{t("processing.subtitle")}</p>
       </div>
       <div className={page.kpis4}>
-        <Kpi
-          label={t("processing.activePipelines")}
-          value={`${active} ${t("processing.active")}`}
-          tone="info"
-        />
-        <Kpi
-          label={t("processing.totalProcessedToday")}
-          value={processedToday.toLocaleString()}
-          tone="success"
-        />
-        <Kpi
-          label={t("processing.deferredDelayed")}
-          value={`${delayed} ${t("processing.waiting")}`}
-          tone="warning"
-        />
-        <Kpi
-          label={t("processing.jobFailures")}
-          value={`${failures} ${t("processing.critical")}`}
-          tone="danger"
-        />
+        <Kpi label={t("processing.activePipelines")} value={`${active} ${t("processing.active")}`} tone="info" />
+        <Kpi label={t("processing.totalProcessedToday")} value={processedToday.toLocaleString()} tone="success" />
+        <Kpi label={t("processing.deferredDelayed")} value={`${delayed} ${t("processing.waiting")}`} tone="warning" />
+        <Kpi label={t("processing.jobFailures")} value={`${failures} ${t("processing.critical")}`} tone="danger" />
       </div>
       <div className={page.chips}>
-        <FilterChip
-          value="all"
-          label={t("processing.allJobs")}
-          current={filter}
-          onChange={setFilter}
-        />
-        <FilterChip
-          value="active"
-          label={t("processing.activeTasks")}
-          current={filter}
-          onChange={setFilter}
-        />
-        <FilterChip
-          value="completed"
-          label={t("processing.completed")}
-          current={filter}
-          onChange={setFilter}
-        />
-        <FilterChip
-          value="failed"
-          label={t("processing.failedInterrupted")}
-          current={filter}
-          onChange={setFilter}
-        />
+        <FilterChip value="all" label={t("processing.allJobs")} current={filter} onChange={setFilter} />
+        <FilterChip value="active" label={t("processing.activeTasks")} current={filter} onChange={setFilter} />
+        <FilterChip value="completed" label={t("processing.completed")} current={filter} onChange={setFilter} />
+        <FilterChip value="failed" label={t("processing.failedInterrupted")} current={filter} onChange={setFilter} />
       </div>
       {error && <div className={page.error}>{error}</div>}
       <section className={page.panel}>
@@ -233,38 +198,16 @@ export default function ProcessingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((job) => (
-                    <JobRow key={job.id} job={job} t={t} />
-                  ))}
+                  {filtered.map((job) => <JobRow key={job.id} job={job} t={t} />)}
                 </tbody>
               </table>
-              {filtered.length === 0 && (
-                <div className={page.empty}>{t("processing.noJobs")}</div>
-              )}
+              {filtered.length === 0 && <div className={page.empty}>{t("processing.noJobs")}</div>}
             </div>
             <div className={page.footer}>
-              <span>
-                {t("processing.showing")} {filtered.length} {t("processing.of")}{" "}
-                {jobs.length} {t("processing.jobsAcross")} {accounts.length}{" "}
-                {t("processing.mailboxes")}
-              </span>
+              <span>{t("processing.showing")} {filtered.length} {t("processing.of")} {jobs.length} {t("processing.jobsAcross")} {accounts.length} {t("processing.mailboxes")}</span>
               <div className={page.actions}>
-                <button
-                  className="btn secondary"
-                  type="button"
-                  disabled={busy || active === 0}
-                  onClick={() => void pauseAll()}
-                >
-                  {t("processing.pauseAll")}
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={busy || (failures === 0 && delayed === 0)}
-                  onClick={() => void restartFailed()}
-                >
-                  {t("processing.restartFailed")}
-                </button>
+                <button className="btn secondary" type="button" disabled={busy || active === 0} onClick={() => void pauseAll()}>{t("processing.pauseAll")}</button>
+                <button className="btn" type="button" disabled={busy || (failures === 0 && delayed === 0)} onClick={() => void restartFailed()}>{t("processing.restartFailed")}</button>
               </div>
             </div>
           </>
@@ -274,146 +217,54 @@ export default function ProcessingPage() {
   );
 }
 
-function Kpi({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "info" | "success" | "warning" | "danger";
-}) {
-  const color =
-    tone === "success"
-      ? "var(--mf-success)"
-      : tone === "warning"
-        ? "var(--mf-warning)"
-        : tone === "danger"
-          ? "var(--mf-danger)"
-          : "var(--mf-primary)";
-  return (
-    <div className={page.kpi}>
-      <div className={page.kpiLabel}>
-        <span>{label}</span>
-        <span className={page.kpiDot} style={{ background: color }} />
-      </div>
-      <span className={page.kpiValue}>{value}</span>
-    </div>
-  );
+function Kpi({ label, value, tone }: { label: string; value: string; tone: "info" | "success" | "warning" | "danger" }) {
+  const color = tone === "success" ? "var(--mf-success)" : tone === "warning" ? "var(--mf-warning)" : tone === "danger" ? "var(--mf-danger)" : "var(--mf-primary)";
+  return <div className={page.kpi}><div className={page.kpiLabel}><span>{label}</span><span className={page.kpiDot} style={{ background: color }} /></div><span className={page.kpiValue}>{value}</span></div>;
 }
 
-function FilterChip({
-  value,
-  label,
-  current,
-  onChange,
-}: {
-  value: Filter;
-  label: string;
-  current: Filter;
-  onChange: (value: Filter) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`${page.chip} ${current === value ? page.chipActive : ""}`}
-      onClick={() => onChange(value)}
-    >
-      {label}
-    </button>
-  );
+function FilterChip({ value, label, current, onChange }: { value: Filter; label: string; current: Filter; onChange: (value: Filter) => void }) {
+  return <button type="button" className={`${page.chip} ${current === value ? page.chipActive : ""}`} onClick={() => onChange(value)}>{label}</button>;
 }
 
-function JobRow({
-  job,
-  t,
-}: { job: JobWithMailbox; t: (key: TranslationKey) => string }) {
-  const percent =
-    job.total_discovered > 0
-      ? Math.min(100, Math.round((job.processed / job.total_discovered) * 100))
-      : job.state === "completed"
-        ? 100
-        : 0;
-  const tone =
-    job.state === "completed"
-      ? page.success
-      : job.state === "failed"
-        ? page.danger
-        : job.state === "paused"
-          ? page.warning
-          : job.state === "running"
-            ? page.info
-            : page.neutral;
-  const etaMinutes =
-    job.ratePerMinute && job.ratePerMinute > 0
-      ? job.remaining / job.ratePerMinute
-      : null;
+function JobRow({ job, t }: { job: JobWithMailbox; t: (key: TranslationKey) => string }) {
+  const percent = job.total_discovered > 0 ? Math.min(100, Math.round((job.processed / job.total_discovered) * 100)) : job.state === "completed" ? 100 : 0;
+  const tone = job.state === "completed" ? page.success : job.state === "failed" ? page.danger : job.state === "paused" ? page.warning : job.state === "running" ? page.info : page.neutral;
+  const etaMinutes = job.ratePerMinute && job.ratePerMinute > 0 ? job.remaining / job.ratePerMinute : null;
+  const canReview = (job.mode === "dry_run" || job.mode === "review") && job.processed > 0;
 
   return (
     <tr>
       <td>
         <strong>{t("processing.historicalAnalysis")}</strong>
-        <div
-          style={{ marginTop: 3, color: "var(--mf-text-muted)", fontSize: 11 }}
-        >
-          {job.mode === "dry_run" ? t("processing.safeDryRun") : job.mode}
-        </div>
+        <div style={{ marginTop: 3, color: "var(--mf-text-muted)", fontSize: 11 }}>{job.mode === "dry_run" ? t("processing.safeDryRun") : job.mode}</div>
+        {canReview && (
+          <Link
+            className="btn secondary"
+            style={{ display: "inline-flex", marginTop: 8, minHeight: 28, padding: "4px 8px", fontSize: 11 }}
+            href={`/app/processing/review?account=${encodeURIComponent(job.account_id)}&job=${encodeURIComponent(job.id)}`}
+          >
+            Review-Gruppen
+          </Link>
+        )}
       </td>
       <td>{job.mailbox}</td>
       <td>
         <div style={{ display: "grid", gap: 6, minWidth: 220 }}>
-          <strong>
-            {percent}% · {job.processed.toLocaleString()} /{" "}
-            {job.total_discovered.toLocaleString()}
-          </strong>
-          <div className={page.progressTrack}>
-            <div
-              className={page.progressBar}
-              style={{
-                width: `${percent}%`,
-                background:
-                  job.state === "failed" ? "var(--mf-danger)" : undefined,
-              }}
-            />
-          </div>
-          <div style={{ color: "var(--mf-text-muted)", fontSize: 11 }}>
-            {t("processing.successful")}: {job.successful.toLocaleString()} ·{" "}
-            {t("processing.reviewRequired")}: {job.review_required.toLocaleString()} ·{" "}
-            {t("processing.failed")}: {job.failed.toLocaleString()}
-          </div>
-          {job.ratePerMinute !== null && job.ratePerMinute > 0 && (
-            <div style={{ color: "var(--mf-text-muted)", fontSize: 11 }}>
-              {t("processing.rate")}: {job.ratePerMinute.toFixed(1)}/min
-              {etaMinutes !== null && (
-                <>
-                  {" · "}
-                  {t("processing.eta")}: {formatDurationMinutes(etaMinutes)}
-                </>
-              )}
-            </div>
-          )}
-          {job.last_error && (
-            <div style={{ color: "var(--mf-danger)", fontSize: 11 }}>
-              {job.last_error}
-            </div>
-          )}
+          <strong>{percent}% · {job.processed.toLocaleString()} / {job.total_discovered.toLocaleString()}</strong>
+          <div className={page.progressTrack}><div className={page.progressBar} style={{ width: `${percent}%`, background: job.state === "failed" ? "var(--mf-danger)" : undefined }} /></div>
+          <div style={{ color: "var(--mf-text-muted)", fontSize: 11 }}>{t("processing.successful")}: {job.successful.toLocaleString()} · {t("processing.reviewRequired")}: {job.review_required.toLocaleString()} · {t("processing.failed")}: {job.failed.toLocaleString()}</div>
+          {job.ratePerMinute !== null && job.ratePerMinute > 0 && <div style={{ color: "var(--mf-text-muted)", fontSize: 11 }}>{t("processing.rate")}: {job.ratePerMinute.toFixed(1)}/min{etaMinutes !== null && <> · {t("processing.eta")}: {formatDurationMinutes(etaMinutes)}</>}</div>}
+          {job.last_error && <div style={{ color: "var(--mf-danger)", fontSize: 11 }}>{job.last_error}</div>}
         </div>
       </td>
-      <td>
-        <span className={`${page.badge} ${tone}`}>
-          {statusLabel(job.state, t)}
-        </span>
-      </td>
+      <td><span className={`${page.badge} ${tone}`}>{statusLabel(job.state, t)}</span></td>
       <td>{formatTime(job.created_at)}</td>
       <td>{job.remaining.toLocaleString()}</td>
     </tr>
   );
 }
 
-function statusLabel(
-  state: string,
-  t: (key: TranslationKey) => string,
-): string {
+function statusLabel(state: string, t: (key: TranslationKey) => string): string {
   if (state === "running") return t("processing.active");
   if (state === "paused") return t("processing.deferred");
   if (state === "completed") return t("processing.completed");
@@ -423,10 +274,7 @@ function statusLabel(
 }
 
 function formatTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function formatDurationMinutes(value: number): string {
@@ -438,9 +286,5 @@ function formatDurationMinutes(value: number): string {
 }
 
 function sameLocalDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
