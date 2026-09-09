@@ -1,0 +1,100 @@
+name: BaseHarbor bootstrap contract
+
+on:
+  pull_request:
+    paths:
+      - 'mailflow'
+      - 'scripts/mailflow-cli.sh'
+      - 'scripts/install-baseharbor.sh'
+      - '.github/workflows/baseharbor-bootstrap.yml'
+  workflow_dispatch:
+
+jobs:
+  shell-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate shell syntax and launcher mode
+        shell: bash
+        run: |
+          bash -n mailflow scripts/mailflow-cli.sh scripts/install-baseharbor.sh
+          test -x mailflow
+
+      - name: Reuse an existing BaseHarbor installation
+        shell: bash
+        run: |
+          test_root=$(mktemp -d)
+          fake_bin="$test_root/bin"
+          fake_home="$test_root/home"
+          mkdir -p "$fake_bin" "$fake_home"
+
+          cat > "$fake_bin/docker" <<'EOF'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = info ]; then exit 0; fi
+          exit 0
+          EOF
+          chmod +x "$fake_bin/docker"
+
+          cat > "$fake_bin/baha" <<'EOF'
+          #!/usr/bin/env bash
+          exit 0
+          EOF
+          chmod +x "$fake_bin/baha"
+
+          PATH="$fake_bin:/usr/bin:/bin" \
+          HOME="$fake_home" \
+          MAILFLOW_ROOT="$GITHUB_WORKSPACE" \
+          bash scripts/install-baseharbor.sh
+
+      - name: Install a missing BaseHarbor CLI without host Go
+        shell: bash
+        run: |
+          test_root=$(mktemp -d)
+          fake_bin="$test_root/bin"
+          fake_home="$test_root/home"
+          mkdir -p "$fake_bin" "$fake_home"
+
+          cat > "$fake_bin/git" <<'EOF'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = clone ]; then
+            dest="${@: -1}"
+            mkdir -p "$dest"
+            exit 0
+          fi
+          exit 0
+          EOF
+          chmod +x "$fake_bin/git"
+
+          cat > "$fake_bin/docker" <<'EOF'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = info ]; then exit 0; fi
+          if [ "${1:-}" = run ]; then
+            out=""
+            prev=""
+            for arg in "$@"; do
+              if [ "$prev" = -v ] && [[ "$arg" == *:/out ]]; then
+                out="${arg%:/out}"
+                break
+              fi
+              prev="$arg"
+            done
+            test -n "$out"
+            mkdir -p "$out"
+            cat > "$out/baha" <<'BAHA'
+          #!/usr/bin/env bash
+          exit 0
+          BAHA
+            chmod +x "$out/baha"
+            exit 0
+          fi
+          exit 0
+          EOF
+          chmod +x "$fake_bin/docker"
+
+          PATH="$fake_bin:/usr/bin:/bin" \
+          HOME="$fake_home" \
+          MAILFLOW_ROOT="$GITHUB_WORKSPACE" \
+          bash scripts/install-baseharbor.sh
+
+          test -x "$fake_home/.local/bin/baha"

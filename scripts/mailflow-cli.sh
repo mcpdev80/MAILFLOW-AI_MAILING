@@ -14,6 +14,12 @@ TLS_COMPOSE_FILE="$ROOT/infrastructure/docker-compose.custom-tls.yml"
 BACKUP_ROOT="$ROOT/.mailflow/backups"
 RUNTIME_MODE="${MAILFLOW_RUNTIME:-baseharbor}"
 
+if [ -n "${HOME:-}" ]; then
+  LOCAL_BIN="${XDG_BIN_HOME:-$HOME/.local/bin}"
+  PATH="$LOCAL_BIN:$PATH"
+  export PATH
+fi
+
 fail() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 say() { printf '\n==> %s\n' "$*"; }
 need() { command -v "$1" >/dev/null 2>&1 || fail "$2"; }
@@ -43,7 +49,7 @@ ensure_checkout() {
 
 ensure_baseharbor() {
   ensure_checkout
-  need baha "BaseHarbor CLI 'baha' is required. Install BaseHarbor first."
+  need baha "BaseHarbor CLI 'baha' is missing. Run './mailflow install' once to install and initialize it automatically."
 }
 
 standalone_compose() {
@@ -218,51 +224,33 @@ cmd_update() {
   fail "Update failed; previous code was restored."
 }
 
-usage() {
-  cat <<'EOF'
-MailFlow lifecycle CLI
-
-BaseHarbor is the default self-host runtime. The familiar MailFlow commands stay
-stable while infrastructure operations are delegated to baha.
-
-Usage:
-  ./mailflow install
-  ./mailflow start
-  ./mailflow stop
-  ./mailflow restart
-  ./mailflow status
-  ./mailflow doctor
-  ./mailflow update
-  ./mailflow backup
-  ./mailflow restore <backup-directory> [--yes]
-
-Equivalent BaseHarbor operations:
-  start    -> baha app apply
-  stop     -> baha app down
-  restart  -> baha app down && baha app up
-  status   -> baha app status
-  doctor   -> baha app doctor
-
-Standalone compatibility for existing deployments is explicit:
-  MAILFLOW_RUNTIME=standalone ./mailflow start
-
-The standalone runtime uses infrastructure/docker-compose.standalone.yml.
-New guided installations use BaseHarbor.
-EOF
-}
-
-command_name="${1:-help}"
+cmd="${1:-help}"
 shift || true
-case "$command_name" in
+case "$cmd" in
   install) cmd_install "$@" ;;
-  start|up) cmd_start "$@" ;;
-  stop|down) cmd_stop "$@" ;;
+  start) cmd_start "$@" ;;
+  stop) cmd_stop "$@" ;;
   restart) cmd_restart "$@" ;;
-  update) cmd_update "$@" ;;
   status) cmd_status "$@" ;;
   doctor) cmd_doctor "$@" ;;
   backup) cmd_backup "$@" ;;
   restore) cmd_restore "$@" ;;
-  help|-h|--help) usage ;;
-  *) usage; fail "Unknown command: $command_name" ;;
+  update) cmd_update "$@" ;;
+  help|-h|--help)
+    cat <<'EOF'
+Usage: ./mailflow <command>
+
+Commands:
+  install          Install and initialize MailFlow with BaseHarbor
+  start            Start MailFlow
+  stop             Stop MailFlow
+  restart          Restart MailFlow
+  status           Show MailFlow and BaseHarbor status
+  doctor           Run health checks
+  backup           Create a MailFlow-managed backup
+  restore DIR      Restore a MailFlow-managed backup
+  update           Update MailFlow with rollback on failure
+EOF
+    ;;
+  *) fail "Unknown command: $cmd" ;;
 esac
