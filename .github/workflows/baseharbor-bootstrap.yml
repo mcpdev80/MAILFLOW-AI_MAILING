@@ -98,3 +98,86 @@ jobs:
           bash scripts/install-baseharbor.sh
 
           test -x "$fake_home/.local/bin/baha"
+
+      - name: Recover automatically when the default PostgreSQL port is occupied
+        shell: bash
+        run: |
+          test_root=$(mktemp -d)
+          fake_bin="$test_root/bin"
+          fake_home="$test_root/home"
+          fake_repo="$test_root/mailflow"
+          state="$test_root/state"
+          mkdir -p "$fake_bin" "$fake_home" "$fake_repo/.git" "$state"
+          cp baseharbor.yaml .env.example "$fake_repo/"
+
+          cat > "$fake_bin/docker" <<'EOF'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = info ]; then exit 0; fi
+          exit 0
+          EOF
+          chmod +x "$fake_bin/docker"
+
+          cat > "$fake_bin/ss" <<'EOF'
+          #!/usr/bin/env bash
+          exit 0
+          EOF
+          chmod +x "$fake_bin/ss"
+
+          cat > "$fake_bin/baha" <<'EOF'
+          #!/usr/bin/env bash
+          set -eu
+          root="${MAILFLOW_ROOT:?}"
+          state="${MAILFLOW_TEST_STATE:?}"
+          cmd="${1:-}"
+          sub="${2:-}"
+
+          if [ "$cmd" = status ]; then
+            [ -f "$state/ready" ] && exit 0
+            exit 1
+          fi
+
+          if [ "$cmd" = up ]; then
+            mkdir -p "$root/.baseharbor/runtime"
+            if [ ! -f "$root/.baseharbor/runtime/runtime.env" ]; then
+              cat > "$root/.baseharbor/runtime/runtime.env" <<'RUNTIME'
+          BASEHARBOR_POSTGRES_DB=baseharbor
+          BASEHARBOR_POSTGRES_USER=baseharbor
+          BASEHARBOR_POSTGRES_PASSWORD=test-password
+          BASEHARBOR_POSTGRES_PORT=5432
+          BASEHARBOR_OPENBAO_PORT=8200
+          RUNTIME
+              chmod 600 "$root/.baseharbor/runtime/runtime.env"
+            fi
+            count=0
+            [ ! -f "$state/up-count" ] || count="$(cat "$state/up-count")"
+            count=$((count + 1))
+            printf '%s' "$count" > "$state/up-count"
+            if [ "$count" -eq 1 ]; then
+              printf '%s\n' 'Error response from daemon: Bind for 127.0.0.1:5432 failed: port is already allocated' >&2
+              exit 1
+            fi
+            touch "$state/ready"
+            exit 0
+          fi
+
+          if [ "$cmd" = openbao ] && [ "$sub" = status ]; then
+            [ -f "$state/ready" ] && exit 0
+            exit 1
+          fi
+
+          if [ "$cmd" = app ]; then
+            exit 0
+          fi
+
+          exit 0
+          EOF
+          chmod +x "$fake_bin/baha"
+
+          PATH="$fake_bin:/usr/bin:/bin" \
+          HOME="$fake_home" \
+          MAILFLOW_ROOT="$fake_repo" \
+          MAILFLOW_TEST_STATE="$state" \
+          bash scripts/install-baseharbor.sh
+
+          grep -q '^BASEHARBOR_POSTGRES_PORT=15432$' "$fake_repo/.baseharbor/runtime/runtime.env"
+          test "$(cat "$state/up-count")" = 2
