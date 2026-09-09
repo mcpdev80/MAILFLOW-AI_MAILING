@@ -7,16 +7,85 @@
 
 MailFlow automatically classifies incoming emails, supports AI-assisted mail workflows, and can run with local or hosted LLMs.
 
-## Quick Start (Self-hosted)
+## Quick Start (self-hosted with BaseHarbor)
+
+MailFlow uses [BaseHarbor](https://github.com/mcpdev80/baseharbor) as its recommended self-host runtime. BaseHarbor manages PostgreSQL, Valkey/Redis, application secrets and the backend network. MailFlow itself remains a normal containerized application and consumes only standard runtime contracts such as `DATABASE_URL` and `REDIS_URL`.
+
+Prerequisites:
+
+- Docker + Docker Compose v2
+- BaseHarbor installed and its control plane healthy
+- `baha` available in `PATH`
 
 ```bash
 git clone https://github.com/mcpdev80/MAILFLOW-AI_MAILING.git
 cd MAILFLOW-AI_MAILING
-cp .env.example .env
-docker compose -f infrastructure/docker-compose.yml up -d --build
+./mailflow install
 ```
 
-This brings up the application stack. See the documentation under [`docs/`](docs/) for configuration, deployment, and operational details.
+The installer creates the local application configuration when needed, stores the required `SECRET_KEY` through BaseHarbor/OpenBao and then runs the equivalent of:
+
+```bash
+baha app apply
+baha app doctor
+```
+
+After installation, use the MailFlow CLI. It keeps the MailFlow-facing commands stable while delegating platform lifecycle operations to `baha`:
+
+```bash
+./mailflow start
+./mailflow stop
+./mailflow restart
+./mailflow status
+./mailflow doctor
+./mailflow update
+./mailflow backup
+./mailflow restore .mailflow/backups/<backup> --yes
+```
+
+The primary Compose file, `infrastructure/docker-compose.yml`, contains only MailFlow workloads (`api`, `worker`, `web`, `edge`). PostgreSQL, Valkey and managed secrets are supplied by BaseHarbor and are intentionally not duplicated in the MailFlow stack.
+
+### What the MailFlow CLI delegates
+
+| MailFlow command | Platform operation |
+| --- | --- |
+| `./mailflow start` | `baha app apply` |
+| `./mailflow stop` | `baha app down` |
+| `./mailflow restart` | `baha app down` + `baha app up` |
+| `./mailflow status` | `baha app status` |
+| `./mailflow doctor` | `baha app doctor` |
+
+`backup` and `restore` remain MailFlow-aware for now because they also cover MailFlow-owned attachment data. Database access is obtained from the standard BaseHarbor application environment contract. When BaseHarbor gains its complete application backup/restore API, this wrapper can delegate the infrastructure portion as well.
+
+## Standalone compatibility
+
+MailFlow can still run without BaseHarbor. The all-in-one legacy stack is intentionally isolated in:
+
+```text
+infrastructure/docker-compose.standalone.yml
+```
+
+For an existing standalone installation:
+
+```bash
+MAILFLOW_RUNTIME=standalone ./mailflow start
+MAILFLOW_RUNTIME=standalone ./mailflow stop
+MAILFLOW_RUNTIME=standalone ./mailflow status
+```
+
+Standalone mode uses its own PostgreSQL and Redis containers. It is an explicit compatibility path, not the recommended self-host default.
+
+## BaseHarbor runtime contract
+
+MailFlow does not require a BaseHarbor SDK, login or proprietary database protocol. At runtime it consumes the same normal values it can receive from any deployment environment:
+
+```text
+DATABASE_URL
+REDIS_URL
+SECRET_KEY
+```
+
+The API and Alembic migrations accept conventional PostgreSQL URLs (`postgresql://...`) and adapt them internally to the async SQLAlchemy driver used by MailFlow.
 
 ## Current capabilities
 
@@ -64,8 +133,6 @@ This repository is distributed under the **GNU Affero General Public License v3.
 
 The AGPL permits commercial use, modification, distribution, and paid operation of the software, provided its conditions are met. In particular, a party that modifies a covered version and lets users interact with it remotely through a computer network must provide those users an opportunity to receive the Corresponding Source of that modified version as required by AGPL section 13.
 
-When distributing modified source versions, the AGPL also requires preservation of applicable notices and prominent notices that the work was modified, including a relevant date.
-
 There is **no separate commercial-license requirement provided by this repository**. No proprietary license to third-party upstream code is granted here.
 
 ## Provenance and copyright
@@ -83,18 +150,3 @@ For detailed provenance and copyright scope, see [`NOTICE.md`](NOTICE.md), [`COP
 If you copy, fork, modify, redistribute, or operate a modified covered version of this project, review the full AGPL-3.0 terms in [`LICENSE`](LICENSE). Among other things, do not remove applicable copyright, license, warranty, provenance, or modification notices that the license requires to remain intact.
 
 The project name and upstream branding are not claimed here as exclusive trademarks of this fork.
-
-
-## Managed lifecycle commands
-
-After installation, manage the self-hosted instance from the checkout with one command:
-
-```bash
-./mailflow status
-./mailflow doctor
-./mailflow update
-./mailflow backup
-./mailflow restore .mailflow/backups/<backup>
-```
-
-`./mailflow update` creates a protected database/configuration/attachment backup before changing code, performs the normal migrations, validates API, worker, web and TLS, and automatically restores the previous commit and backup if the update fails. Backups are kept below `.mailflow/backups/` inside the installation directory and are never committed.

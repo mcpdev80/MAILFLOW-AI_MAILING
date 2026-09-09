@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 # Importar todos los modelos para registrarlos en Base.metadata
 from app.models import Base  # noqa: F401 — side-effect: registra todos los modelos
+from app.runtime_contract import sqlalchemy_async_database_url
 
 config = context.config
 if config.config_file_name is not None:
@@ -18,7 +19,8 @@ if config.config_file_name is not None:
 
 # DATABASE_URL del entorno tiene prioridad sobre el valor de alembic.ini, de modo
 # que las migraciones funcionan en cualquier despliegue (Docker, CI, self-host)
-# sin editar el .ini. Si no está, se usa el de alembic.ini.
+# sin editar el .ini. El valor sigue siendo el contrato PostgreSQL estándar; el
+# adaptador selecciona asyncpg únicamente dentro de MailFlow.
 _env_url = os.getenv("DATABASE_URL")
 if _env_url:
     config.set_main_option("sqlalchemy.url", _env_url)
@@ -33,7 +35,7 @@ def do_run_migrations(connection):
 
 
 async def run_async_migrations() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = sqlalchemy_async_database_url(config.get_main_option("sqlalchemy.url"))
     connectable = create_async_engine(url)
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

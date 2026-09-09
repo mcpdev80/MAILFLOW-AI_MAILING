@@ -1,0 +1,17 @@
+version: 1
+
+app:
+  name: mailflow
+  environment: production
+
+services:
+  postgres:
+    enabled: true
+  redis:
+    enabled: true
+  secrets:
+    enabled: true
+
+secrets:
+  required:
+    - name: SECRET_KEY
