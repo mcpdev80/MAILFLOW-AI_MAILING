@@ -23,9 +23,13 @@ class LLMProvider(Base):
     label: Mapped[str] = mapped_column(String(100))
     type: Mapped[str] = mapped_column(String(50))
 
-    # Provider endpoint and credential are instance-control-plane secrets.
+    # Provider endpoint and credentials are instance-control-plane settings.
+    # A credential can remain encrypted in MailFlow for standalone operation or
+    # be represented by a stable external secret reference. The reference is
+    # intentionally provider-neutral; BaseHarbor is one possible resolver.
     base_url: Mapped[str] = mapped_column(String(500))
     encrypted_api_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    api_key_secret_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Compatibility defaults retained for existing runtime paths.
     default_classification_model: Mapped[str] = mapped_column(String(200))
@@ -50,6 +54,15 @@ class LLMProvider(Base):
     encrypted_deep_api_key: Mapped[str | None] = mapped_column(String, nullable=True)
     encrypted_generation_api_key: Mapped[str | None] = mapped_column(
         String, nullable=True
+    )
+    fast_api_key_secret_ref: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    deep_api_key_secret_ref: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    generation_api_key_secret_ref: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
     )
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
