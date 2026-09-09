@@ -88,7 +88,7 @@ ensure_control_plane() {
   fi
 
   say "Starting BaseHarbor control plane"
-  baha up
+  baha up --yes
 
   for attempt in $(seq 1 30); do
     if baha openbao status >/dev/null 2>&1; then
