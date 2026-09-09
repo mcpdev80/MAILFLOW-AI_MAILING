@@ -21,7 +21,7 @@ jobs:
           bash -n mailflow scripts/mailflow-cli.sh scripts/install-baseharbor.sh
           test -x mailflow
 
-      - name: Reuse an existing BaseHarbor installation
+      - name: Reuse a compatible BaseHarbor installation
         shell: bash
         run: |
           test_root=$(mktemp -d)
@@ -38,6 +38,10 @@ jobs:
 
           cat > "$fake_bin/baha" <<'EOF'
           #!/usr/bin/env bash
+          if [ "${1:-}" = up ] && [ "${2:-}" = --help ]; then
+            echo 'Usage: baha up [--yes]'
+            exit 0
+          fi
           exit 0
           EOF
           chmod +x "$fake_bin/baha"
@@ -46,6 +50,8 @@ jobs:
           HOME="$fake_home" \
           MAILFLOW_ROOT="$GITHUB_WORKSPACE" \
           bash scripts/install-baseharbor.sh
+
+          test ! -e "$fake_home/.local/bin/baha"
 
       - name: Install a missing BaseHarbor CLI without host Go
         shell: bash
@@ -83,6 +89,10 @@ jobs:
             mkdir -p "$out"
             cat > "$out/baha" <<'BAHA'
           #!/usr/bin/env bash
+          if [ "${1:-}" = up ] && [ "${2:-}" = --help ]; then
+            echo 'Usage: baha up [--yes]'
+            exit 0
+          fi
           exit 0
           BAHA
             chmod +x "$out/baha"
@@ -98,3 +108,74 @@ jobs:
           bash scripts/install-baseharbor.sh
 
           test -x "$fake_home/.local/bin/baha"
+          "$fake_home/.local/bin/baha" up --help | grep -q -- '--yes'
+
+      - name: Refresh an outdated BaseHarbor CLI automatically
+        shell: bash
+        run: |
+          test_root=$(mktemp -d)
+          fake_bin="$test_root/bin"
+          fake_home="$test_root/home"
+          mkdir -p "$fake_bin" "$fake_home/.local/bin"
+
+          cat > "$fake_bin/git" <<'EOF'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = clone ]; then
+            dest="${@: -1}"
+            mkdir -p "$dest"
+            exit 0
+          fi
+          exit 0
+          EOF
+          chmod +x "$fake_bin/git"
+
+          cat > "$fake_bin/docker" <<'EOF'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = info ]; then exit 0; fi
+          if [ "${1:-}" = run ]; then
+            out=""
+            prev=""
+            for arg in "$@"; do
+              if [ "$prev" = -v ] && [[ "$arg" == *:/out ]]; then
+                out="${arg%:/out}"
+                break
+              fi
+              prev="$arg"
+            done
+            test -n "$out"
+            mkdir -p "$out"
+            cat > "$out/baha" <<'BAHA'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = up ] && [ "${2:-}" = --help ]; then
+            echo 'Usage: baha up [--yes]'
+            exit 0
+          fi
+          exit 0
+          BAHA
+            chmod +x "$out/baha"
+            exit 0
+          fi
+          exit 0
+          EOF
+          chmod +x "$fake_bin/docker"
+
+          cat > "$fake_home/.local/bin/baha" <<'EOF'
+          #!/usr/bin/env bash
+          if [ "${1:-}" = up ] && [ "${2:-}" = --help ]; then
+            echo 'Usage: baha up'
+            exit 0
+          fi
+          if [ "${1:-}" = up ] && [ "${2:-}" = --yes ]; then
+            echo 'old baha does not accept arguments' >&2
+            exit 2
+          fi
+          exit 0
+          EOF
+          chmod +x "$fake_home/.local/bin/baha"
+
+          PATH="$fake_bin:/usr/bin:/bin" \
+          HOME="$fake_home" \
+          MAILFLOW_ROOT="$GITHUB_WORKSPACE" \
+          bash scripts/install-baseharbor.sh
+
+          "$fake_home/.local/bin/baha" up --help | grep -q -- '--yes'

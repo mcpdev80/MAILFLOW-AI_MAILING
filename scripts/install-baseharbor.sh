@@ -37,19 +37,12 @@ prepare_local_bin() {
   export PATH
 }
 
-install_baha() {
-  if command -v baha >/dev/null 2>&1; then
-    printf '==> BaseHarbor CLI detected: %s\n' "$(command -v baha)"
-    return
-  fi
+baha_supports_required_contract() {
+  command -v baha >/dev/null 2>&1 || return 1
+  baha up --help 2>&1 | grep -q -- '--yes'
+}
 
-  prepare_local_bin
-  if [ -x "$LOCAL_BIN/baha" ]; then
-    printf '==> BaseHarbor CLI detected: %s\n' "$LOCAL_BIN/baha"
-    return
-  fi
-
-  say "Installing BaseHarbor CLI"
+build_and_install_baha() {
   BOOTSTRAP_TMP="$(mktemp -d)"
   local source_dir="$BOOTSTRAP_TMP/baseharbor" out_dir="$BOOTSTRAP_TMP/out"
   mkdir -p "$out_dir"
@@ -72,7 +65,25 @@ install_baha() {
   chmod 755 "$LOCAL_BIN/baha"
   hash -r 2>/dev/null || true
   command -v baha >/dev/null 2>&1 || fail "BaseHarbor CLI was installed but is not executable."
-  printf '[OK] BaseHarbor CLI installed at %s\n' "$LOCAL_BIN/baha"
+  baha_supports_required_contract || fail "The installed BaseHarbor CLI does not support the required MailFlow bootstrap contract."
+}
+
+install_baha() {
+  prepare_local_bin
+
+  if baha_supports_required_contract; then
+    printf '==> Compatible BaseHarbor CLI detected: %s\n' "$(command -v baha)"
+    return
+  fi
+
+  if command -v baha >/dev/null 2>&1; then
+    printf '==> BaseHarbor CLI at %s is outdated; refreshing automatically\n' "$(command -v baha)"
+  else
+    say "Installing BaseHarbor CLI"
+  fi
+
+  build_and_install_baha
+  printf '[OK] Compatible BaseHarbor CLI installed at %s\n' "$LOCAL_BIN/baha"
 }
 
 openbao_status_output() {
@@ -130,7 +141,6 @@ need openssl "openssl is required."
 [ -f "$ROOT/baseharbor.yaml" ] || fail "baseharbor.yaml is missing."
 docker info >/dev/null 2>&1 || fail "Docker is not reachable."
 
-prepare_local_bin
 install_baha
 
 cd "$ROOT"
