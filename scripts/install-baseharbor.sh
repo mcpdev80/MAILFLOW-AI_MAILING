@@ -33,7 +33,6 @@ set_env() {
 prepare_local_bin() {
   [ -n "${HOME:-}" ] || fail "HOME is required to install the BaseHarbor CLI automatically."
   mkdir -p "$LOCAL_BIN"
-  chmod 700 "$LOCAL_BIN" 2>/dev/null || true
   PATH="$LOCAL_BIN:$PATH"
   export PATH
 }
@@ -140,6 +139,7 @@ if [ ! -f "$ENV_FILE" ]; then
   chmod 600 "$ENV_FILE"
 fi
 set_env MAILFLOW_DEPLOYMENT_SOURCE baseharbor "$ENV_FILE"
+export COMPOSE_ENV_FILES="${COMPOSE_ENV_FILES:-$ENV_FILE}"
 
 ensure_control_plane
 
