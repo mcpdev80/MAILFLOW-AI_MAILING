@@ -10,6 +10,7 @@ BASEHARBOR_REPO="${MAILFLOW_BASEHARBOR_REPO:-https://github.com/mcpdev80/basehar
 BASEHARBOR_REF="${MAILFLOW_BASEHARBOR_REF:-main}"
 RECOVERY_ROOT="${XDG_DATA_HOME:-${HOME:-}/.local/share}/baseharbor/recovery"
 RECOVERY_FILE="${MAILFLOW_BASEHARBOR_RECOVERY_FILE:-$RECOVERY_ROOT/openbao-recovery.json}"
+RUNTIME_ENV="$ROOT/.baseharbor/runtime/runtime.env"
 
 cleanup() {
   rm -f "$APPLY_LOG"
@@ -28,6 +29,11 @@ set_env() {
   else
     printf '%s=%s\n' "$key" "$value" >> "$file"
   fi
+}
+get_env_file() {
+  local key="$1" file="$2"
+  [ -f "$file" ] || return 0
+  awk -F= -v k="$key" '$1==k {sub(/^[^=]*=/, ""); print; exit}' "$file"
 }
 
 prepare_local_bin() {
@@ -75,6 +81,67 @@ install_baha() {
   printf '[OK] BaseHarbor CLI installed at %s\n' "$LOCAL_BIN/baha"
 }
 
+port_is_free() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    [ -z "$(ss -ltnH "sport = :$port" 2>/dev/null)" ]
+    return
+  fi
+  ! (echo >/dev/tcp/127.0.0.1/"$port") >/dev/null 2>&1
+}
+
+find_free_port() {
+  local port="$1" limit=$((port + 2000))
+  while [ "$port" -lt "$limit" ]; do
+    if port_is_free "$port"; then
+      printf '%s\n' "$port"
+      return 0
+    fi
+    port=$((port + 1))
+  done
+  return 1
+}
+
+recover_control_plane_port_conflict() {
+  local output="$1" conflict pg_port openbao_port new_port key start
+  conflict="$(printf '%s\n' "$output" | sed -n 's/.*Bind for 127\.0\.0\.1:\([0-9][0-9]*\) failed.*/\1/p' | tail -1)"
+  [ -n "$conflict" ] || return 1
+  [ -f "$RUNTIME_ENV" ] || return 1
+
+  pg_port="$(get_env_file BASEHARBOR_POSTGRES_PORT "$RUNTIME_ENV")"
+  openbao_port="$(get_env_file BASEHARBOR_OPENBAO_PORT "$RUNTIME_ENV")"
+
+  if [ "$conflict" = "$pg_port" ]; then
+    key=BASEHARBOR_POSTGRES_PORT
+    start=15432
+  elif [ "$conflict" = "$openbao_port" ]; then
+    key=BASEHARBOR_OPENBAO_PORT
+    start=18200
+  else
+    return 1
+  fi
+
+  new_port="$(find_free_port "$start")" || return 1
+  set_env "$key" "$new_port" "$RUNTIME_ENV"
+  chmod 600 "$RUNTIME_ENV" 2>/dev/null || true
+  printf '[INFO] Host port %s is already in use; BaseHarbor %s moved to 127.0.0.1:%s\n' "$conflict" "$key" "$new_port"
+}
+
+start_control_plane() {
+  local attempt output
+  for attempt in 1 2 3; do
+    if output="$(baha up 2>&1)"; then
+      printf '%s\n' "$output"
+      return 0
+    fi
+    printf '%s\n' "$output" >&2
+    if ! recover_control_plane_port_conflict "$output"; then
+      return 1
+    fi
+  done
+  return 1
+}
+
 openbao_status_output() {
   baha openbao status 2>&1 || true
 }
@@ -88,7 +155,7 @@ ensure_control_plane() {
   fi
 
   say "Starting BaseHarbor control plane"
-  baha up
+  start_control_plane || fail "BaseHarbor control plane could not be started."
 
   for attempt in $(seq 1 30); do
     if baha openbao status >/dev/null 2>&1; then
