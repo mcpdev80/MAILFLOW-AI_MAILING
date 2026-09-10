@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT="${MAILFLOW_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ENV_FILE="$ROOT/.env"
-APPLY_LOG="${TMPDIR:-/tmp}/mailflow-baseharbor-apply.$$"
 BOOTSTRAP_TMP=""
 LOCAL_BIN="${XDG_BIN_HOME:-${HOME:-}/.local/bin}"
 BASEHARBOR_REPO="${MAILFLOW_BASEHARBOR_REPO:-https://github.com/mcpdev80/baseharbor.git}"
@@ -12,7 +11,6 @@ RECOVERY_ROOT="${XDG_DATA_HOME:-${HOME:-}/.local/share}/baseharbor/recovery"
 RECOVERY_FILE="${MAILFLOW_BASEHARBOR_RECOVERY_FILE:-$RECOVERY_ROOT/openbao-recovery.json}"
 
 cleanup() {
-  rm -f "$APPLY_LOG"
   [ -z "$BOOTSTRAP_TMP" ] || rm -rf "$BOOTSTRAP_TMP"
 }
 trap cleanup EXIT
@@ -38,8 +36,11 @@ prepare_local_bin() {
 }
 
 baha_supports_required_contract() {
+  local help
   command -v baha >/dev/null 2>&1 || return 1
-  baha up --help 2>&1 | grep -q -- '--yes'
+  help="$(baha up --help 2>&1)" || return 1
+  printf '%s\n' "$help" | grep -q -- '--yes' || return 1
+  printf '%s\n' "$help" | grep -q -- '--recovery-file' || return 1
 }
 
 build_and_install_baha() {
@@ -86,56 +87,8 @@ install_baha() {
   printf '[OK] Compatible BaseHarbor CLI installed at %s\n' "$LOCAL_BIN/baha"
 }
 
-openbao_status_output() {
-  baha openbao status 2>&1 || true
-}
-
-ensure_control_plane() {
-  local status attempt
-
-  if baha status >/dev/null 2>&1; then
-    printf '==> BaseHarbor control plane is ready\n'
-    return
-  fi
-
-  say "Starting BaseHarbor control plane"
-  baha up --yes
-
-  for attempt in $(seq 1 30); do
-    if baha openbao status >/dev/null 2>&1; then
-      baha status >/dev/null 2>&1 && {
-        printf '[OK] BaseHarbor control plane is ready\n'
-        return
-      }
-    fi
-
-    status="$(openbao_status_output)"
-
-    if printf '%s\n' "$status" | grep -qE 'not initialized|initialized[[:space:]]+no'; then
-      if [ -e "$RECOVERY_FILE" ]; then
-        fail "OpenBao is not initialized but recovery file $RECOVERY_FILE already exists. Move or back up that file before creating a new trust plane."
-      fi
-      mkdir -p "$RECOVERY_ROOT"
-      chmod 700 "$RECOVERY_ROOT"
-      if baha openbao bootstrap --recovery-file "$RECOVERY_FILE"; then
-        chmod 600 "$RECOVERY_FILE" 2>/dev/null || true
-        printf '[OK] OpenBao initialized; recovery material stored at %s\n' "$RECOVERY_FILE"
-      fi
-    elif printf '%s\n' "$status" | grep -qE 'OpenBao is sealed|unsealed[[:space:]]+no'; then
-      [ -f "$RECOVERY_FILE" ] || fail "OpenBao is sealed and recovery material was not found at $RECOVERY_FILE"
-      baha openbao unseal --recovery-file "$RECOVERY_FILE" || true
-    fi
-
-    sleep 2
-  done
-
-  baha status || true
-  fail "BaseHarbor control plane did not become ready."
-}
-
 need git "git is required."
 need docker "Docker is required."
-need openssl "openssl is required."
 
 [ -d "$ROOT/.git" ] || fail "Run this command from a MailFlow checkout."
 [ -f "$ROOT/baseharbor.yaml" ] || fail "baseharbor.yaml is missing."
@@ -151,26 +104,14 @@ fi
 set_env MAILFLOW_DEPLOYMENT_SOURCE baseharbor "$ENV_FILE"
 export COMPOSE_ENV_FILES="${COMPOSE_ENV_FILES:-$ENV_FILE}"
 
-ensure_control_plane
+recovery_dir="$(dirname "$RECOVERY_FILE")"
+mkdir -p "$recovery_dir"
+chmod 700 "$recovery_dir"
 
-printf '\n==> Preparing MailFlow application scope\n'
-if ! baha app apply >"$APPLY_LOG" 2>&1; then
-  if grep -q "required secrets check failed" "$APPLY_LOG"; then
-    printf '==> Creating MailFlow SECRET_KEY in BaseHarbor/OpenBao\n'
-    openssl rand -hex 32 | baha app secret set SECRET_KEY --stdin
-  else
-    cat "$APPLY_LOG" >&2
-    fail "BaseHarbor could not prepare MailFlow."
-  fi
-else
-  cat "$APPLY_LOG"
-  : > "$APPLY_LOG"
-fi
+say "Starting MailFlow through BaseHarbor"
+baha up --yes --recovery-file "$RECOVERY_FILE"
 
-printf '\n==> Applying MailFlow through BaseHarbor\n'
-baha app apply
-
-printf '\n==> Verifying MailFlow\n'
+say "Verifying MailFlow"
 baha app doctor
 
 printf '\nMailFlow is ready.\n'
