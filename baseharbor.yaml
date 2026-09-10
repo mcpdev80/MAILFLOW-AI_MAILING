@@ -15,3 +15,6 @@ services:
 secrets:
   required:
     - name: SECRET_KEY
+      generate:
+        type: hex
+        bytes: 32

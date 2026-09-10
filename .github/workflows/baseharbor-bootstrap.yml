@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'mailflow'
+      - 'baseharbor.yaml'
       - 'scripts/mailflow-cli.sh'
       - 'scripts/install-baseharbor.sh'
       - '.github/workflows/baseharbor-bootstrap.yml'
@@ -21,12 +22,20 @@ jobs:
           bash -n mailflow scripts/mailflow-cli.sh scripts/install-baseharbor.sh
           test -x mailflow
 
+      - name: Validate generated secret contract
+        shell: bash
+        run: |
+          grep -q 'name: SECRET_KEY' baseharbor.yaml
+          grep -q 'type: hex' baseharbor.yaml
+          grep -q 'bytes: 32' baseharbor.yaml
+
       - name: Reuse a compatible BaseHarbor installation
         shell: bash
         run: |
           test_root=$(mktemp -d)
           fake_bin="$test_root/bin"
           fake_home="$test_root/home"
+          baha_log="$test_root/baha.log"
           mkdir -p "$fake_bin" "$fake_home"
 
           cat > "$fake_bin/docker" <<'EOF'
@@ -39,19 +48,23 @@ jobs:
           cat > "$fake_bin/baha" <<'EOF'
           #!/usr/bin/env bash
           if [ "${1:-}" = up ] && [ "${2:-}" = --help ]; then
-            echo 'Usage: baha up [--yes]'
+            echo 'Usage: baha up [--yes] [--recovery-file PATH]'
             exit 0
           fi
+          printf '%s\n' "$*" >> "${BAHA_LOG:?}"
           exit 0
           EOF
           chmod +x "$fake_bin/baha"
 
           PATH="$fake_bin:/usr/bin:/bin" \
           HOME="$fake_home" \
+          BAHA_LOG="$baha_log" \
           MAILFLOW_ROOT="$GITHUB_WORKSPACE" \
           bash scripts/install-baseharbor.sh
 
           test ! -e "$fake_home/.local/bin/baha"
+          grep -q '^up --yes --recovery-file ' "$baha_log"
+          grep -q '^app doctor$' "$baha_log"
 
       - name: Install a missing BaseHarbor CLI without host Go
         shell: bash
@@ -90,7 +103,7 @@ jobs:
             cat > "$out/baha" <<'BAHA'
           #!/usr/bin/env bash
           if [ "${1:-}" = up ] && [ "${2:-}" = --help ]; then
-            echo 'Usage: baha up [--yes]'
+            echo 'Usage: baha up [--yes] [--recovery-file PATH]'
             exit 0
           fi
           exit 0
@@ -109,6 +122,7 @@ jobs:
 
           test -x "$fake_home/.local/bin/baha"
           "$fake_home/.local/bin/baha" up --help | grep -q -- '--yes'
+          "$fake_home/.local/bin/baha" up --help | grep -q -- '--recovery-file'
 
       - name: Refresh an outdated BaseHarbor CLI automatically
         shell: bash
@@ -147,7 +161,7 @@ jobs:
             cat > "$out/baha" <<'BAHA'
           #!/usr/bin/env bash
           if [ "${1:-}" = up ] && [ "${2:-}" = --help ]; then
-            echo 'Usage: baha up [--yes]'
+            echo 'Usage: baha up [--yes] [--recovery-file PATH]'
             exit 0
           fi
           exit 0
@@ -162,12 +176,8 @@ jobs:
           cat > "$fake_home/.local/bin/baha" <<'EOF'
           #!/usr/bin/env bash
           if [ "${1:-}" = up ] && [ "${2:-}" = --help ]; then
-            echo 'Usage: baha up'
+            echo 'Usage: baha up [--yes]'
             exit 0
-          fi
-          if [ "${1:-}" = up ] && [ "${2:-}" = --yes ]; then
-            echo 'old baha does not accept arguments' >&2
-            exit 2
           fi
           exit 0
           EOF
@@ -179,3 +189,4 @@ jobs:
           bash scripts/install-baseharbor.sh
 
           "$fake_home/.local/bin/baha" up --help | grep -q -- '--yes'
+          "$fake_home/.local/bin/baha" up --help | grep -q -- '--recovery-file'
