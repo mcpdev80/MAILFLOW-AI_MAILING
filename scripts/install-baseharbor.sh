@@ -105,8 +105,10 @@ set_env MAILFLOW_DEPLOYMENT_SOURCE baseharbor "$ENV_FILE"
 export COMPOSE_ENV_FILES="${COMPOSE_ENV_FILES:-$ENV_FILE}"
 
 recovery_dir="$(dirname "$RECOVERY_FILE")"
-mkdir -p "$recovery_dir"
-chmod 700 "$recovery_dir"
+if [ ! -d "$recovery_dir" ]; then
+  mkdir -p "$recovery_dir"
+  chmod 700 "$recovery_dir"
+fi
 
 say "Starting MailFlow through BaseHarbor"
 baha up --yes --recovery-file "$RECOVERY_FILE"
