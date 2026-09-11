@@ -1,3 +1,11 @@
+{
+	auto_https disable_redirects
+}
+
+http:// {
+	redir https://{host}:{$MAILFLOW_HTTPS_PORT}{uri} 308
+}
+
 {$MAILFLOW_CADDY_ADDRESS:https://localhost} {
 	encode zstd gzip
 
