@@ -2,11 +2,26 @@
 	auto_https disable_redirects
 }
 
+(tls_acme) {
+}
+
+(tls_auto) {
+}
+
+(tls_local) {
+	tls internal
+}
+
+(tls_existing) {
+	tls /run/baseharbor/tls/cert.pem /run/baseharbor/tls/key.pem
+}
+
 http:// {
 	redir https://{host}:{$MAILFLOW_HTTPS_PORT}{uri} 308
 }
 
 {$MAILFLOW_CADDY_ADDRESS:https://localhost} {
+	import tls_{$BASEHARBOR_TLS_MODE:auto}
 	encode zstd gzip
 
 	@oauth_callback path_regexp oauth_callback ^/oauth/(gmail|microsoft)/callback$
