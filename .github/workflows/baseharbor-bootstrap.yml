@@ -7,6 +7,8 @@ on:
       - 'baseharbor.yaml'
       - 'scripts/mailflow-cli.sh'
       - 'scripts/install-baseharbor.sh'
+      - 'infrastructure/docker-compose.yml'
+      - 'infrastructure/caddy/Caddyfile'
       - '.github/workflows/baseharbor-bootstrap.yml'
   workflow_dispatch:
 
@@ -28,6 +30,26 @@ jobs:
           grep -q 'name: SECRET_KEY' baseharbor.yaml
           grep -q 'type: hex' baseharbor.yaml
           grep -q 'bytes: 32' baseharbor.yaml
+
+      - name: Validate BaseHarbor workload exposure contract
+        shell: bash
+        env:
+          SECRET_KEY: ci-only-placeholder-secret
+          BASEHARBOR_HOSTNAME: mail.example.test
+          BASEHARBOR_TLS_MODE: local
+          BASEHARBOR_TLS_CERT_DIR: /tmp
+          HTTP_PORT: '18080'
+          HTTPS_PORT: '18443'
+        run: |
+          docker compose -f infrastructure/docker-compose.yml config >/tmp/mailflow-compose.yml
+          grep -q 'https://mail.example.test:18443' /tmp/mailflow-compose.yml
+          docker run --rm \
+            -e MAILFLOW_CADDY_ADDRESS=https://mail.example.test \
+            -e MAILFLOW_HTTPS_PORT=18443 \
+            -e BASEHARBOR_TLS_MODE=local \
+            -v "$PWD/infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile
 
       - name: Reuse a compatible BaseHarbor installation
         shell: bash
