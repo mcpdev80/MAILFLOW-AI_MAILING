@@ -36,7 +36,7 @@ services:
       SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
       AUTH_MODE: ${AUTH_MODE:-single}
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required - managed by BaseHarbor/OpenBao}
       MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-baseharbor}
       MAILFLOW_BOOTSTRAP_LANGUAGE: ${MAILFLOW_BOOTSTRAP_LANGUAGE:-}
       MAILFLOW_TLS_MODE: ${MAILFLOW_TLS_MODE:-${BASEHARBOR_TLS_MODE:-}}
@@ -120,15 +120,17 @@ services:
     environment:
       NODE_ENV: production
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
-      WEB_AUTH: ${WEB_AUTH:-off}
+      # The BaseHarbor-managed setup wizard always creates an authenticated
+      # instance owner. Legacy no-auth self-hosting remains a standalone concern.
+      WEB_AUTH: "on"
       SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required - managed by BaseHarbor/OpenBao}
       BETTER_AUTH_URL: ${MAILFLOW_PUBLIC_URL:-https://${BASEHARBOR_HOSTNAME:-localhost}:${HTTPS_PORT:-443}}
       PASSKEY_RP_NAME: ${PASSKEY_RP_NAME:-MailFlow}
       PASSKEY_RP_ID: ${PASSKEY_RP_ID:-}
       PASSKEY_ORIGIN: ${PASSKEY_ORIGIN:-}
-      WEB_SECRET_KEY: ${WEB_SECRET_KEY:-}
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      WEB_SECRET_KEY: ${WEB_SECRET_KEY:?WEB_SECRET_KEY is required - managed by BaseHarbor/OpenBao}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required - managed by BaseHarbor/OpenBao}
       MAILFLOW_PUBLIC_URL: ${MAILFLOW_PUBLIC_URL:-https://${BASEHARBOR_HOSTNAME:-localhost}:${HTTPS_PORT:-443}}
       MAILFLOW_TLS_MODE: ${MAILFLOW_TLS_MODE:-${BASEHARBOR_TLS_MODE:-}}
       MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-baseharbor}

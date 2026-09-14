@@ -5,10 +5,12 @@ on:
     paths:
       - 'mailflow'
       - 'baseharbor.yaml'
+      - '.env.example'
       - 'scripts/mailflow-cli.sh'
       - 'scripts/install-baseharbor.sh'
       - 'infrastructure/docker-compose.yml'
       - 'infrastructure/caddy/Caddyfile'
+      - 'apps/api/alembic/versions/**'
       - '.github/workflows/baseharbor-bootstrap.yml'
   workflow_dispatch:
 
@@ -27,14 +29,21 @@ jobs:
       - name: Validate generated secret contract
         shell: bash
         run: |
-          grep -q 'name: SECRET_KEY' baseharbor.yaml
-          grep -q 'type: hex' baseharbor.yaml
-          grep -q 'bytes: 32' baseharbor.yaml
+          for secret in SECRET_KEY BETTER_AUTH_SECRET WEB_SECRET_KEY INTERNAL_API_SECRET; do
+            grep -q "name: $secret" baseharbor.yaml
+          done
+          test "$(grep -c 'type: hex' baseharbor.yaml)" -eq 4
+          test "$(grep -c 'bytes: 32' baseharbor.yaml)" -eq 4
+          grep -q 'revision = "033"' apps/api/alembic/versions/033_better_auth_schema.py
+          grep -q 'down_revision = "032"' apps/api/alembic/versions/033_better_auth_schema.py
 
-      - name: Validate BaseHarbor workload exposure contract
+      - name: Validate BaseHarbor workload exposure and auth contract
         shell: bash
         env:
           SECRET_KEY: ci-only-placeholder-secret
+          BETTER_AUTH_SECRET: ci-only-better-auth-secret
+          WEB_SECRET_KEY: ci-only-web-secret
+          INTERNAL_API_SECRET: ci-only-internal-api-secret
           BASEHARBOR_HOSTNAME: mail.example.test
           BASEHARBOR_TLS_MODE: local
           BASEHARBOR_TLS_CERT_DIR: /tmp
@@ -43,6 +52,8 @@ jobs:
         run: |
           docker compose -f infrastructure/docker-compose.yml config >/tmp/mailflow-compose.yml
           grep -q 'https://mail.example.test:18443' /tmp/mailflow-compose.yml
+          grep -A30 '^  web:' /tmp/mailflow-compose.yml | grep -q 'WEB_AUTH: "on"'
+          grep -A60 '^  api:' /tmp/mailflow-compose.yml | grep -q 'INTERNAL_API_SECRET: ci-only-internal-api-secret'
           docker run --rm \
             -e MAILFLOW_CADDY_ADDRESS=https://mail.example.test \
             -e MAILFLOW_HTTPS_PORT=18443 \
