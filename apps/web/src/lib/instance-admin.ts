@@ -4,24 +4,9 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 export type InstanceRole = "owner" | "admin";
 
-export async function ensureInstanceAdminTable(): Promise<void> {
-  await pool.query(`
-    create table if not exists "mailflow_instance_admin" (
-      "userId" text primary key references "user" ("id") on delete cascade,
-      "role" text not null check ("role" in ('owner', 'admin')),
-      "createdAt" timestamptz not null default now()
-    )
-  `);
-  await pool.query(`
-    create unique index if not exists "mailflow_instance_admin_single_owner_uidx"
-    on "mailflow_instance_admin" ("role") where "role" = 'owner'
-  `);
-}
-
 export async function getInstanceRole(
   userId: string,
 ): Promise<InstanceRole | null> {
-  await ensureInstanceAdminTable();
   const result = await pool.query<{ role: InstanceRole }>(
     'select role from "mailflow_instance_admin" where "userId" = $1 limit 1',
     [userId],
@@ -30,7 +15,6 @@ export async function getInstanceRole(
 }
 
 export async function hasInstanceOwner(): Promise<boolean> {
-  await ensureInstanceAdminTable();
   const result = await pool.query<{ exists: boolean }>(
     'select exists(select 1 from "mailflow_instance_admin" where "role" = \'owner\') as exists',
   );
@@ -40,7 +24,6 @@ export async function hasInstanceOwner(): Promise<boolean> {
 export async function claimInitialInstanceOwner(
   userId: string,
 ): Promise<boolean> {
-  await ensureInstanceAdminTable();
   const client = await pool.connect();
   try {
     await client.query("begin");
@@ -73,7 +56,6 @@ export async function claimInitialInstanceOwner(
 }
 
 export async function grantInstanceAdmin(userId: string): Promise<void> {
-  await ensureInstanceAdminTable();
   const existing = await getInstanceRole(userId);
   if (existing === "owner") return;
   await pool.query(
@@ -84,7 +66,6 @@ export async function grantInstanceAdmin(userId: string): Promise<void> {
 }
 
 export async function revokeInstanceAdmin(userId: string): Promise<boolean> {
-  await ensureInstanceAdminTable();
   const result = await pool.query(
     'delete from "mailflow_instance_admin" where "userId" = $1 and "role" = \'admin\'',
     [userId],
