@@ -30,6 +30,17 @@ def _expected_schema_revision() -> str:
 
 
 EXPECTED_SCHEMA_REVISION = _expected_schema_revision()
+REQUIRED_AUTH_TABLES = (
+    '"user"',
+    '"session"',
+    '"account"',
+    '"organization"',
+    '"member"',
+    '"invitation"',
+    '"passkey"',
+    '"auth_security_event"',
+    '"mailflow_instance_admin"',
+)
 
 
 class RestoreValidationError(RuntimeError):
@@ -63,6 +74,22 @@ async def validate_schema_revision(session: AsyncSession) -> str:
             f"Unsupported database schema revision {revision!r}; "
             f"expected {EXPECTED_SCHEMA_REVISION!r}"
         )
+
+    # A stamped or partially applied migration must never leave the API healthy
+    # while the authenticated setup path is unusable. The web container depends
+    # on API health, so failing here keeps the setup wizard inaccessible until
+    # the complete Better Auth schema is actually present.
+    missing_auth_tables = [
+        table_name
+        for table_name in REQUIRED_AUTH_TABLES
+        if not await _table_exists(session, table_name)
+    ]
+    if missing_auth_tables:
+        raise RestoreValidationError(
+            "Database schema revision is current but required authentication tables "
+            "are missing: " + ", ".join(missing_auth_tables)
+        )
+
     return str(revision)
 
 
@@ -97,9 +124,8 @@ async def _validate_mailbox_ownership(session: AsyncSession) -> tuple[int, int]:
     if settings.AUTH_MODE != "multi":
         return private_count, shared_count
 
-    required_tables = ['"user"', '"organization"', '"member"', '"passkey"']
     missing = [
-        name for name in required_tables if not await _table_exists(session, name)
+        name for name in REQUIRED_AUTH_TABLES if not await _table_exists(session, name)
     ]
     if missing:
         raise RestoreValidationError(
