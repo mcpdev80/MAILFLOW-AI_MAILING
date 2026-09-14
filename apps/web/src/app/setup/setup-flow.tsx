@@ -10,6 +10,7 @@ type SupportedLanguage = "de" | "en" | "es";
 
 type InstanceBootstrapStatus = {
   auth_enabled: boolean;
+  auth_schema_ready: boolean;
   instance_owner_exists: boolean;
 };
 
@@ -26,6 +27,8 @@ const copy = {
       "vorhandenes Zertifikat wurde vom Installer erkannt und eingerichtet",
     tlsAutomatic: "automatische Zertifikatsverwaltung ist eingerichtet",
     url: "Öffentliche URL",
+    schemaNotReady:
+      "Mailflow ist noch nicht vollständig migrationsbereit. Der Setup-Wizard bleibt gesperrt, bis die Authentifizierungsdatenbank vollständig bereit ist.",
     steps: [
       [
         "1. Sprache & Darstellung",
@@ -62,6 +65,8 @@ const copy = {
       "an existing certificate was detected and configured by the installer",
     tlsAutomatic: "automatic certificate management is configured",
     url: "Public URL",
+    schemaNotReady:
+      "Mailflow has not finished preparing its database schema. Setup remains locked until the authentication database is fully ready.",
     steps: [
       [
         "1. Language & appearance",
@@ -97,6 +102,8 @@ const copy = {
     tlsCustom: "el instalador detectó y configuró un certificado existente",
     tlsAutomatic: "la gestión automática de certificados está configurada",
     url: "URL pública",
+    schemaNotReady:
+      "Mailflow aún no ha terminado de preparar el esquema de la base de datos. La configuración permanece bloqueada hasta que la base de autenticación esté lista.",
     steps: [
       [
         "1. Idioma y apariencia",
@@ -134,6 +141,7 @@ export function SetupFlow() {
   const [started, setStarted] = useState(false);
   const [bootstrap, setBootstrap] = useState<BootstrapStatus | null>(null);
   const [guardLoaded, setGuardLoaded] = useState(false);
+  const [schemaReady, setSchemaReady] = useState(false);
 
   useEffect(() => {
     void Promise.allSettled([
@@ -151,9 +159,16 @@ export function SetupFlow() {
         setBootstrap(null);
       }
 
+      if (guardResult.status !== "fulfilled") {
+        setSchemaReady(false);
+        setGuardLoaded(true);
+        return;
+      }
+
+      setSchemaReady(guardResult.value.auth_schema_ready);
       if (
-        guardResult.status === "fulfilled" &&
         guardResult.value.auth_enabled &&
+        guardResult.value.auth_schema_ready &&
         guardResult.value.instance_owner_exists
       ) {
         router.replace("/app");
@@ -172,6 +187,22 @@ export function SetupFlow() {
   }, [bootstrap, tlsValue, t]);
 
   if (!guardLoaded) return null;
+  if (!schemaReady) {
+    return (
+      <WizardShell
+        kind="setup"
+        step={1}
+        total={5}
+        title={t.title}
+        subtitle={t.subtitle}
+      >
+        <div className={s.info}>
+          <span className={s.infoIcon}>!</span>
+          <span>{t.schemaNotReady}</span>
+        </div>
+      </WizardShell>
+    );
+  }
   if (started) return <InstanceSetup />;
 
   return (

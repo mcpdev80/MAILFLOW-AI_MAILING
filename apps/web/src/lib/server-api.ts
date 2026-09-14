@@ -9,6 +9,7 @@
 import { createHmac } from "node:crypto";
 import { auth, authEnabled } from "@/lib/auth";
 import { decryptSecret } from "@/lib/crypto";
+import { hasInstanceOwner } from "@/lib/instance-admin";
 import { Pool } from "pg";
 
 export const API_INTERNAL_URL =
@@ -63,14 +64,6 @@ async function resolveMemberRole(
   return result.rows[0]?.role ?? null;
 }
 
-async function hasRegisteredUser(): Promise<boolean> {
-  if (!membershipDb) {
-    return false;
-  }
-  const result = await membershipDb.query('select 1 from "user" limit 1');
-  return (result.rowCount ?? 0) > 0;
-}
-
 export async function resolveApiKey(
   reqHeaders: Headers,
   options?: { allowPreAuthSetup?: boolean },
@@ -85,7 +78,10 @@ export async function resolveApiKey(
 
   const session = await auth.api.getSession({ headers: reqHeaders });
   if (!session) {
-    if (options?.allowPreAuthSetup && !(await hasRegisteredUser())) {
+    // Setup routes stay available until the initial instance owner has been
+    // claimed. A Better Auth user may already exist after a partially completed
+    // signup, so user existence alone must not close the bootstrap window.
+    if (options?.allowPreAuthSetup && !(await hasInstanceOwner())) {
       return {
         ok: true,
         apiKey: process.env.SINGLE_TENANT_API_KEY || null,
