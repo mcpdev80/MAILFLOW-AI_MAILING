@@ -11,6 +11,8 @@ on:
       - 'infrastructure/docker-compose.yml'
       - 'infrastructure/caddy/Caddyfile'
       - 'apps/api/alembic/versions/**'
+      - 'apps/api/app/restore_validation.py'
+      - 'apps/web/src/**'
       - '.github/workflows/baseharbor-bootstrap.yml'
   workflow_dispatch:
 
@@ -36,6 +38,8 @@ jobs:
           test "$(grep -c 'bytes: 32' baseharbor.yaml)" -eq 4
           grep -q 'revision = "033"' apps/api/alembic/versions/033_better_auth_schema.py
           grep -q 'down_revision = "032"' apps/api/alembic/versions/033_better_auth_schema.py
+          grep -q 'REQUIRED_AUTH_TABLES' apps/api/app/restore_validation.py
+          grep -q 'mailflow_instance_admin' apps/api/app/restore_validation.py
 
       - name: Validate BaseHarbor workload exposure and auth contract
         shell: bash
@@ -52,8 +56,9 @@ jobs:
         run: |
           docker compose -f infrastructure/docker-compose.yml config >/tmp/mailflow-compose.yml
           grep -q 'https://mail.example.test:18443' /tmp/mailflow-compose.yml
-          grep -A30 '^  web:' /tmp/mailflow-compose.yml | grep -q 'WEB_AUTH: "on"'
-          grep -A60 '^  api:' /tmp/mailflow-compose.yml | grep -q 'INTERNAL_API_SECRET: ci-only-internal-api-secret'
+          grep -A35 '^  web:' /tmp/mailflow-compose.yml | grep -q 'WEB_AUTH: "on"'
+          grep -A65 '^  api:' /tmp/mailflow-compose.yml | grep -q 'INTERNAL_API_SECRET: ci-only-internal-api-secret'
+          test "$(grep -c '^    pull_policy: build$' /tmp/mailflow-compose.yml)" -eq 3
           docker run --rm \
             -e MAILFLOW_CADDY_ADDRESS=https://mail.example.test \
             -e MAILFLOW_HTTPS_PORT=18443 \
