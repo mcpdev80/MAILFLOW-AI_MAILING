@@ -31,6 +31,7 @@ services:
     build:
       context: ..
       dockerfile: infrastructure/docker/Dockerfile.api
+    pull_policy: build
     environment:
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - managed by BaseHarbor/OpenBao}
       SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
@@ -85,6 +86,7 @@ services:
     build:
       context: ..
       dockerfile: infrastructure/docker/Dockerfile.worker
+    pull_policy: build
     environment:
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - managed by BaseHarbor/OpenBao}
       SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
@@ -117,6 +119,7 @@ services:
     build:
       context: ..
       dockerfile: infrastructure/docker/Dockerfile.web
+    pull_policy: build
     environment:
       NODE_ENV: production
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
