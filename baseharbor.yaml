@@ -18,3 +18,15 @@ secrets:
       generate:
         type: hex
         bytes: 32
+    - name: BETTER_AUTH_SECRET
+      generate:
+        type: hex
+        bytes: 32
+    - name: WEB_SECRET_KEY
+      generate:
+        type: hex
+        bytes: 32
+    - name: INTERNAL_API_SECRET
+      generate:
+        type: hex
+        bytes: 32
