@@ -20,6 +20,7 @@ const copy = {
     subtitle:
       "Wir bereiten deine Instanz in fünf kurzen Schritten vor. Danach folgt separat das 6-Schritt-Benutzer-Onboarding.",
     start: "Einrichtung starten",
+    waiting: "Warte auf Datenbank",
     language: "Sprache",
     languageSet: "wurde vom Installer auf Deutsch gesetzt",
     tls: "TLS-Zertifikat",
@@ -58,6 +59,7 @@ const copy = {
     subtitle:
       "We will prepare your instance in five short steps, then continue with the separate 6-step user onboarding.",
     start: "Start setup",
+    waiting: "Waiting for database",
     language: "Language",
     languageSet: "was set to English by the installer",
     tls: "TLS certificate",
@@ -96,6 +98,7 @@ const copy = {
     subtitle:
       "Prepararemos tu instancia en cinco pasos breves y después continuaremos con la incorporación de usuario de 6 pasos.",
     start: "Iniciar configuración",
+    waiting: "Esperando la base de datos",
     language: "Idioma",
     languageSet: "fue configurado en español por el instalador",
     tls: "Certificado TLS",
@@ -195,6 +198,7 @@ export function SetupFlow() {
         total={5}
         title={t.title}
         subtitle={t.subtitle}
+        next={{ label: t.waiting, onClick: () => {}, disabled: true }}
       >
         <div className={s.info}>
           <span className={s.infoIcon}>!</span>
