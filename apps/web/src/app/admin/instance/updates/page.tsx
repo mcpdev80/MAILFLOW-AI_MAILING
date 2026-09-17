@@ -6,30 +6,33 @@ import styles from "../../admin-pages.module.css";
 const COPY = {
   de: {
     title: "Updates",
-    description: "Update- und Rollback-Verwaltung der MailFlow-Instanz.",
+    description: "Update-Verwaltung der MailFlow-Instanz über BaseHarbor.",
     current: "Sicherer Update-Pfad",
-    text: "Der MailFlow-Updater prüft den Branch, erstellt vor jeder Änderung ein vollständiges Backup, führt Migrationen aus, prüft den Stack und rollt bei einem Fehler automatisch zurück.",
-    command: "Update auf dem Host ausführen",
+    text: "Bei einer BaseHarbor-Installation wird MailFlow über BaseHarbor aktualisiert. BaseHarbor prüft den Git-Stand und führt die Aktualisierung anschließend über den normalen Application-Reconciliation-Pfad aus.",
+    checkCommand: "Auf Updates prüfen",
+    updateCommand: "MailFlow aktualisieren",
     security: "Warum nicht direkt im Browser?",
-    securityText: "Ein Web-Container mit Docker-Socket oder beliebiger Shell-Ausführung wäre praktisch Root-Zugriff auf den Host. MailFlow trennt diese privilegierten Host-Operationen deshalb bewusst vom Web-Control-Plane. Ein eng begrenzter Admin-Agent ist dafür die nächste Ausbaustufe.",
+    securityText: "Ein Web-Container mit Docker-Socket oder beliebiger Shell-Ausführung hätte praktisch Root-Zugriff auf den Host. MailFlow führt deshalb keine privilegierten Host-Updates aus dem Browser aus. Die Aktualisierung bleibt bewusst beim BaseHarbor-CLI auf dem Host.",
   },
   en: {
     title: "Updates",
-    description: "Update and rollback management for this MailFlow instance.",
+    description: "Update management for this MailFlow instance through BaseHarbor.",
     current: "Safe update path",
-    text: "The MailFlow updater checks the branch, creates a full backup before changes, runs migrations, validates the stack and automatically rolls back on failure.",
-    command: "Run update on the host",
+    text: "For a BaseHarbor installation, MailFlow is updated through BaseHarbor. BaseHarbor checks the Git state and then applies the update through the normal application reconciliation path.",
+    checkCommand: "Check for updates",
+    updateCommand: "Update MailFlow",
     security: "Why not directly in the browser?",
-    securityText: "Giving the web container Docker socket or arbitrary shell access is effectively host root access. Privileged host operations therefore stay separated until a narrow admin agent is available.",
+    securityText: "Giving the web container Docker socket or arbitrary shell access would effectively provide host root access. MailFlow therefore does not run privileged host updates from the browser. Updates intentionally remain with the BaseHarbor CLI on the host.",
   },
   es: {
     title: "Actualizaciones",
-    description: "Gestión de actualizaciones y rollback de esta instancia.",
+    description: "Gestión de actualizaciones de esta instancia de MailFlow mediante BaseHarbor.",
     current: "Ruta de actualización segura",
-    text: "El actualizador crea una copia completa, ejecuta migraciones, valida el stack y revierte automáticamente si falla.",
-    command: "Ejecutar actualización en el host",
+    text: "En una instalación con BaseHarbor, MailFlow se actualiza mediante BaseHarbor. BaseHarbor comprueba el estado de Git y después aplica la actualización mediante la ruta normal de reconciliación de la aplicación.",
+    checkCommand: "Buscar actualizaciones",
+    updateCommand: "Actualizar MailFlow",
     security: "¿Por qué no desde el navegador?",
-    securityText: "Dar al contenedor web acceso al socket Docker o a una shell equivale prácticamente a acceso root al host. Estas operaciones permanecen separadas hasta disponer de un agente administrativo limitado.",
+    securityText: "Dar al contenedor web acceso al socket Docker o a una shell arbitraria equivaldría prácticamente a acceso root al host. Por eso MailFlow no ejecuta actualizaciones privilegiadas del host desde el navegador. Las actualizaciones permanecen deliberadamente en la CLI de BaseHarbor en el host.",
   },
 } as const;
 
@@ -45,8 +48,10 @@ export default function InstanceUpdatesPage() {
       <section className={styles.card}>
         <h2>{copy.current}</h2>
         <p>{copy.text}</p>
-        <strong>{copy.command}</strong>
-        <code className={styles.command}>bash ./mailflow update</code>
+        <strong>{copy.checkCommand}</strong>
+        <code className={styles.command}>baha app update --check</code>
+        <strong>{copy.updateCommand}</strong>
+        <code className={styles.command}>baha app update</code>
       </section>
       <section className={styles.card}>
         <h2>{copy.security}</h2>
