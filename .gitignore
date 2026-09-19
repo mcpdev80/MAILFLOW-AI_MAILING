@@ -74,3 +74,6 @@ desktop.ini
 
 # Git worktrees
 .worktrees/
+
+# BaseHarbor local deployment/runtime state
+/.baseharbor/
