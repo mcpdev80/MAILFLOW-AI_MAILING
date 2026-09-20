@@ -2,7 +2,7 @@ version: 1
 
 app:
   name: mailflow
-  environment: production
+  environment: dev
 
 services:
   postgres:
@@ -27,6 +27,10 @@ secrets:
         type: hex
         bytes: 32
     - name: INTERNAL_API_SECRET
+      generate:
+        type: hex
+        bytes: 32
+    - name: SINGLE_TENANT_API_KEY
       generate:
         type: hex
         bytes: 32
