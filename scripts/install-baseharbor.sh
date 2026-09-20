@@ -7,7 +7,7 @@ BOOTSTRAP_TMP=""
 LOCAL_BIN="${XDG_BIN_HOME:-${HOME:-}/.local/bin}"
 BASEHARBOR_REPO="${MAILFLOW_BASEHARBOR_REPO:-https://github.com/mcpdev80/baseharbor.git}"
 BASEHARBOR_REF="${MAILFLOW_BASEHARBOR_REF:-main}"
-RECOVERY_ROOT="${XDG_DATA_HOME:-${HOME:-}/.local/share}/baseharbor/recovery"
+RECOVERY_ROOT="${XDG_DATA_HOME:-${HOME:-}/.local/share}/mailflow/recovery"
 RECOVERY_FILE="${MAILFLOW_BASEHARBOR_RECOVERY_FILE:-$RECOVERY_ROOT/openbao-recovery.json}"
 
 cleanup() {
