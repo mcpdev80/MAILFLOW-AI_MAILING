@@ -36,7 +36,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required - managed by BaseHarbor/OpenBao}
       SECRET_ENCRYPTION_KEYS: ${SECRET_ENCRYPTION_KEYS:-}
       AUTH_MODE: ${AUTH_MODE:-single}
-      SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
+      SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:?SINGLE_TENANT_API_KEY is required - managed by BaseHarbor/OpenBao}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required - managed by BaseHarbor/OpenBao}
       MAILFLOW_DEPLOYMENT_SOURCE: ${MAILFLOW_DEPLOYMENT_SOURCE:-baseharbor}
       MAILFLOW_BOOTSTRAP_LANGUAGE: ${MAILFLOW_BOOTSTRAP_LANGUAGE:-}
@@ -126,7 +126,7 @@ services:
       # The BaseHarbor-managed setup wizard always creates an authenticated
       # instance owner. Legacy no-auth self-hosting remains a standalone concern.
       WEB_AUTH: "on"
-      SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:-}
+      SINGLE_TENANT_API_KEY: ${SINGLE_TENANT_API_KEY:?SINGLE_TENANT_API_KEY is required - managed by BaseHarbor/OpenBao}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required - managed by BaseHarbor/OpenBao}
       BETTER_AUTH_URL: ${MAILFLOW_PUBLIC_URL:-https://${BASEHARBOR_HOSTNAME:-localhost}:${HTTPS_PORT:-443}}
       PASSKEY_RP_NAME: ${PASSKEY_RP_NAME:-MailFlow}
