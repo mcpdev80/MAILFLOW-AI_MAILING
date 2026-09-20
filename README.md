@@ -26,7 +26,7 @@ cd MAILFLOW-AI_MAILING
 The installer creates the local application configuration when needed, stores the required `SECRET_KEY` through BaseHarbor/OpenBao and then runs the equivalent of:
 
 ```bash
-baha app apply
+baha up
 baha app doctor
 ```
 
@@ -49,13 +49,13 @@ The primary Compose file, `infrastructure/docker-compose.yml`, contains only Mai
 
 | MailFlow command | Platform operation |
 | --- | --- |
-| `./mailflow start` | `baha app apply` |
+| `./mailflow start` | `baha up` |
 | `./mailflow stop` | `baha app down` |
-| `./mailflow restart` | `baha app down` + `baha app up` |
+| `./mailflow restart` | `baha app down` + `baha up` |
 | `./mailflow status` | `baha app status` |
 | `./mailflow doctor` | `baha app doctor` |
 
-`backup` and `restore` remain MailFlow-aware for now because they also cover MailFlow-owned attachment data. Database access is obtained from the standard BaseHarbor application environment contract. When BaseHarbor gains its complete application backup/restore API, this wrapper can delegate the infrastructure portion as well.
+`backup` and `restore` remain MailFlow-aware for now because they also cover MailFlow-owned attachment data. BaseHarbor-managed installations also use an operator-held OpenBao recovery file stored outside BaseHarbor-owned state. Database access is obtained from the standard BaseHarbor application environment contract. When BaseHarbor gains its complete application backup/restore API, this wrapper can delegate the infrastructure portion as well.
 
 ## Standalone compatibility
 

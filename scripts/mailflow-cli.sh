@@ -79,7 +79,7 @@ cmd_start() {
     return
   fi
   ensure_baseharbor
-  baha app apply
+  baha up
 }
 
 cmd_stop() {
@@ -101,7 +101,7 @@ cmd_restart() {
   fi
   ensure_baseharbor
   baha app down
-  baha app up
+  baha up
 }
 
 cmd_status() {
@@ -134,9 +134,9 @@ cmd_doctor() {
 }
 
 attachment_volume() {
-  local project="baseharbor-workload-mailflow-production" cid
-  cid="$(docker ps -a --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=worker' -q | head -1)"
-  [ -n "$cid" ] || cid="$(docker ps -a --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api' -q | head -1)"
+  local cid
+  cid="$(docker ps -a --filter 'label=com.docker.compose.service=worker' --format '{{.ID}} {{.Label "com.docker.compose.project"}}' | awk '$2 ~ /^baseharbor-workload-mailflow-/ {print $1; exit}')"
+  [ -n "$cid" ] || cid="$(docker ps -a --filter 'label=com.docker.compose.service=api' --format '{{.ID}} {{.Label "com.docker.compose.project"}}' | awk '$2 ~ /^baseharbor-workload-mailflow-/ {print $1; exit}')"
   [ -n "$cid" ] || return 0
   docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data/attachments"}}{{.Name}}{{end}}{{end}}' "$cid" 2>/dev/null || true
 }
@@ -183,7 +183,7 @@ cmd_restore() {
   baha app down
   docker run --rm --network host -e DATABASE_URL="$database_url" postgres:17-alpine sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
   gzip -dc "$dir/database.sql.gz" | docker run --rm -i --network host -e DATABASE_URL="$database_url" postgres:17-alpine sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1'
-  baha app up
+  baha up
   if [ -f "$dir/attachments.tar.gz" ]; then
     volume="$(attachment_volume)"
     if [ -n "$volume" ]; then
